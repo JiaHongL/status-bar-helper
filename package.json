@@ -1,6 +1,10 @@
 {
   "name": "status-bar-helper",
-  "displayName": "tatus-bar-helper",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JiaHongL/status-bar-helper.git"
+  },
+  "displayName": "Status Bar Helper",
   "description": "在 VSCode 狀態列提供 git add 與 submodule update 一鍵操作。",
   "version": "1.0.0",
   "engines": {
