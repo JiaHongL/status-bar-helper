@@ -1,230 +1,548 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StatusBar Helper Settings</title>
-    <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css">
-    <link rel="stylesheet" href="{{codiconsUri}}">
-    <style>
-                    body { 
-                        font-family: var(--vscode-font-family); 
-                        color: var(--vscode-editor-foreground); 
-                        background-color: var(--vscode-editor-background); 
-                    }
-                    .item { 
-                        border: 1px solid var(--vscode-side-bar-border); 
-                        padding: 10px; 
-                        margin-bottom: 10px; 
-                        border-radius: 5px; 
-                    }
-                    input, select {
-                        width: calc(100% - 12px);
-                        margin-bottom: 5px;
-                        background-color: var(--vscode-input-background);
-                        color: var(--vscode-input-foreground);
-                        border: 1px solid var(--vscode-input-border);
-                        padding: 4px;
-                    }
-                    .editor-container { 
-                        height: 150px; 
-                        border: 1px solid var(--vscode-input-border); 
-                        width: 100%; /* Ensure width is also set */
-                    }
-                    button { 
-                        background-color: var(--vscode-button-background); 
-                        color: var(--vscode-button-foreground); 
-                        border: none; 
-                        padding: 8px 12px; 
-                        margin-top: 5px; 
-                        cursor: pointer; 
-                        border-radius: 3px; 
-                    }
-                    button:hover { background-color: var(--vscode-button-hover-background); }
-                    .delete-item { 
-                        background-color: var(--vscode-button-secondary-background); 
-                        color: var(--vscode-button-secondary-foreground); 
-                    }
-                    .delete-item:hover { background-color: var(--vscode-button-secondary-hover-background); }
-                </style>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>StatusBar Helper Settings</title>
+  <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css" />
+  <link rel="stylesheet" href="{{codiconsUri}}" />
+  <style>
+    html, body {
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: var(--vscode-font-size);
+    }
+    body {
+      font-family: var(--vscode-font-family);
+      color: var(--vscode-editor-foreground);
+      background-color: var(--vscode-editor-background);
+      padding: 5px 15px;
+      box-sizing: border-box;
+    }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-shrink: 0;
+    }
+    h1#main-title {
+      font-size: 1.6em;
+      font-weight: 500;
+      margin: 0;
+    }
+    #add-new-item-btn { margin: 0; }
+
+    #list-view {
+      background-color: var(--vscode-sideBar-background);
+      border: 2px solid var(--vscode-editorGroup-border);
+      border-radius: 4px;
+      padding: 8px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+    .list-column-header {
+      display: grid;
+      grid-template-columns: 50px 30px 1fr 120px;
+      grid-column-gap: 8px;        /* 跟 item-summary 的 gap:8px 一致 */
+      padding: 0 8px;              /* 跟 item-summary 的 padding-left/right:8px 一致 */
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+      border-bottom: 2px solid var(--vscode-editorGroup-border);
+      color: var(--vscode-editor-foreground);
+      font-size: 0.9em;
+      font-weight: 500;
+    }
+    .col-visibility { text-align: center;}
+    .col-icon    { text-align: center;}
+    .col-label   { padding-left: 10px; }
+    .col-actions { text-align: right; }
+    .item-summary {
+      display: grid;
+      grid-template-columns: 50px 30px 1fr 120px;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--vscode-editorGroup-border);
+      transition: background-color 0.1s ease-in-out;
+    }
+    .item-summary:last-child { border-bottom: none; }
+    .item-summary:hover { background-color: var(--vscode-list-hover-background); }
+    .item-visibility { text-align: center; }
+    .item-icon    { text-align: center; }
+    .item-details {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-left: 10px;
+      font-size: 0.95em;
+      flex-grow: 1;
+      overflow: hidden;
+    }
+    .item-label   { font-weight: 500; white-space: nowrap; }
+    .item-tooltip {
+      font-size: 0.9em;
+      color: var(--vscode-descriptionForeground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-tooltip::before {
+      content: "—";
+      margin-right: 8px;
+      color: var(--vscode-editorHint-foreground);
+    }
+    .item-actions { text-align: right; }
+    .item-actions button {
+      margin: 0 2px;
+      padding: 2px 6px;
+      font-size: 0.85em;
+    }
+
+    #edit-view {
+      display: none;
+      flex-grow: 1;
+      height: 100%;
+      flex-direction: column;
+    }
+    .edit-item-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 5px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .field {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .actions {
+      display: flex;
+      gap: 5px;
+      align-items: flex-end; /* Align buttons to the bottom */
+    }
+    .controls-row label {
+      margin-bottom: 0; /* Remove bottom margin */
+    }
+    .controls-row input,
+    .controls-row select {
+      width: 100%;
+      box-sizing: border-box;
+      background-color: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border);
+      padding: 3px 4px;
+      font-size: var(--vscode-font-size);
+    }
+    button {
+      background-color: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: 1px solid var(--vscode-button-border, transparent);
+      padding: 4px 10px;
+      font-size: 0.9em;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    button:hover {
+      background-color: var(--vscode-button-hover-background);
+      color: var(--vscode-button-secondary-foreground);
+    }
+    .delete-item,
+    #cancel-edit-btn {
+      background-color: var(--vscode-button-secondary-background);
+      color: var(--vscode-button-secondary-foreground);
+    }
+    .delete-item:hover,
+    #cancel-edit-btn:hover {
+      background-color: var(--vscode-button-secondary-hover-background);
+    }
+
+    .editor-container {
+      flex-grow: 1;
+      border: 1px solid var(--vscode-input-border);
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    /* -- Slide Checkbox -- */
+    .slide-checkbox {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+      vertical-align: middle;
+    }
+    .slide-checkbox input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      transition: .2s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--vscode-icon-foreground);
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--vscode-button-background);
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+    }
+    /* -- End Slide Checkbox -- */
+
+    /* —— Icon 下拉搜尋 —— */
+    .icon-field {
+      position: relative;
+      display: flex;
+      align-items: center; /* Add this */
+      gap: 8px; /* Add this */
+    }
+    .icon-trigger {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--vscode-input-border);
+      background-color: var(--vscode-input-background);
+      cursor: pointer;
+      width: 100%;
+      max-width: 100%;
+    }
+    .icon-trigger .codicon { font-size: 1.2em; }
+    .icon-trigger span {
+      flex: 1;
+      color: var(--vscode-input-foreground);
+      font-size: var(--vscode-font-size);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .icon-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: auto;
+      width: 100%;
+      max-width: 100%;
+      background-color: var(--vscode-input-background);
+      border: 1px solid var(--vscode-input-border);
+      box-shadow: 0 2px 8px var(--vscode-editorGroup-border);
+      z-index: 100;
+      display: none;
+      padding: 6px;
+    }
+    #icon-search {
+      width: 100%;
+      padding: 4px;
+      margin-bottom: 6px;
+      box-sizing: border-box;
+    }
+    .icon-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .icon-item {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .icon-item.selected {
+      background-color: var(--vscode-list-activeSelectionBackground);
+    }
+    .icon-item:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
+    /* —— 結束 —— */
+  </style>
 </head>
 <body>
-    <h1>StatusBar Helper Settings</h1>
-    <div id="items-container"></div>
-    <button id="add-item">Add New Item</button>
-    <button id="save-settings">Save Settings</button>
+  <div class="list-header">
+    <h1 id="main-title">StatusBar Helper Settings</h1>
+    <div class="actions">
+      <button id="import-btn">Import</button>
+      <button id="export-btn">Export</button>
+      <button id="add-new-item-btn">Add New Item</button>
+    </div>
+  </div>
 
-    <script src="{{monacoUri}}/loader.js"></script>
-    <script>
-        const vscode = acquireVsCodeApi();
-        let items = [];
-        let editors = [];
+  <div id="list-view">
+    <div class="list-column-header">
+      <span class="col-visibility">Visible</span>
+      <span class="col-icon">Icon</span>
+      <span class="col-label">Label</span>
+      <span class="col-actions">Actions</span>
+    </div>
+    <div id="items-list"></div>
+  </div>
 
-        const vscodeIcons = ['add', 'plus', 'gist-new', 'repo-create', 'lightbulb', 'light-bulb', 'repo', 'repo-forked', 'repo-pull', 'repo-push', 'repo-clone', 'repo-template', 'repo-template-private', 'git-commit', 'git-compare', 'git-merge', 'git-pull-request', 'git-pull-request-abandoned', 'git-pull-request-create', 'git-branch', 'git-branch-create', 'git-branch-delete', 'source-control', 'mirror', 'issues', 'issue-opened', 'issue-closed', 'issue-reopened', 'issue-draft', 'issue-tracked-by', 'issue-tracks', 'comment', 'comment-discussion', 'versions', 'milestone', 'project', 'project-template', 'project-roadmap', 'project-symlink', 'copilot', 'flame', 'ruble', 'gripper', 'grabber', 'bell', 'bell-dot', 'lock', 'unlock', 'cloud', 'cloud-upload', 'cloud-download', 'sync', 'sync-ignored', 'sync-spin', 'play', 'record', 'debug', 'debug-alt', 'debug-rerun', 'debug-continue', 'debug-step-into', 'debug-step-out', 'debug-step-over', 'debug-step-back', 'debug-restart', 'debug-pause', 'debug-stop', 'debug-disconnect', 'debug-start', 'watch', 'verified', 'new-file', 'new-folder', 'copy', 'go-to-file', 'file', 'file-text', 'file-media', 'file-code', 'file-symlink-file', 'file-symlink-directory', 'file-zip', 'files', 'folder', 'folder-active', 'folder-opened', 'edit', 'pencil', 'replace', 'replace-all', 'find', 'list-ordered', 'list-unordered', 'list-selection', 'list-tree', 'list-filter', 'layout', 'zoom-in', 'zoom-out', 'search', 'close', 'ellipsis', 'settings', 'gear', 'trash', 'mail', 'window', 'graph', 'heart', 'star', 'thumbsup', 'thumbsdown', 'tag', 'person', 'briefcase', 'dashboard', 'checklist', 'pin', 'pass', 'stop', 'error', 'warning', 'info', 'issue', 'question', 'preview', 'merge', 'conflict', 'unfold', 'fold', 'beaker', 'telescope', 'gift', 'package', 'box', 'terminal', 'notebook', 'extensions', 'remote', 'database', 'server', 'chip', 'piano', 'music', 'mic', 'megaphone', 'broadcast', 'feedback', 'report', 'shield', 'tools', 'wrench', 'rocket', 'send', 'bug', 'markdown', 'link'];
+  <div id="edit-view"></div>
 
-        require.config({ paths: { 'vs': '{{monacoUri}}' } });
+  <script src="{{monacoUri}}/loader.js"></script>
+  <script>
+    const vscode = acquireVsCodeApi();
+    let items = [], currentEditor = null;
 
-        window.addEventListener('message', event => {
-            const message = event.data;
-            if (message.command === 'loadItems') {
-                items = message.items;
-                renderItems();
-            }
-        });
+    const listHeader = document.querySelector('.list-header');
+    const listView   = document.getElementById('list-view');
+    const editView   = document.getElementById('edit-view');
+    const addNewBtn  = document.getElementById('add-new-item-btn');
+    const importBtn = document.getElementById('import-btn');
+    const exportBtn = document.getElementById('export-btn');
 
-        function renderItems() {
-            const container = document.getElementById('items-container');
-            container.innerHTML = '';
-            editors.forEach(editor => editor.dispose());
-            editors = [];
+    // ← 在此貼上完整 icon 名稱陣列
+const vscodeIcons = ['add', 'plus', 'gist-new', 'repo-create', 'lightbulb', 'light-bulb', 'repo', 'repo-forked', 'repo-pull', 'repo-push', 'repo-clone', 'repo-template', 'repo-template-private', 'git-commit', 'git-compare', 'git-merge', 'git-pull-request', 'git-pull-request-abandoned', 'git-pull-request-create', 'git-branch', 'git-branch-create', 'git-branch-delete', 'source-control', 'mirror', 'issues', 'issue-opened', 'issue-closed', 'issue-reopened', 'issue-draft', 'issue-tracked-by', 'issue-tracks', 'comment', 'comment-discussion', 'versions', 'milestone', 'project', 'project-template', 'project-roadmap', 'project-symlink', 'copilot', 'flame', 'ruble', 'gripper', 'grabber', 'bell', 'bell-dot', 'lock', 'unlock', 'cloud', 'cloud-upload', 'cloud-download', 'sync', 'sync-ignored', 'sync-spin', 'play', 'record', 'debug', 'debug-alt', 'debug-rerun', 'debug-continue', 'debug-step-into', 'debug-step-out', 'debug-step-over', 'debug-step-back', 'debug-restart', 'debug-pause', 'debug-stop', 'debug-disconnect', 'debug-start', 'watch', 'verified', 'new-file', 'new-folder', 'copy', 'go-to-file', 'file', 'file-text', 'file-media', 'file-code', 'file-symlink-file', 'file-symlink-directory', 'file-zip', 'files', 'folder', 'folder-active', 'folder-opened', 'edit', 'pencil', 'replace', 'replace-all', 'find', 'list-ordered', 'list-unordered', 'list-selection', 'list-tree', 'list-filter', 'layout', 'zoom-in', 'zoom-out', 'search', 'close', 'ellipsis', 'settings', 'gear', 'trash', 'mail', 'window', 'graph', 'heart', 'star', 'thumbsup', 'thumbsdown', 'tag', 'person', 'briefcase', 'dashboard', 'checklist', 'pin', 'pass', 'stop', 'error', 'warning', 'info', 'issue', 'question', 'preview', 'merge', 'conflict', 'unfold', 'fold', 'beaker', 'telescope', 'gift', 'package', 'box', 'terminal', 'notebook', 'extensions', 'remote', 'database', 'server', 'chip', 'piano', 'music', 'mic', 'megaphone', 'broadcast', 'feedback', 'report', 'shield', 'tools', 'wrench', 'rocket', 'send', 'bug', 'markdown', 'squirrel', 'desktop-download', 'json', 'key', 'keyboard', 'code', 'symbol-array', 'symbol-boolean', 'symbol-class', 'symbol-color', 'symbol-constant', 'symbol-enum', 'symbol-enum-member', 'symbol-event', 'symbol-field', 'symbol-file', 'symbol-interface', 'symbol-key', 'symbol-keyword', 'symbol-method', 'symbol-misc', 'symbol-namespace', 'symbol-numeric', 'symbol-operator', 'symbol-parameter', 'symbol-property', 'symbol-ruler', 'symbol-snippet', 'symbol-string', 'symbol-structure', 'symbol-variable', 'symbol-text', 'references', 'circle-filled', 'circle-outline', 'circle-slash', 'circuit-board', 'clear-all', 'clippy', 'close-all', 'collapse-all', 'color-mode', 'comment-draft', 'compass', 'credit-card', 'dash', 'diff', 'diff-added', 'diff-ignored', 'diff-modified', 'diff-removed', 'diff-renamed', 'discard', 'editor-layout', 'empty-window', 'exclude', 'expand-all', 'export', 'extensions-manage', 'eye', 'eye-closed', 'file-binary', 'file-submodule', 'filter', 'filter-filled', 'flame', 'fold-down', 'fold-up', 'folder-library', 'graph-left', 'home', 'horizontal-rule', 'hubot', 'inbox', 'infinity', 'info', 'inspect', 'jersey', 'kebab-vertical', 'law', 'layers', 'library', 'lightbulb-autofix', 'link', 'link-external', 'location', 'lock-small', 'magnet', 'mail-read', 'mention', 'menu', 'mortar-board', 'move', 'multiple-windows', 'note', 'organization', 'paintcan', 'plug', 'preserve-case', 'primitive-square', 'puzzle', 'qr-code', 'quote', 'radio-tower', 'reactions', 'references', 'refresh', 'regex', 'remote-explorer', 'remove', 'replace', 'reply', 'request-changes', 'rocket', 'root-folder', 'rss', 'run-above', 'run-all', 'run-below', 'save', 'save-all', 'save-as', 'screen-full', 'screen-normal', 'search-stop', 'server-environment', 'server-process', 'settings-gear', 'sign-in', 'sign-out', 'smiley', 'sort-precedence', 'source-control-view', 'split-horizontal', 'split-vertical', 'squirrel', 'star-empty', 'star-full', 'star-half', 'stop-circle', 'table', 'target', 'tasklist', 'text-size', 'three-bars', 'title-bar', 'trashcan', 'triangle-down', 'triangle-left', 'triangle-right', 'triangle-up', 'twitter', 'unverified', 'variable-group', 'verified-filled', 'wand', 'whitespace', 'whole-word', 'window', 'word-wrap', 'workspace-trusted', 'workspace-unknown', 'workspace-untrusted', 'zoom-in', 'zoom-out'];
 
-            items.forEach((item, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'item';
-                
-                itemDiv.innerHTML = `
-                    <label>Icon</label>
-                    <select data-index="${index}" data-field="icon"></select>
-                    <label>Label</label>
-                    <input type="text" value="" data-index="${index}" data-field="label">
-                    <label>Tooltip</label>
-                    <input type="text" value="" data-index="${index}" data-field="tooltip">
-                    <label>Command</label>
-                    <input type="text" value="" data-index="${index}" data-field="command">
-                    <label>Script</label>
-                    <div class="editor-container" id="editor-${index}"></div>
-                    <button class="delete-item" data-index="${index}">Delete</button>
-                `;
+    require.config({ paths: { 'vs': '{{monacoUri}}' } });
 
-                const iconSelect = itemDiv.querySelector('[data-field="icon"]');
-                const noneOption = document.createElement('option');
-                noneOption.value = '';
-                noneOption.textContent = ' (none)';
-                iconSelect.appendChild(noneOption);
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      if (msg.command === 'loadState') {
+        items = msg.items || [];
+        if (msg.activeView === 'edit' && msg.editingItem) {
+          const idx = items.findIndex(i => i.command === msg.editingItem.command);
+          showEditView(idx<0?null:idx, msg.editingItem);
+        } else showListView();
+      }
+    });
+    vscode.postMessage({ command: 'getSettings' });
 
-                vscodeIcons.forEach(icon => {
-                    const option = document.createElement('option');
-                    option.value = icon;
-                    option.innerHTML = `<i class="codicon codicon-${icon}"></i> ${icon}`;
-                    iconSelect.appendChild(option);
-                });
+    function saveAndPostSettings() {
+      vscode.postMessage({ command: 'updateSettings', items });
+    }
 
-                const textMatch = item.text.match(/^\$\(([^)]+)\) (.*)$/);
-                if (textMatch) {
-                    iconSelect.value = textMatch[1];
-                    itemDiv.querySelector('[data-field="label"]').value = textMatch[2];
-                } else {
-                    iconSelect.value = '';
-                    itemDiv.querySelector('[data-field="label"]').value = item.text;
-                }
+    function showListView() {
+      listHeader.style.display = 'flex';
+      listView.style.display   = 'block';
+      editView.style.display   = 'none';
+      if (currentEditor) currentEditor.dispose();
+      vscode.postMessage({ command: 'exitEditView' });
+      renderListView();
+    }
 
-                itemDiv.querySelector('[data-field="tooltip"]').value = item.tooltip || '';
-                itemDiv.querySelector('[data-field="command"]').value = item.command || '';
+    function renderListView() {
+      const el = document.getElementById('items-list');
+      el.innerHTML = '';
+      items.forEach((item, i) => {
+        const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
+        const icon = m ? m[1] : '';
+        const label = m ? m[2] : item.text;
+        const div = document.createElement('div');
+        div.className = 'item-summary';
+        div.innerHTML = `
+          <span class="item-visibility">
+            <label class="slide-checkbox">
+              <input type="checkbox" class="visibility-toggle" data-index="${i}" ${item.hidden?'':'checked'}>
+              <span class="slider"></span>
+            </label>
+          </span>
+          <span class="item-icon"><i class="codicon codicon-${icon}"></i></span>
+          <div class="item-details">
+            <div class="item-label">${label}</div>
+            <div class="item-tooltip">${item.tooltip||'No tooltip'}</div>
+          </div>
+          <div class="item-actions">
+            <button class="edit-item" data-index="${i}">Edit</button>
+            <button class="delete-item" data-index="${i}">Delete</button>
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    }
 
-                container.appendChild(itemDiv);
+    listView.addEventListener('click', ev => {
+      const b = ev.target.closest('button');
+      if (!b) return;
+      const idx = +b.dataset.index;
+      if (b.classList.contains('edit-item')) showEditView(idx, {...items[idx]});
+      if (b.classList.contains('delete-item')) {
+        items.splice(idx,1);
+        saveAndPostSettings();
+        renderListView();
+      }
+    });
 
-                require(['vs/editor/editor.main'], () => {
-                    console.log('Monaco Editor main module loaded.');
-                    const editorContainer = document.getElementById(`editor-${index}`);
-                    if (!editorContainer) {
-                        console.error(`Editor container not found for index ${index}`);
-                        return;
-                    }
-                    try {
-                        const editor = monaco.editor.create(editorContainer, {
-                            value: item.script,
-                            language: 'javascript',
-                            theme: 'vs-dark',
-                            automaticLayout: true,
-                            minimap: { enabled: false }
-                        });
-                        editors[index] = editor;
-                        editor.onDidChangeModelContent(() => {
-                            items[index].script = editor.getValue();
-                        });
-                        console.log(`Monaco Editor created for index ${index}`);
-                    } catch (e) {
-                        console.error(`Error creating Monaco Editor for index ${index}:`, e);
-                    }
-                });
-            });
-        }
+    listView.addEventListener('change', ev => {
+      const cb = ev.target;
+      if (!cb.classList.contains('visibility-toggle')) return;
+      const idx = +cb.dataset.index;
+      items[idx].hidden = !cb.checked;
+      saveAndPostSettings();
+    });
 
-        function updateItemText(index) {
-            const iconSelect = document.querySelector(`[data-index="${index}"][data-field="icon"]`);
-            const labelInput = document.querySelector(`[data-index="${index}"][data-field="label"]`);
-            const icon = iconSelect ? iconSelect.value : '';
-            const label = labelInput ? labelInput.value : '';
+    addNewBtn.addEventListener('click', () => {
+      showEditView(null, {
+        text:    '$(rocket) New Item',
+        tooltip: '',
+        command: 'my.new.'+Date.now(),
+        script:  defaultScript
+      });
+    });
 
-            if (icon) {
-                items[index].text = `$(${icon}) ${label}`;
-            } else {
-                items[index].text = label;
-            }
-        }
+    exportBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'exportSettings', items });
+    });
 
-        const defaultScript = `const vscode = require('vscode');
+    importBtn.addEventListener('click', () => {
+      vscode.postMessage({ command: 'importSettings' });
+    });
+
+    const defaultScript = `// Please require any Node.js modules your script needs here
+const vscode = require('vscode');
 const { exec } = require('child_process');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
-const os = require('os');
 const process = require('process');
 const util = require('util');
-const readline = require('readline');
-const events = require('events');
-const http = require('http');
-const https = require('https');
-const url = require('url');
-const crypto = require('crypto');
 
-// Your script here
-`;
+// Your script here `;
 
-        document.getElementById('add-item').addEventListener('click', () => {
-            items.push({ text: '$(rocket) New Item', tooltip: '', command: 'my.new.command.' + Date.now(), script: defaultScript });
-            renderItems();
+    function showEditView(index, item) {
+      const isNew = index===null;
+      const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
+      const initIcon  = m?m[1]:'';
+      const initLabel = m?m[2]:item.text;
+
+      editView.innerHTML = `
+        <div class="edit-item-container">
+          <div class="controls-row">
+            <div class="field icon-field" style="flex: 0 0 220px;">
+              <label>Icon</label>
+              <div id="icon-trigger" class="icon-trigger">
+                <i id="selected-icon" class="codicon codicon-${initIcon||'ellipsis'}"></i>
+                <span id="selected-icon-name">${initIcon||'Select icon'}</span>
+                <i class="codicon codicon-chevron-down"></i>
+              </div>
+              <div id="icon-dropdown" class="icon-dropdown">
+                <input type="text" id="icon-search" placeholder="Search icons…" autocomplete="off">
+                <div id="icon-list" class="icon-list"></div>
+              </div>
+            </div>
+            <div class="field" style="flex-grow: 1;">
+              <label for="edit-label">Label</label>
+              <input type="text" id="edit-label">
+            </div>
+            <div class="field" style="flex-grow: 2;">
+              <label for="edit-tooltip">Tooltip</label>
+              <input type="text" id="edit-tooltip">
+            </div>
+            <div class="actions">
+              <button id="save-item-btn">Save</button>
+              <button id="cancel-edit-btn">Cancel</button>
+            </div>
+          </div>
+          <div class="editor-container" id="editor-container"></div>
+        </div>
+      `;
+      listHeader.style.display = 'none';
+      listView.style.display   = 'none';
+      editView.style.display   = 'flex';
+
+      // 填初值
+      document.getElementById('edit-label').value   = initLabel;
+      document.getElementById('edit-tooltip').value = item.tooltip||'';
+
+      // Icon 下拉邏輯
+      let selectedIcon = initIcon;
+      const trigger  = document.getElementById('icon-trigger');
+      const dropdown = document.getElementById('icon-dropdown');
+      const inEl     = document.getElementById('icon-search');
+      const listEl   = document.getElementById('icon-list');
+
+      function renderIcons(filter='') {
+        listEl.innerHTML = '';
+        vscodeIcons
+          .filter(n => n.includes(filter))
+          .forEach(name => {
+            const d = document.createElement('div');
+            d.className = 'icon-item' + (name===selectedIcon?' selected':'');
+            d.innerHTML = `<i class="codicon codicon-${name}"></i>`;
+            d.onclick = () => {
+              selectedIcon = name;
+              document.getElementById('selected-icon').className = `codicon codicon-${name}`;
+              document.getElementById('selected-icon-name').textContent = name;
+              dropdown.style.display = 'none';
+            };
+            listEl.appendChild(d);
+          });
+      }
+
+      trigger.onclick = () => {
+        dropdown.style.display = dropdown.style.display==='block'?'none':'block';
+        if (dropdown.style.display==='block') inEl.focus();
+      };
+
+      inEl.oninput = () => renderIcons(inEl.value.trim());
+      renderIcons();
+
+      // Monaco 編輯器
+      require(['vs/editor/editor.main'], () => {
+        const ct = document.getElementById('editor-container');
+        if (currentEditor) currentEditor.dispose();
+        const theme = document.body.classList.contains('vscode-light')?'vs':'vs-dark';
+        currentEditor = monaco.editor.create(ct, {
+          value: item.script,
+          language: 'javascript',
+          theme,
+          automaticLayout: true,
+          minimap: { enabled: false }
         });
+      });
 
-        document.getElementById('save-settings').addEventListener('click', () => {
-            vscode.postMessage({ command: 'updateSettings', items: items });
-        });
+      document.getElementById('save-item-btn').onclick = () => {
+        const lbl = document.getElementById('edit-label').value.trim();
+        let txt = lbl;
+        if (selectedIcon) txt = `$(${selectedIcon}) ${lbl}`;
+        const upd = { ...item, text: txt, tooltip: document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
+        if (isNew) items.push(upd);
+        else       items[index] = upd;
+        saveAndPostSettings();
+        showListView();
+      };
+      document.getElementById('cancel-edit-btn').onclick = showListView;
 
-        document.getElementById('items-container').addEventListener('input', (event) => {
-            const target = event.target;
-            const index = target.dataset.index;
-            const field = target.dataset.field;
-            if (index === undefined || !field) return;
-
-            if (target.tagName === 'INPUT') {
-                if (field === 'label') {
-                    updateItemText(index);
-                } else {
-                    items[index][field] = target.value;
-                }
-            }
-        });
-
-        document.getElementById('items-container').addEventListener('change', (event) => {
-            const target = event.target;
-            const index = target.dataset.index;
-            const field = target.dataset.field;
-            if (index === undefined || !field) return;
-
-            if (target.tagName === 'SELECT' && field === 'icon') {
-                updateItemText(index);
-            }
-        });
-
-        document.getElementById('items-container').addEventListener('click', (event) => {
-            if (event.target.classList.contains('delete-item')) {
-                const index = event.target.dataset.index;
-                if (index !== undefined) {
-                    items.splice(index, 1);
-                    renderItems();
-                }
-            }
-        });
-    </script>
+      vscode.postMessage({ command: 'enterEditView', item });
+    }
+  </script>
 </body>
 </html>

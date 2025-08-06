@@ -38,9 +38,13 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
     const items = config.get<any[]>('items', []);
 
     items.forEach((item, index) => {
-        const { text, tooltip, command, script } = item;
+        const { text, tooltip, command, script, hidden } = item;
         if (!text || !command) {
             return;
+        }
+
+        if (hidden) {
+            return; // Don't show hidden items
         }
 
         const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100 - index);
@@ -49,26 +53,31 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
         statusBarItem.command = command;
 
         const commandDisposable = vscode.commands.registerCommand(command, () => {
-            if (script) {
-                try {
-                    const vm = new NodeVM({
-                        console: 'inherit',
-                        sandbox: {},
-                        require: {
-                            external: true,
-                            builtin: ['*'],
-                            root: './',
-                            mock: {
-                                vscode: vscode
-                            }
-                        }
-                    });
-                    vm.run(script, 'vm.js');
-                } catch (e: any) {
-                    vscode.window.showErrorMessage(`Error executing script for ${text}: ${e.message}`);
-                }
+        if (!script) { return; }
+
+        const vm = new NodeVM({
+            console: 'inherit',
+            sandbox: {},
+            require: {
+            external: false,
+            // 明確放行 fs、path、process 三個模組
+            builtin: ['fs', 'path', 'process'],
+            root: './',
+            mock: { vscode }
             }
         });
+
+        try {
+            vm.run(script, 'vm.js');
+            // VM 執行成功，跳個通知
+            vscode.window.showInformationMessage(`✅ VM exec：${text}`);
+        } catch (e: any) {
+            // 只用 e.message 就好，不要再 reference 到不存在的 text
+            vscode.window.showErrorMessage(`❌ VM exec：${e.message}`);
+            console.error(e);
+        }
+        });
+
 
         itemDisposables.push(statusBarItem, commandDisposable);
         statusBarItem.show();
@@ -92,6 +101,14 @@ export function activate(context: vscode.ExtensionContext) {
             updateStatusBarItems(context);
         }
     }));
+
+    // Add a permanent status bar item to open settings
+    const settingsStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    settingsStatusBarItem.text = `$(gear)`;
+    settingsStatusBarItem.tooltip = 'Status Bar Helper Settings';
+    settingsStatusBarItem.command = 'statusBarHelper.showSettings';
+    settingsStatusBarItem.show();
+    context.subscriptions.push(settingsStatusBarItem);
 
     // Your existing commands can be preserved and registered here
     // For example:
