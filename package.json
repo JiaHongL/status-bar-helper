@@ -1,0 +1,76 @@
+{
+  "name": "status-bar-helper",
+  "displayName": "tatus-bar-helper",
+  "description": "在 VSCode 狀態列提供 git add 與 submodule update 一鍵操作。",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:githelper.gitAdd",
+    "onCommand:githelper.submoduleUpdate"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "githelper.gitAdd",
+        "title": "Git: Add"
+      },
+      {
+        "command": "githelper.submoduleUpdate",
+        "title": "Git: Submodule Update"
+      },
+      {
+        "command": "statusBarHelper.showSettings",
+        "title": "StatusBar Helper: Show Settings"
+      }
+    ],
+    "configuration": {
+      "title": "StatusBar Helper",
+      "properties": {
+        "statusBarHelper.items": {
+          "type": "array",
+          "default": [
+            {
+              "text": "$(beaker) Hello World",
+              "tooltip": "Click to show a greeting",
+              "command": "statusBarHelper.helloWorld",
+              "script": "vscode.window.showInformationMessage('Hello World from status-bar-helper!');"
+            }
+          ],
+          "description": "Array of status bar items to display."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "build": "vsce package"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.101.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.39",
+    "monaco-editor": "^0.52.2",
+    "vm2": "^3.9.19"
+  }
+}

@@ -1,0 +1,9 @@
+out/
+node_modules/
+.vscode-test/
+*.vsix
+media/vs/
+media/codicon.css
+media/codicon.ttf
+PROJECT_ANALYSIS.md
+gemini.md

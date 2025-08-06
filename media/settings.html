@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatusBar Helper Settings</title>
+    <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css">
+    <link rel="stylesheet" href="{{codiconsUri}}">
+    <style>
+                    body { 
+                        font-family: var(--vscode-font-family); 
+                        color: var(--vscode-editor-foreground); 
+                        background-color: var(--vscode-editor-background); 
+                    }
+                    .item { 
+                        border: 1px solid var(--vscode-side-bar-border); 
+                        padding: 10px; 
+                        margin-bottom: 10px; 
+                        border-radius: 5px; 
+                    }
+                    input, select {
+                        width: calc(100% - 12px);
+                        margin-bottom: 5px;
+                        background-color: var(--vscode-input-background);
+                        color: var(--vscode-input-foreground);
+                        border: 1px solid var(--vscode-input-border);
+                        padding: 4px;
+                    }
+                    .editor-container { 
+                        height: 150px; 
+                        border: 1px solid var(--vscode-input-border); 
+                        width: 100%; /* Ensure width is also set */
+                    }
+                    button { 
+                        background-color: var(--vscode-button-background); 
+                        color: var(--vscode-button-foreground); 
+                        border: none; 
+                        padding: 8px 12px; 
+                        margin-top: 5px; 
+                        cursor: pointer; 
+                        border-radius: 3px; 
+                    }
+                    button:hover { background-color: var(--vscode-button-hover-background); }
+                    .delete-item { 
+                        background-color: var(--vscode-button-secondary-background); 
+                        color: var(--vscode-button-secondary-foreground); 
+                    }
+                    .delete-item:hover { background-color: var(--vscode-button-secondary-hover-background); }
+                </style>
+</head>
+<body>
+    <h1>StatusBar Helper Settings</h1>
+    <div id="items-container"></div>
+    <button id="add-item">Add New Item</button>
+    <button id="save-settings">Save Settings</button>
+
+    <script src="{{monacoUri}}/loader.js"></script>
+    <script>
+        const vscode = acquireVsCodeApi();
+        let items = [];
+        let editors = [];
+
+        const vscodeIcons = ['add', 'plus', 'gist-new', 'repo-create', 'lightbulb', 'light-bulb', 'repo', 'repo-forked', 'repo-pull', 'repo-push', 'repo-clone', 'repo-template', 'repo-template-private', 'git-commit', 'git-compare', 'git-merge', 'git-pull-request', 'git-pull-request-abandoned', 'git-pull-request-create', 'git-branch', 'git-branch-create', 'git-branch-delete', 'source-control', 'mirror', 'issues', 'issue-opened', 'issue-closed', 'issue-reopened', 'issue-draft', 'issue-tracked-by', 'issue-tracks', 'comment', 'comment-discussion', 'versions', 'milestone', 'project', 'project-template', 'project-roadmap', 'project-symlink', 'copilot', 'flame', 'ruble', 'gripper', 'grabber', 'bell', 'bell-dot', 'lock', 'unlock', 'cloud', 'cloud-upload', 'cloud-download', 'sync', 'sync-ignored', 'sync-spin', 'play', 'record', 'debug', 'debug-alt', 'debug-rerun', 'debug-continue', 'debug-step-into', 'debug-step-out', 'debug-step-over', 'debug-step-back', 'debug-restart', 'debug-pause', 'debug-stop', 'debug-disconnect', 'debug-start', 'watch', 'verified', 'new-file', 'new-folder', 'copy', 'go-to-file', 'file', 'file-text', 'file-media', 'file-code', 'file-symlink-file', 'file-symlink-directory', 'file-zip', 'files', 'folder', 'folder-active', 'folder-opened', 'edit', 'pencil', 'replace', 'replace-all', 'find', 'list-ordered', 'list-unordered', 'list-selection', 'list-tree', 'list-filter', 'layout', 'zoom-in', 'zoom-out', 'search', 'close', 'ellipsis', 'settings', 'gear', 'trash', 'mail', 'window', 'graph', 'heart', 'star', 'thumbsup', 'thumbsdown', 'tag', 'person', 'briefcase', 'dashboard', 'checklist', 'pin', 'pass', 'stop', 'error', 'warning', 'info', 'issue', 'question', 'preview', 'merge', 'conflict', 'unfold', 'fold', 'beaker', 'telescope', 'gift', 'package', 'box', 'terminal', 'notebook', 'extensions', 'remote', 'database', 'server', 'chip', 'piano', 'music', 'mic', 'megaphone', 'broadcast', 'feedback', 'report', 'shield', 'tools', 'wrench', 'rocket', 'send', 'bug', 'markdown', 'link'];
+
+        require.config({ paths: { 'vs': '{{monacoUri}}' } });
+
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'loadItems') {
+                items = message.items;
+                renderItems();
+            }
+        });
+
+        function renderItems() {
+            const container = document.getElementById('items-container');
+            container.innerHTML = '';
+            editors.forEach(editor => editor.dispose());
+            editors = [];
+
+            items.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item';
+                
+                itemDiv.innerHTML = `
+                    <label>Icon</label>
+                    <select data-index="${index}" data-field="icon"></select>
+                    <label>Label</label>
+                    <input type="text" value="" data-index="${index}" data-field="label">
+                    <label>Tooltip</label>
+                    <input type="text" value="" data-index="${index}" data-field="tooltip">
+                    <label>Command</label>
+                    <input type="text" value="" data-index="${index}" data-field="command">
+                    <label>Script</label>
+                    <div class="editor-container" id="editor-${index}"></div>
+                    <button class="delete-item" data-index="${index}">Delete</button>
+                `;
+
+                const iconSelect = itemDiv.querySelector('[data-field="icon"]');
+                const noneOption = document.createElement('option');
+                noneOption.value = '';
+                noneOption.textContent = ' (none)';
+                iconSelect.appendChild(noneOption);
+
+                vscodeIcons.forEach(icon => {
+                    const option = document.createElement('option');
+                    option.value = icon;
+                    option.innerHTML = `<i class="codicon codicon-${icon}"></i> ${icon}`;
+                    iconSelect.appendChild(option);
+                });
+
+                const textMatch = item.text.match(/^\$\(([^)]+)\) (.*)$/);
+                if (textMatch) {
+                    iconSelect.value = textMatch[1];
+                    itemDiv.querySelector('[data-field="label"]').value = textMatch[2];
+                } else {
+                    iconSelect.value = '';
+                    itemDiv.querySelector('[data-field="label"]').value = item.text;
+                }
+
+                itemDiv.querySelector('[data-field="tooltip"]').value = item.tooltip || '';
+                itemDiv.querySelector('[data-field="command"]').value = item.command || '';
+
+                container.appendChild(itemDiv);
+
+                require(['vs/editor/editor.main'], () => {
+                    console.log('Monaco Editor main module loaded.');
+                    const editorContainer = document.getElementById(`editor-${index}`);
+                    if (!editorContainer) {
+                        console.error(`Editor container not found for index ${index}`);
+                        return;
+                    }
+                    try {
+                        const editor = monaco.editor.create(editorContainer, {
+                            value: item.script,
+                            language: 'javascript',
+                            theme: 'vs-dark',
+                            automaticLayout: true,
+                            minimap: { enabled: false }
+                        });
+                        editors[index] = editor;
+                        editor.onDidChangeModelContent(() => {
+                            items[index].script = editor.getValue();
+                        });
+                        console.log(`Monaco Editor created for index ${index}`);
+                    } catch (e) {
+                        console.error(`Error creating Monaco Editor for index ${index}:`, e);
+                    }
+                });
+            });
+        }
+
+        function updateItemText(index) {
+            const iconSelect = document.querySelector(`[data-index="${index}"][data-field="icon"]`);
+            const labelInput = document.querySelector(`[data-index="${index}"][data-field="label"]`);
+            const icon = iconSelect ? iconSelect.value : '';
+            const label = labelInput ? labelInput.value : '';
+
+            if (icon) {
+                items[index].text = `$(${icon}) ${label}`;
+            } else {
+                items[index].text = label;
+            }
+        }
+
+        const defaultScript = `const vscode = require('vscode');
+const { exec } = require('child_process');
+const fs = require('fs');
+const fsp = require('fs/promises');
+const path = require('path');
+const os = require('os');
+const process = require('process');
+const util = require('util');
+const readline = require('readline');
+const events = require('events');
+const http = require('http');
+const https = require('https');
+const url = require('url');
+const crypto = require('crypto');
+
+// Your script here
+`;
+
+        document.getElementById('add-item').addEventListener('click', () => {
+            items.push({ text: '$(rocket) New Item', tooltip: '', command: 'my.new.command.' + Date.now(), script: defaultScript });
+            renderItems();
+        });
+
+        document.getElementById('save-settings').addEventListener('click', () => {
+            vscode.postMessage({ command: 'updateSettings', items: items });
+        });
+
+        document.getElementById('items-container').addEventListener('input', (event) => {
+            const target = event.target;
+            const index = target.dataset.index;
+            const field = target.dataset.field;
+            if (index === undefined || !field) return;
+
+            if (target.tagName === 'INPUT') {
+                if (field === 'label') {
+                    updateItemText(index);
+                } else {
+                    items[index][field] = target.value;
+                }
+            }
+        });
+
+        document.getElementById('items-container').addEventListener('change', (event) => {
+            const target = event.target;
+            const index = target.dataset.index;
+            const field = target.dataset.field;
+            if (index === undefined || !field) return;
+
+            if (target.tagName === 'SELECT' && field === 'icon') {
+                updateItemText(index);
+            }
+        });
+
+        document.getElementById('items-container').addEventListener('click', (event) => {
+            if (event.target.classList.contains('delete-item')) {
+                const index = event.target.dataset.index;
+                if (index !== undefined) {
+                    items.splice(index, 1);
+                    renderItems();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
