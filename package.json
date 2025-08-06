@@ -14,21 +14,11 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:githelper.gitAdd",
-    "onCommand:githelper.submoduleUpdate"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "githelper.gitAdd",
-        "title": "Git: Add"
-      },
-      {
-        "command": "githelper.submoduleUpdate",
-        "title": "Git: Submodule Update"
-      },
       {
         "command": "statusBarHelper.showSettings",
         "title": "StatusBar Helper: Show Settings"
@@ -74,7 +64,6 @@
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.39",
-    "monaco-editor": "^0.52.2",
-    "vm2": "^3.9.19"
+    "monaco-editor": "^0.52.2"
   }
 }

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
-import { NodeVM } from 'vm2';
+import * as vm from 'vm';
 import { SettingsPanel } from './SettingsPanel';
 
 // Keep your existing helper functions
@@ -53,29 +53,36 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
         statusBarItem.command = command;
 
         const commandDisposable = vscode.commands.registerCommand(command, () => {
-        if (!script) { return; }
+            if (!script) { return; }
 
-        const vm = new NodeVM({
-            console: 'inherit',
-            sandbox: {},
-            require: {
-            external: false,
-            // 明確放行 fs、path、process 三個模組
-            builtin: ['fs', 'path', 'process'],
-            root: './',
-            mock: { vscode }
+            const sandbox = {
+                vscode,
+                fs,
+                path,
+                process,
+                console: console, // Allow the script to use the real console
+                __dirname: path.dirname(context.extensionPath), // Provide a useful __dirname
+                require: (moduleName: string) => {
+                    if (moduleName === 'vscode') {
+                        return vscode; // Return the vscode API object directly
+                    }
+                    // Only allow built-in Node.js modules
+                    if (require.resolve(moduleName) === moduleName) {
+                        return require(moduleName);
+                    } else {
+                        throw new Error(`Only built-in modules are allowed: ${moduleName}`);
+                    }
+                }
+            };
+
+            const wrappedScript = `(function() { ${script} })();`;
+
+            try {
+                vm.runInNewContext(wrappedScript, sandbox);
+            } catch (e: any) {
+                vscode.window.showErrorMessage(`❌ Script error: ${e.message}`);
+                console.error(e);
             }
-        });
-
-        try {
-            vm.run(script, 'vm.js');
-            // VM 執行成功，跳個通知
-            vscode.window.showInformationMessage(`✅ VM exec：${text}`);
-        } catch (e: any) {
-            // 只用 e.message 就好，不要再 reference 到不存在的 text
-            vscode.window.showErrorMessage(`❌ VM exec：${e.message}`);
-            console.error(e);
-        }
         });
 
 
