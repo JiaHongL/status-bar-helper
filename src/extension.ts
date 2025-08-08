@@ -7,25 +7,6 @@ import { promisify } from 'util';
 import * as vm from 'vm';
 import { SettingsPanel } from './SettingsPanel';
 
-// Keep your existing helper functions
-const execAsync = promisify(exec);
-
-async function copyFilesRecursive(src: string, dest: string) {
-    await fsp.mkdir(dest, { recursive: true });
-    const entries = await fsp.readdir(src, { withFileTypes: true });
-
-    for (const entry of entries) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-
-        if (entry.isDirectory()) {
-            await copyFilesRecursive(srcPath, destPath);
-        } else {
-            await fsp.copyFile(srcPath, destPath);
-        }
-    }
-}
-
 // Store disposables for status bar items and commands
 let itemDisposables: vscode.Disposable[] = [];
 
@@ -39,13 +20,8 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
 
     items.forEach((item, index) => {
         const { text, tooltip, command, script, hidden } = item;
-        if (!text || !command) {
-            return;
-        }
-
-        if (hidden) {
-            return; // Don't show hidden items
-        }
+        if (!text || !command) return;
+        if (hidden) return;
 
         const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100 - index);
         statusBarItem.text = text;
@@ -53,20 +29,18 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
         statusBarItem.command = command;
 
         const commandDisposable = vscode.commands.registerCommand(command, () => {
-            if (!script) { return; }
+            if (!script) return;
 
             const sandbox = {
                 vscode,
                 fs,
                 path,
                 process,
-                console: console, // Allow the script to use the real console
-                __dirname: path.dirname(context.extensionPath), // Provide a useful __dirname
+                console: console,
+                __dirname: path.dirname(context.extensionPath),
                 require: (moduleName: string) => {
-                    if (moduleName === 'vscode') {
-                        return vscode; // Return the vscode API object directly
-                    }
-                    // Only allow built-in Node.js modules
+                    if (moduleName === 'vscode') return vscode;
+                    // 只允許 Node 內建模組
                     if (require.resolve(moduleName) === moduleName) {
                         return require(moduleName);
                     } else {
@@ -84,7 +58,6 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
                 console.error(e);
             }
         });
-
 
         itemDisposables.push(statusBarItem, commandDisposable);
         statusBarItem.show();
@@ -109,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }));
 
-    // Add a permanent status bar item to open settings
+    // A gear icon to open settings
     const settingsStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     settingsStatusBarItem.text = `$(gear)`;
     settingsStatusBarItem.tooltip = 'Status Bar Helper Settings';
@@ -117,12 +90,13 @@ export function activate(context: vscode.ExtensionContext) {
     settingsStatusBarItem.show();
     context.subscriptions.push(settingsStatusBarItem);
 
-    // Your existing commands can be preserved and registered here
-    // For example:
+    // Example placeholder
     const gitAddCommand = vscode.commands.registerCommand('githelper.gitAdd', () => {
-        // Your git add logic here
+        // TODO
     });
     context.subscriptions.push(gitAddCommand);
+}
 
-    // ... register your other commands ...
+export function deactivate() {
+    itemDisposables.forEach(d => d.dispose());
 }

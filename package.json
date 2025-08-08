@@ -1,5 +1,6 @@
 {
   "name": "status-bar-helper",
+  "publisher": "JiaHongL",
   "repository": {
     "type": "git",
     "url": "https://github.com/JiaHongL/status-bar-helper.git"
@@ -17,6 +18,11 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "files": [
+    "out",
+    "media",
+    "package.json"
+  ],
   "contributes": {
     "commands": [
       {
@@ -44,7 +50,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "npm run copy-files && tsc -p ./",
+    "copy-files": "cpx \"node_modules/@types/{node,vscode}/**/*\" out/typedefs",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -59,6 +66,7 @@
     "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
+    "cpx": "^1.5.0",
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
   },
