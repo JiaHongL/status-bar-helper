@@ -10,50 +10,104 @@
     :root { --ctrl-h: 24px; }
 
     html, body { height: 100vh; margin:0; padding:0; overflow:hidden; display:flex; flex-direction:column; font-size:var(--vscode-font-size); }
-    body { font-family:var(--vscode-font-family); color:var(--vscode-editor-foreground); background:var(--vscode-editor-background); padding:5px 10px; box-sizing:border-box; }
+    body { font-family:var(--vscode-font-family); color:var(--vscode-editor-foreground); background:var(--vscode-editor-background); padding:8px 10px; box-sizing:border-box; }
 
-    .list-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0; }
-    h1#main-title { font-size:1.4em; font-weight:500; margin:0; }
+    /* ───── Top bar：標題 + 搜尋 + 動作鈕 ───── */
+    .list-header{ display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-shrink:0; }
+    .list-header h1{ margin:0; font-size:1.5em; font-weight:600; }
+    .list-header .search-wrap{
+      flex:1; display:flex; align-items:center; gap:6px; min-width:240px; max-width:720px;
+      background:var(--vscode-input-background); border:1px solid var(--vscode-input-border);
+      border-radius:4px; height:28px; padding:0 8px;
+    }
+    .search-wrap i{ opacity:.7 }
+    #filter-input{ all:unset; flex:1; height:100%; font-size:.95em; color:var(--vscode-input-foreground); }
+    .list-header .actions{ display:flex; gap:8px; }
+    .list-header .actions button{ height:28px; padding:0 10px; }
 
-    #list-view { background:var(--vscode-sideBar-background); border:2px solid var(--vscode-editorGroup-border); border-radius:4px; padding:8px; overflow-y:auto; flex-grow:1; }
-    .list-column-header { display:grid; grid-template-columns:50px 30px 1fr 120px; grid-column-gap:8px; padding:0 8px 4px; margin-bottom:6px; border-bottom:2px solid var(--vscode-editorGroup-border); color:var(--vscode-editor-foreground); font-size:.9em; font-weight:500; position:sticky; top:0; background:var(--vscode-sideBar-background); z-index:1; }
+    /* ───── List 容器 ───── */
+    #list-view{
+      background:var(--vscode-sideBar-background);
+      border:1px solid var(--vscode-editorGroup-border);
+      border-radius:6px; padding:8px; overflow:auto; flex:1;
+    }
 
+    /* 列表表頭（drag / visible / icon / label / actions） */
+    .list-column-header{
+      display:grid;
+      grid-template-columns: 24px 50px 30px 1fr 120px;
+      gap:8px; padding:4px 8px; margin-bottom:6px;
+      border-bottom:1px solid var(--vscode-editorGroup-border);
+      color:var(--vscode-descriptionForeground); font-size:.85em; font-weight:600;
+      position:sticky; top:0; background:var(--vscode-sideBar-background); z-index:1;
+    }
     .col-visibility,.item-visibility{ text-align:center; }
     .col-icon,.item-icon{ text-align:center; }
-    .col-label{ padding-left:10px; }
     .col-actions{ text-align:right; }
 
-    .item-summary{ display:grid; grid-template-columns:50px 30px 1fr 120px; align-items:center; gap:8px; padding:6px 8px; border-bottom:1px solid var(--vscode-editorGroup-border); transition:background-color .1s; }
-    .item-summary:last-child{ border-bottom:none; }
-    .item-summary:hover{ background:var(--vscode-list-hoverBackground); }
-    .item-details{ display:flex; align-items:baseline; gap:8px; margin-left:10px; font-size:.95em; flex-grow:1; overflow:hidden; }
-    .item-label{ font-weight:500; white-space:nowrap; }
-    .item-tooltip{ font-size:.9em; color:var(--vscode-descriptionForeground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .item-tooltip::before{ content:"—"; margin-right:8px; color:var(--vscode-editorHint-foreground); }
-    .item-actions button{ margin:0 2px; padding:2px 6px; font-size:.85em; }
+    /* 列表條目 */
+    .item-summary{
+      display:grid;
+      grid-template-columns: 24px 50px 30px 1fr 120px;
+      align-items:center; gap:8px; padding:6px 8px;
+      border-radius:4px;
+      transition:background .12s ease, border-color .12s ease;
+      border:1px solid transparent;
+    }
+    .item-summary + .item-summary{ margin-top:4px; }
+    .item-summary:hover, .item-summary:focus-within{
+      background:color-mix(in srgb, var(--vscode-list-hoverBackground) 85%, transparent);
+      border-color:var(--vscode-editorGroup-border);
+    }
 
+    /* 拖曳手把 */
+    .drag-handle{ display:flex; align-items:center; justify-content:center; opacity:.55; cursor:grab; }
+    .drag-handle:hover{ opacity:.9; }
+
+    /* Icon chip */
+    .item-icon .codicon{
+      width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
+      border-radius:6px;
+      background:var(--vscode-button-secondaryBackground);
+      color:var(--vscode-icon-foreground);
+    }
+
+    /* Label/tooltip */
+    .item-details{ display:flex; align-items:baseline; gap:8px; overflow:hidden; }
+    .item-label{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .item-tooltip{ color:var(--vscode-descriptionForeground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .item-tooltip::before{ content:"—"; margin:0 6px; opacity:.6; }
+
+    /* 隱藏項目淡化 */
+    .item-summary.is-hidden .item-label,
+    .item-summary.is-hidden .item-tooltip{ opacity:.55; }
+
+    /* 幽靜按鈕 */
+    .item-actions{ display:flex; justify-content:flex-end; gap:6px; }
+    .btn-ghost{
+      background:transparent; border:1px solid transparent; color:var(--vscode-textLink-foreground);
+      padding:2px 8px; height:24px; border-radius:4px; font-size:.85em; cursor:pointer;
+    }
+    .btn-ghost:hover{ text-decoration:underline; background:transparent; }
+
+    /* 拖曳時提示 */
+    #items-list.dragging .item-summary{ opacity:.85; }
+
+    /* ───── 編輯區 ───── */
     #edit-view{ display:none; flex-grow:1; height:100%; flex-direction:column; }
     .edit-item-container{ display:flex; flex-direction:column; height:100%; }
 
-    /* ── 控制列改用 Grid：icon:3 / label:2 / tooltip:auto / buttons 固定 ── */
     .controls-row{
       display:grid;
       grid-template-columns:
-        minmax(220px, 3fr)   /* Icon select = 3 */
-        minmax(160px, 2fr)   /* Label = 2 */
-        minmax(240px, 6fr)   /* Tooltip = 自動/最大彈性 */
-        auto;                /* Buttons 固定 */
-      gap:6px;
-      margin-bottom:4px;
-      align-items:center;
-      overflow-x:auto;       /* 寬度不足時水平捲動（保持單行） */
+        minmax(220px, 3fr)   /* Icon select */
+        minmax(160px, 2fr)   /* Label */
+        minmax(240px, 6fr)   /* Tooltip */
+        auto;                /* Buttons */
+      gap:6px; margin-bottom:4px; align-items:center; overflow-x:auto;
     }
-
-    .field{ display:flex; align-items:center; gap:6px; min-width:0; } /* 讓 input 可縮放 */
-    .actions{
-      justify-self:end;      /* 在 grid 內靠右 */
-      display:flex; gap:6px; align-items:center; white-space:nowrap; flex-wrap:nowrap;
-    }
+    .field{ display:flex; align-items:center; gap:6px; min-width:0; }
+    .actions{ justify-self:end; display:flex; gap:6px; align-items:center; white-space:nowrap; flex-wrap:nowrap; }
     .actions button{ height:var(--ctrl-h); padding:0 10px; }
 
     .controls-row input,
@@ -66,8 +120,7 @@
       background:var(--vscode-input-background);
       color:var(--vscode-input-foreground);
       border:1px solid var(--vscode-input-border);
-      width:100%;
-      min-width:0;
+      width:100%; min-width:0;
     }
     .controls-row label{ margin-bottom:0; font-size:.9em; color:var(--vscode-foreground); }
 
@@ -110,15 +163,23 @@
 <body>
   <div class="list-header">
     <h1 id="main-title">StatusBar Helper Settings</h1>
+
+    <div class="search-wrap" title="Filter items…">
+      <i class="codicon codicon-search"></i>
+      <input id="filter-input" type="text" placeholder="Filter items…">
+    </div>
+
     <div class="actions">
-      <button id="import-btn">Import</button>
-      <button id="export-btn">Export</button>
-      <button id="add-new-item-btn">Add New Item</button>
+      <button id="import-btn" type="button">Import</button>
+      <button id="export-btn" type="button">Export</button>
+      <button id="restore-btn" type="button" title="Restore sample items">Restore Samples</button>
+      <button id="add-new-item-btn" type="button">Add New Item</button>
     </div>
   </div>
 
   <div id="list-view">
     <div class="list-column-header">
+      <span class="col-drag"></span>
       <span class="col-visibility">Visible</span>
       <span class="col-icon">Icon</span>
       <span class="col-label">Label</span>
@@ -139,6 +200,41 @@
     const listView   = document.getElementById('list-view');
     const editView   = document.getElementById('edit-view');
 
+    /* ---------- Draft helpers ---------- */
+    const getState   = () => (vscode.getState && vscode.getState()) || {};
+    const getDraft   = () => getState().draft || null;
+    const writeDraft = (d) => vscode.setState({ ...getState(), draft: d });
+    function saveDraft(part){
+      const cur = getDraft();
+      const next = { ...(cur || {}), ...part, ts: Date.now() };
+      writeDraft(next);
+    }
+    function clearDraftIfMatch(cmd){
+      const cur = getDraft();
+      if (cur?.command === cmd) writeDraft(null);
+    }
+
+    /* ---------- Editing pristine helpers ---------- */
+    const getEditing   = () => getState().editing || null;
+    const writeEditing = (e) => vscode.setState({ ...getState(), editing: e });
+    const clearEditing = () => { const s = getState(); delete s.editing; vscode.setState(s); };
+
+    /* ---------- VS Code 原生確認對話框：round-trip ---------- */
+    function confirmDiscardWithVSCode() {
+      const token = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+      return new Promise((resolve) => {
+        function onMsg(e) {
+          const m = e.data || {};
+          if (m.command === 'confirmDiscardResult' && m.token === token) {
+            window.removeEventListener('message', onMsg);
+            resolve(m.choice === 'Discard');
+          }
+        }
+        window.addEventListener('message', onMsg);
+        vscode.postMessage({ command: 'confirmDiscard', token });
+      });
+    }
+
     require.config({ paths: { 'vs': '{{monacoUri}}' } });
 
     window.addEventListener('message', e => {
@@ -147,9 +243,12 @@
         items = msg.items || [];
         typeDefs = msg.typeDefs;
         if (msg.activeView === 'edit' && msg.editingItem) {
+          if (editView.style.display === 'flex') return; // 正在編輯就不要重建洗掉
           const idx = items.findIndex(i => i.command === msg.editingItem.command);
           showEditView(idx<0?null:idx, msg.editingItem);
-        } else showListView();
+        } else {
+          showListView();
+        }
       }
       if (msg.command === 'importDone' && Array.isArray(msg.items)) { items = msg.items; showListView(); }
       if (msg.command === 'runLog')  { const out = document.getElementById('run-output'); if (out) { out.textContent += msg.chunk; out.parentElement.scrollTop = out.parentElement.scrollHeight; } }
@@ -158,6 +257,17 @@
     vscode.postMessage({ command: 'getSettings' });
 
     function saveAndPostSettings(){ vscode.postMessage({ command:'updateSettings', items }); }
+
+    /* ---------- 搜尋欄 ---------- */
+    let filterText = '';
+    const filterInput = document.getElementById('filter-input');
+    if (filterInput) {
+      let timer;
+      filterInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(()=>{ filterText = filterInput.value; renderListView(); }, 80);
+      });
+    }
 
     function showListView(){
       listHeader.style.display='flex';
@@ -169,42 +279,54 @@
     }
 
     function renderListView(){
-      const el = document.getElementById('items-list'); el.innerHTML='';
+      const el = document.getElementById('items-list');
+      el.innerHTML='';
+      const q = (filterText || '').trim().toLowerCase();
       const escapeHtml = (s='') => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
       items.forEach((item,i)=>{
         const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
         const icon  = m?m[1]:'';
         const label = m?m[2]:item.text;
+        const cmd   = item.command || '';
+        const tip   = item.tooltip || '';
 
-        const div = document.createElement('div');
-        div.className='item-summary';
-        div.innerHTML = `
+        if (q && !(label.toLowerCase().includes(q) || tip.toLowerCase().includes(q) || cmd.toLowerCase().includes(q))) return;
+
+        const row = document.createElement('div');
+        row.className='item-summary';
+        if (item.hidden) row.classList.add('is-hidden');
+
+        row.innerHTML = `
+          <span class="drag-handle" title="Drag to reorder"><i class="codicon codicon-grabber"></i></span>
           <span class="item-visibility">
             <label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${i}" ${item.hidden?'':'checked'}><span class="slider"></span></label>
           </span>
           <span class="item-icon"><i class="codicon codicon-${icon}"></i></span>
           <div class="item-details">
-            <div class="item-label">${escapeHtml(label)}</div>
-            <div class="item-tooltip">${escapeHtml(item.tooltip||'No tooltip')}</div>
+            <div class="item-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+            <div class="item-tooltip" title="${escapeHtml(tip)}">${escapeHtml(tip||'No tooltip')}</div>
           </div>
           <div class="item-actions">
-            <button class="edit-item" data-index="${i}">Edit</button>
-            <button class="delete-item" data-index="${i}">Delete</button>
-          </div>`;
+            <button class="btn-ghost edit-item"   data-index="${i}" type="button">Edit</button>
+            <button class="btn-ghost delete-item" data-index="${i}" type="button">Delete</button>
+          </div>
+        `;
 
         // 拖拉排序
-        div.setAttribute('draggable','true'); div.dataset.index=i;
-        div.addEventListener('dragstart', ev => { ev.dataTransfer.setData('text/plain', String(i)); });
-        div.addEventListener('dragover',  ev => ev.preventDefault());
-        div.addEventListener('drop', ev => {
+        row.setAttribute('draggable','true'); row.dataset.index=i;
+        row.addEventListener('dragstart', ev => { el.classList.add('dragging'); ev.dataTransfer.setData('text/plain', String(i)); });
+        row.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+        row.addEventListener('dragover',  ev => ev.preventDefault());
+        row.addEventListener('drop', ev => {
           ev.preventDefault();
-          const from=+ev.dataTransfer.getData('text/plain'); const to=+div.dataset.index;
+          const from=+ev.dataTransfer.getData('text/plain'); const to=+row.dataset.index;
           if (Number.isNaN(from)||Number.isNaN(to)||from===to) return;
           const moved=items.splice(from,1)[0]; items.splice(from<to?to-1:to,0,moved);
           saveAndPostSettings(); renderListView();
         });
 
-        el.appendChild(div);
+        el.appendChild(row);
       });
     }
 
@@ -225,6 +347,7 @@
     });
     document.getElementById('export-btn').addEventListener('click', ()=>vscode.postMessage({ command:'exportSettings', items }));
     document.getElementById('import-btn').addEventListener('click', ()=>vscode.postMessage({ command:'importSettings' }));
+    document.getElementById('restore-btn').addEventListener('click', ()=>vscode.postMessage({ command:'restoreDefaults' }));
 
     const defaultScript = `// Please require any Node.js modules your script needs here
 const vscode = require('vscode');
@@ -237,11 +360,40 @@ const util = require('util');
 
 // Your script here `;
 
+    // 為了避免事件委派重覆綁定
+    let editClickHandler = null;
+
     function showEditView(index,item){
       const isNew = index===null;
       const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
-      const initIcon = m?m[1]:'';
-      const initLabel= m?m[2]:item.text;
+
+      // 1) 先用「已保存的 item」拆出初始 icon/label（不要先套 draft）
+      let initIcon  = m ? m[1] : '';
+      let initLabel = m ? m[2] : item.text;
+
+      // 2) 建立 original：進入本次編輯當下的基準（不受 draft 影響）
+      const original = {
+        icon: initIcon,
+        label: initLabel,
+        tooltip: item.tooltip || '',
+        script: item.script  || ''
+      };
+
+      // 3) 若尚未有 editing.pristine，存一份在 state（以 command 區分）
+      let editing = getEditing();
+      if (!editing || editing.command !== item.command || !editing.pristine) {
+        editing = { command: item.command, pristine: JSON.stringify(original) };
+        writeEditing(editing);
+      }
+
+      // 4) 再把 draft 套回 UI 初值（讓沒存完的內容能帶回來）
+      const curDraft = getDraft();
+      if (curDraft?.command === item.command) {
+        if (curDraft.icon    != null) initIcon     = curDraft.icon;
+        if (curDraft.label   != null) initLabel    = curDraft.label;
+        if (curDraft.tooltip != null) item.tooltip = curDraft.tooltip;
+        if (curDraft.script  != null) item.script  = curDraft.script;
+      }
 
       editView.innerHTML = `
         <div class="edit-item-container">
@@ -267,10 +419,10 @@ const util = require('util');
               <input type="text" id="edit-tooltip">
             </div>
             <div class="actions">
-              <button id="save-item-btn">Save</button>
-              <button id="cancel-edit-btn">Cancel</button>
-              <button id="run-btn" title="Smart Run (auto-detect)">Run</button>
-              <button id="stop-btn">Stop</button>
+              <button type="button" id="save-item-btn">Save</button>
+              <button type="button" id="cancel-edit-btn">Cancel</button>
+              <button type="button" id="run-btn" title="Smart Run (auto-detect)">Run</button>
+              <button type="button" id="stop-btn">Stop</button>
             </div>
           </div>
           <div class="editor-container" id="editor-container"></div>
@@ -285,10 +437,10 @@ const util = require('util');
         </div>`;
 
       listHeader.style.display='none'; listView.style.display='none'; editView.style.display='flex';
-      document.getElementById('edit-label').value = initLabel;
+      document.getElementById('edit-label').value   = initLabel;
       document.getElementById('edit-tooltip').value = item.tooltip||'';
 
-      // Icon 下拉（浮到 body，用 fixed 定位，不擠版）
+      // Icon 下拉（浮到 body，不擠版）
       let selectedIcon = initIcon;
       const trigger  = document.getElementById('icon-trigger');
       const dropdown = document.getElementById('icon-dropdown');
@@ -324,7 +476,13 @@ const util = require('util');
         vscodeIcons.filter(n=>n.toLowerCase().includes(f)).forEach(name=>{
           const d=document.createElement('div'); d.className='icon-item'+(name===selectedIcon?' selected':'');
           d.innerHTML=`<i class="codicon codicon-${name}" title="${name}"></i>`;
-          d.onclick=()=>{ selectedIcon=name; document.getElementById('selected-icon').className=`codicon codicon-${name}`; document.getElementById('selected-icon-name').textContent=name; closeDropdown(); };
+          d.onclick=()=>{
+            selectedIcon=name;
+            document.getElementById('selected-icon').className=`codicon codicon-${name}`;
+            document.getElementById('selected-icon-name').textContent=name;
+            saveDraft({ command: item.command, icon: name });
+            closeDropdown();
+          };
           listEl.appendChild(d);
         });
       }
@@ -353,21 +511,46 @@ const util = require('util');
           allowNonTsExtensions:true,
         });
         currentEditor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS, ()=>document.getElementById('save-item-btn').click());
+        currentEditor.onDidChangeModelContent(()=>{ saveDraft({ command: item.command, script: currentEditor.getValue() }); });
+
         if(typeDefs){
           if(typeDefs.node){ typeDefs.node.forEach(lib=>monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, lib.path)); }
           if(typeDefs.vscode){ monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDefs.vscode,'file:///vscode.d.ts'); }
         }
       });
 
-      // Save / Cancel
-      document.getElementById('save-item-btn').onclick=()=>{
-        const lbl=document.getElementById('edit-label').value.trim();
-        let txt=lbl; if(selectedIcon) txt = `$(${selectedIcon}) ${lbl}`;
-        const upd={ ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
-        if(isNew) items.push(upd); else items[index]=upd;
-        saveAndPostSettings(); closeDropdown(); showListView();
+      // 欄位改動 → 草稿
+      document.getElementById('edit-label').addEventListener('input', e=>{
+        saveDraft({
+          command: item.command,
+          icon: selectedIcon,
+          label: e.target.value,
+          tooltip: document.getElementById('edit-tooltip').value,
+          script: currentEditor ? currentEditor.getValue() : item.script
+        });
+      });
+      document.getElementById('edit-tooltip').addEventListener('input', e=>{
+        saveDraft({
+          command: item.command,
+          icon: selectedIcon,
+          label: document.getElementById('edit-label').value,
+          tooltip: e.target.value,
+          script: currentEditor ? currentEditor.getValue() : item.script
+        });
+      });
+
+      // 以 state.editing.pristine 作為比較基準
+      const hasUnsaved = () => {
+        const current = {
+          icon: selectedIcon,
+          label: document.getElementById('edit-label').value,
+          tooltip: document.getElementById('edit-tooltip').value,
+          script: currentEditor ? currentEditor.getValue() : (item.script || '')
+        };
+        const ed = getEditing();
+        const pristineJson = (ed && ed.command === item.command) ? ed.pristine : JSON.stringify(current);
+        return JSON.stringify(current) !== pristineJson;
       };
-      document.getElementById('cancel-edit-btn').onclick=()=>{ closeDropdown(); showListView(); };
 
       // Output 收合
       const outputContainer=document.getElementById('output-container');
@@ -376,25 +559,62 @@ const util = require('util');
         setTimeout(()=>{ if(currentEditor) currentEditor.layout(); },0);
       };
 
-      // 智慧型 Run：自動偵測是否使用 vscode
-      const runBtn=document.getElementById('run-btn');
-      const stopBtn=document.getElementById('stop-btn');
-      const out=document.getElementById('run-output');
-      const stripComments = (src)=>src.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
-      const usesVsCode = (code)=>{ const s=stripComments(code); return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])vscode\./.test(s); };
+      // 事件委派（避免重複綁定）
+      if (editClickHandler) editView.removeEventListener('click', editClickHandler);
+      editClickHandler = (ev) => {
+        const btn = ev.target.closest('button');
+        if (!btn) return;
 
-      runBtn.onclick=()=>{
-        const code=currentEditor.getValue();
-        out.textContent='';
-        outputContainer.classList.remove('collapsed');
-        if(usesVsCode(code)){
-          out.textContent='▶ Detected VS Code API — running in VS Code mode…\n';
-          vscode.postMessage({ command:'runScriptTrusted', code });
-        }else{
-          vscode.postMessage({ command:'runScript', code });
+        if (btn.id === 'save-item-btn') {
+          const lbl=document.getElementById('edit-label').value.trim();
+          let txt=lbl; if(selectedIcon) txt = `$(${selectedIcon}) ${lbl}`;
+          const upd={ ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
+          if(isNew) items.push(upd); else items[index]=upd;
+          saveAndPostSettings();
+          clearDraftIfMatch(item.command);
+          clearEditing();
+          closeDropdown();
+          showListView();
+          return;
+        }
+
+        if (btn.id === 'cancel-edit-btn') {
+          const discardAndBack = () => {
+            clearDraftIfMatch(item.command);
+            clearEditing();
+            closeDropdown();
+            showListView();
+          };
+          if (!hasUnsaved()) {
+            discardAndBack();
+          } else {
+            confirmDiscardWithVSCode().then(ok => { if (ok) discardAndBack(); });
+          }
+          return;
+        }
+
+        if (btn.id === 'run-btn') {
+          const code = currentEditor.getValue();
+          const out = document.getElementById('run-output');
+          out.textContent = '';
+          outputContainer.classList.remove('collapsed');
+          const stripComments = (src)=>src.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
+          const usesVsCode = (code)=>{ const s=stripComments(code); return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])vscode\./.test(s); };
+          if (usesVsCode(code)) {
+            out.textContent = '▶ Detected VS Code API — running in VS Code mode…\n';
+            vscode.postMessage({ command:'runScriptTrusted', code });
+          } else {
+            vscode.postMessage({ command:'runScript', code });
+          }
+          return;
+        }
+
+        if (btn.id === 'stop-btn') {
+          vscode.postMessage({ command:'stopRun' });
+          return;
         }
       };
-      stopBtn.onclick=()=>vscode.postMessage({ command:'stopRun' });
+      editView.addEventListener('click', editClickHandler);
 
       vscode.postMessage({ command:'enterEditView', item });
     }
