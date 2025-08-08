@@ -12,7 +12,8 @@
     "vscode": "^1.101.0"
   },
   "icon": "media/icon.png",
-  "categories": ["Productivity"],
+  "categories": ["Other"],
+  "tags": ["productivity", "status bar", "scripts", "automation"],
   "keywords": ["status bar", "script", "automation", "git", "webview", "node", "vscode api"],
   "galleryBanner": {
     "color": "#1f1f1f",
@@ -33,9 +34,12 @@
   ],
   "main": "./out/extension.js",
   "files": [
-    "out",
-    "media",
-    "package.json"
+    "out/**",
+    "media/**",
+    "package.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.txt"
   ],
   "contributes": {
     "commands": [

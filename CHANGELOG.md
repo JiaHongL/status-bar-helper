@@ -1,9 +1,8 @@
 # Change Log
 
-All notable changes to the "git-helper" extension will be documented in this file.
+All notable changes to this project will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## [1.0.0] - 2025-08-08
 
-## [Unreleased]
-
-- Initial release
+### Added
+- Initial release of Status Bar Helper extension.
