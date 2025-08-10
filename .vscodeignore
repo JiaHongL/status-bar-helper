@@ -1,6 +1,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+!src/types.ts
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md

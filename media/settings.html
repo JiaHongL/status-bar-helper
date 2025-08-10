@@ -1,70 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>StatusBar Helper Settings</title>
-  <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css" />
-  <link rel="stylesheet" href="{{codiconsUri}}" />
-  <style>
+    <head>
+        <meta charset="UTF-8">
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+        <title>StatusBar Helper Settings</title>
+        <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css">
+        <link rel="stylesheet" href="{{codiconsUri}}">
+        <style>
     :root { --ctrl-h: 24px; }
 
     html, body { height: 100vh; margin:0; padding:0; overflow:hidden; display:flex; flex-direction:column; font-size:var(--vscode-font-size); }
-    body { font-family:var(--vscode-font-family); color:var(--vscode-editor-foreground); background:var(--vscode-editor-background); padding:8px 10px; box-sizing:border-box; }
+    body { font-family:var(--vscode-font-family); color:var(--vscode-editor-foreground); background:var(--vscode-editor-background); padding:8px 10px; box-sizing:border-box; display: flex; flex-direction: column; }
 
-    /* ───── Top bar：標題 + 搜尋 + 動作鈕 ───── */
-    .list-header{ display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-shrink:0; }
-    .list-header h1{ margin:0; font-size:1.5em; font-weight:600; }
-    .list-header .search-wrap{
-      flex:1; display:flex; align-items:center; gap:6px; min-width:240px; max-width:720px;
-      background:var(--vscode-input-background); border:1px solid var(--vscode-input-border);
-      border-radius:4px; height:28px; padding:0 8px;
-    }
-    .search-wrap i{ opacity:.7 }
-    #filter-input{ all:unset; flex:1; height:100%; font-size:.95em; color:var(--vscode-input-foreground); }
-    .list-header .actions{ display:flex; gap:8px; }
-    .list-header .actions button{ height:28px; padding:0 10px; }
+    #list-view-wrapper { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 10px; }
 
-    /* ───── List 容器 ───── */
     #list-view{
       background:var(--vscode-sideBar-background);
       border:1px solid var(--vscode-editorGroup-border);
-      border-radius:6px; padding:8px; overflow:auto; flex:1;
+      border-radius:6px; padding:8px;
+      flex-basis: 60%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* 列表表頭（drag / visible / icon / label / actions） */
-    .list-column-header{
-      display:grid;
-      grid-template-columns: 24px 50px 30px 1fr 120px;
-      gap:8px; padding:4px 8px; margin-bottom:6px;
+    #data-view {
+      background:var(--vscode-sideBar-background);
+      border:1px solid var(--vscode-editorGroup-border);
+      border-radius:6px; padding:8px;
+      flex-basis: 40%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .list-title-bar, .data-title-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .list-title, .data-title { display:flex; align-items:center; gap:8px; font-weight:600; margin-right: auto; }
+    .list-title i, .data-title i { opacity:.8 }
+
+    .search-wrap, .data-search-wrap {
+      flex:1; display:flex; align-items:center; gap:6px; min-width:180px; max-width:420px;
+      background:var(--vscode-input-background); border:1px solid var(--vscode-input-border);
+      border-radius:4px; height:28px; padding:0 8px;
+    }
+    #filter-input, #data-filter-input { all:unset; flex:1; height:100%; font-size:.95em; color:var(--vscode-input-foreground); }
+
+    .actions, .data-actions { display:flex; gap:8px; }
+    .actions button, .data-actions button { height:28px; padding:0 10px; }
+    .data-actions button { height: 26px; }
+
+    .list-table-container, .data-table-container { flex-grow:1; overflow-y:auto; }
+
+    table.list-table, table.data-table { width:100%; border-collapse:collapse; }
+    table.list-table th, table.data-table th {
+      text-align:left; color:var(--vscode-descriptionForeground); font-size:.9em; padding:8px 10px;
       border-bottom:1px solid var(--vscode-editorGroup-border);
-      color:var(--vscode-descriptionForeground); font-size:.85em; font-weight:600;
-      position:sticky; top:0; background:var(--vscode-sideBar-background); z-index:1;
+      position: sticky; top: 0; background: var(--vscode-sideBar-background); z-index: 1;
     }
-    .col-visibility,.item-visibility{ text-align:center; }
-    .col-icon,.item-icon{ text-align:center; }
-    .col-actions{ text-align:right; }
-
-    /* 列表條目 */
-    .item-summary{
-      display:grid;
-      grid-template-columns: 24px 50px 30px 1fr 120px;
-      align-items:center; gap:8px; padding:6px 8px;
-      border-radius:4px;
-      transition:background .12s ease, border-color .12s ease;
-      border:1px solid transparent;
+    table.list-table td{
+      padding:0px 10px; border-bottom:1px dotted var(--vscode-editorGroup-border); vertical-align: middle; 
     }
-    .item-summary + .item-summary{ margin-top:4px; }
-    .item-summary:hover, .item-summary:focus-within{
-      background:color-mix(in srgb, var(--vscode-list-hoverBackground) 85%, transparent);
-      border-color:var(--vscode-editorGroup-border);
+    table.data-table td{ 
+      padding:6px 10px; border-bottom:1px dotted var(--vscode-editorGroup-border); vertical-align: middle; 
     }
 
-    /* 拖曳手把 */
-    .drag-handle{ display:flex; align-items:center; justify-content:center; opacity:.55; cursor:grab; }
+    tr.item-row { height: 34px; }
+
+    .td-content-wrapper { height: 100%; display: flex; align-items: center; }
+    .td-content-wrapper.justify-center { justify-content: center; }
+    .td-content-wrapper.justify-end { justify-content: flex-end; gap: 6px; }
+
+    .drag-handle{ opacity:.55; cursor:grab; }
     .drag-handle:hover{ opacity:.9; }
 
-    /* Icon chip */
     .item-icon .codicon{
       width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
       border-radius:6px;
@@ -72,55 +89,39 @@
       color:var(--vscode-icon-foreground);
     }
 
-    /* Label/tooltip */
-    .item-details{ display:flex; align-items:baseline; gap:8px; overflow:hidden; }
+    .item-details{ display:flex; flex-direction:row; gap:8px; overflow:hidden; align-items:center; }
     .item-label{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .item-tooltip{ color:var(--vscode-descriptionForeground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .item-tooltip::before{ content:"—"; margin:0 6px; opacity:.6; }
+    .item-tooltip{ color:var(--vscode-descriptionForeground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size: .9em; }
 
-    /* 隱藏項目淡化 */
-    .item-summary.is-hidden .item-label,
-    .item-summary.is-hidden .item-tooltip{ opacity:.55; }
+    tr.is-hidden .item-label, tr.is-hidden .item-tooltip { opacity:.55; }
 
-    /* 幽靜按鈕 */
-    .item-actions{ display:flex; justify-content:flex-end; gap:6px; }
-    .btn-ghost{
-      background:transparent; border:1px solid transparent; color:var(--vscode-textLink-foreground);
-      padding:2px 8px; height:24px; border-radius:4px; font-size:.85em; cursor:pointer;
-    }
+    .item-actions{ display:flex; gap:6px; align-items:center; white-space:nowrap; height: 34px; }
+    .btn-ghost{ background:transparent; border:1px solid transparent; color:var(--vscode-textLink-foreground); padding:2px 8px; height:24px; border-radius:4px; font-size:.85em; cursor:pointer; }
     .btn-ghost:hover{ text-decoration:underline; background:transparent; }
 
-    /* 拖曳時提示 */
-    #items-list.dragging .item-summary{ opacity:.85; }
+    .btn-darkened { opacity: 0.7; }
+    .btn-darkened:hover { opacity: 1; }
 
-    /* ───── 編輯區 ───── */
+    .delete-item { background: #cc3333; color: var(--vscode-button-foreground); }
+    .delete-item:hover { background: #a32929; }
+
     #edit-view{ display:none; flex-grow:1; height:100%; flex-direction:column; }
     .edit-item-container{ display:flex; flex-direction:column; height:100%; }
 
     .controls-row{
       display:grid;
-      grid-template-columns:
-        minmax(220px, 3fr)   /* Icon select */
-        minmax(160px, 2fr)   /* Label */
-        minmax(240px, 6fr)   /* Tooltip */
-        auto;                /* Buttons */
+      grid-template-columns: minmax(220px, 3fr) minmax(160px, 2fr) minmax(240px, 6fr) auto;
       gap:6px; margin-bottom:4px; align-items:center; overflow-x:auto;
     }
     .field{ display:flex; align-items:center; gap:6px; min-width:0; }
     .actions{ justify-self:end; display:flex; gap:6px; align-items:center; white-space:nowrap; flex-wrap:nowrap; }
     .actions button{ height:var(--ctrl-h); padding:0 10px; }
 
-    .controls-row input,
-    .controls-row select,
-    .icon-trigger{
-      height:var(--ctrl-h);
-      box-sizing:border-box;
-      padding:2px 6px;
+    .controls-row input, .controls-row select, .icon-trigger{
+      height:var(--ctrl-h); box-sizing:border-box; padding:2px 6px;
       font-size:calc(var(--vscode-font-size) * .95);
-      background:var(--vscode-input-background);
-      color:var(--vscode-input-foreground);
-      border:1px solid var(--vscode-input-border);
-      width:100%; min-width:0;
+      background:var(--vscode-input-background); color:var(--vscode-input-foreground);
+      border:1px solid var(--vscode-input-border); width:100%; min-width:0;
     }
     .controls-row label{ margin-bottom:0; font-size:.9em; color:var(--vscode-foreground); }
 
@@ -129,17 +130,24 @@
     #cancel-edit-btn,#stop-btn{ background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); }
     #cancel-edit-btn:hover,#stop-btn:hover{ background:var(--vscode-button-secondaryHoverBackground); }
 
+    /* --- editor/output base --- */
     .editor-container{ flex-grow:1; border:1px solid var(--vscode-input-border); width:100%; margin-top:6px; min-height:240px; }
-
     .output-container{ margin-top:6px; border:1px solid var(--vscode-input-border); background:var(--vscode-editor-background); display:flex; flex-direction:column; }
     .output-header{ display:flex; align-items:center; gap:6px; padding:4px 8px; border-bottom:1px solid var(--vscode-input-border); background:var(--vscode-sideBar-background); user-select:none; cursor:pointer; }
     .output-header .title{ font-size:.9em; opacity:.9; }
     .output-header .chev{ margin-left:auto; transition:transform .15s ease; }
     .output-container.collapsed .chev{ transform:rotate(-90deg); }
     #run-output{ margin:0; padding:8px; font-family:var(--vscode-editor-font-family,monospace); font-size:12px; white-space:pre-wrap; word-break:break-word; overflow:auto; height:160px; resize:vertical; min-height:80px; max-height:60vh; }
-    .output-container.collapsed #run-output{ display:none; }
+    .output-container.collapsed #run-output{
+      display: none;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      resize: none !important;
+    }
+    .output-container.collapsed { height:auto !important; overflow:hidden; }
 
-    /* Slide Checkbox */
     .slide-checkbox{ position:relative; display:inline-block; width:38px; height:20px; vertical-align:middle; }
     .slide-checkbox input{ opacity:0; width:0; height:0; }
     .slider{ position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:var(--vscode-input-background); border:1px solid var(--vscode-input-border); transition:.2s; border-radius:20px; }
@@ -147,7 +155,6 @@
     input:checked + .slider{ background:var(--vscode-button-background); }
     input:checked + .slider:before{ transform:translateX(18px); }
 
-    /* Icon 下拉（trigger 一致高度、dropdown 浮到 body） */
     .icon-field{ position:relative; z-index:1; }
     .icon-trigger{ display:flex; align-items:center; gap:4px; padding:0 6px; cursor:pointer; width:100%; }
     .icon-trigger .codicon{ font-size:1.1em; }
@@ -158,68 +165,194 @@
     .icon-item{ width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:3px; cursor:pointer; }
     .icon-item.selected{ background:var(--vscode-list-activeSelectionBackground); }
     .icon-item:hover{ background:var(--vscode-list-hoverBackground); }
+
+    .mono{ font-family:var(--vscode-editor-font-family,monospace); }
+    .type-cell{ display:flex; align-items:center; gap:6px; }
+    .type-badge{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:4px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); }
+
+    .running-dot { display: inline-flex; align-items: center; gap: 6px; line-height: 1; color: var(--vscode-foreground); font-weight: 500; }
+    .running-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background-color: var(--vscode-testing-iconPassed); animation: pulse 1.2s infinite; flex: 0 0 10px; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* --- Editor/Output split layout --- */
+    .eo-stack{ flex:1; min-height:240px; display:flex; flex-direction:column; }
+    .eo-stack .editor-container{ flex:0 0 auto; margin-top:6px; }
+    .eo-stack .output-container{ flex:0 0 auto; margin-top:6px; height:auto; }
+    .eo-stack .splitter{
+      height:6px; cursor:ns-resize; background:var(--vscode-editorGroup-border);
+      border-top:1px solid var(--vscode-editorGroup-border);
+      border-bottom:1px solid var(--vscode-editorGroup-border); position:relative;
+    }
+    .eo-stack .splitter::after{
+      content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:40px; height:2px; border-radius:2px; background:var(--vscode-descriptionForeground); opacity:.5;
+    }
+    .eo-stack #run-output{ height:auto; flex:1 1 auto; }
+
+    /* chevron fallback */
+    #run-output[hidden] { display: none !important; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 14px;
+      height: 14px;
+      padding: 0 4px;
+      margin-left: 4px;
+      border-radius: 999px;
+      font-size: 0.75em;
+      font-weight: 500; /* 與表頭字重一致 */
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      line-height: 1;
+      vertical-align: middle; /* 與文字垂直對齊 */
+    }
+    .badge--accent {
+      background: var(--vscode-testing-iconPassed);
+      color: var(--vscode-sideBar-background);
+    }
   </style>
-</head>
-<body>
-  <div class="list-header">
-    <h1 id="main-title">StatusBar Helper Settings</h1>
+    </head>
+    <body>
+        <div id="list-view-wrapper">
+            <div id="list-view">
+                <div class="list-title-bar">
+                    <div class="list-title">
+                      <i class="codicon codicon-list-selection"></i>
+                      <span>Status Bar Items</span>
+                    </div>
+                    <div
+                        class="search-wrap"
+                        title="Filter items…"
+                    >
+                        <i class="codicon codicon-search"></i>
+                        <input
+                            id="filter-input"
+                            type="text"
+                            placeholder="Filter items…"
+                        >
+                    </div>
+                    <div class="actions">
+                        <button
+                            id="import-btn"
+                            type="button"
+                        >
+                            Import
+                        </button>
+                        <button
+                            id="export-btn"
+                            type="button"
+                        >
+                            Export
+                        </button>
+                        <button
+                            id="restore-btn"
+                            type="button"
+                            title="Restore sample items"
+                        >
+                            Restore Samples
+                        </button>
+                        <button
+                            id="add-new-item-btn"
+                            type="button"
+                        >
+                            Add New Item
+                        </button>
+                    </div>
+                </div>
+                <div class="list-table-container">
+                    <table class="list-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 24px;"></th>
+                                <th style="width: 30px; text-align:center;">Icon</th>
+                                <th>Label & Tooltip</th>
+                                <th style="width: 120px; text-align:center;">Running<span id="running-count" class="badge" title="Running scripts">0</span></th>
+                                <th style="width: 50px; text-align:center;">Visible</th>
+                                <th style="width: 100px; text-align:center;">Run at Startup</th>
+                                <th style="width: 120px; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
 
-    <div class="search-wrap" title="Filter items…">
-      <i class="codicon codicon-search"></i>
-      <input id="filter-input" type="text" placeholder="Filter items…">
-    </div>
+            <div id="data-view">
+                <div class="data-title-bar">
+                    <div class="data-title">
+                        <i class="codicon codicon-database"></i>
+                        <span>Stored Data</span>
+                    </div>
+                    <div class="data-search-wrap">
+                        <i class="codicon codicon-search"></i>
+                        <input
+                            id="data-filter-input"
+                            type="text"
+                            placeholder="Filter by key/path…"
+                        >
+                    </div>
+                    <div class="data-actions">
+                        <button
+                            id="clear-all-btn"
+                            type="button"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width:180px">Type</th>
+                                <th>Key / Path</th>
+                                <th style="width:120px">Size</th>
+                                <th style="width:100px; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-    <div class="actions">
-      <button id="import-btn" type="button">Import</button>
-      <button id="export-btn" type="button">Export</button>
-      <button id="restore-btn" type="button" title="Restore sample items">Restore Samples</button>
-      <button id="add-new-item-btn" type="button">Add New Item</button>
-    </div>
-  </div>
+        <div id="edit-view"></div>
 
-  <div id="list-view">
-    <div class="list-column-header">
-      <span class="col-drag"></span>
-      <span class="col-visibility">Visible</span>
-      <span class="col-icon">Icon</span>
-      <span class="col-label">Label</span>
-      <span class="col-actions">Actions</span>
-    </div>
-    <div id="items-list"></div>
-  </div>
-
-  <div id="edit-view"></div>
-
-  <script src="{{monacoUri}}/loader.js"></script>
-  <script src="{{monacoUri}}/vscode-icons.js"></script>
-  <script>
-    const vscode = acquireVsCodeApi();
+        <script src="{{monacoUri}}/loader.js"></script>
+        <script src="{{monacoUri}}/vscode-icons.js"></script>
+        <script>
+            const vscode = acquireVsCodeApi();
     let items = [], currentEditor = null, typeDefs = null;
+    let storedRows = [], dataFilterText = '';
+    let filterText = '';
+    let dataRefreshInterval = null;
+    let runningHost = new Set();
+    let runningPanel = new Set();
+    const getRunningSet = () => { const s = new Set(runningHost); runningPanel.forEach(c => s.add(c)); return s; };
 
-    const listHeader = document.querySelector('.list-header');
-    const listView   = document.getElementById('list-view');
-    const editView   = document.getElementById('edit-view');
+    const listViewWrapper = document.getElementById('list-view-wrapper');
+    const editView = document.getElementById('edit-view');
 
-    /* ---------- Draft helpers ---------- */
+    /* ---------- Draft & State Helpers ---------- */
     const getState   = () => (vscode.getState && vscode.getState()) || {};
     const getDraft   = () => getState().draft || null;
     const writeDraft = (d) => vscode.setState({ ...getState(), draft: d });
-    function saveDraft(part){
-      const cur = getDraft();
-      const next = { ...(cur || {}), ...part, ts: Date.now() };
-      writeDraft(next);
-    }
-    function clearDraftIfMatch(cmd){
-      const cur = getDraft();
-      if (cur?.command === cmd) writeDraft(null);
-    }
-
-    /* ---------- Editing pristine helpers ---------- */
+    function saveDraft(part){ const cur = getDraft(); const next = { ...(cur || {}), ...part, ts: Date.now() }; writeDraft(next); }
+    function clearDraftIfMatch(cmd){ const cur = getDraft(); if (cur?.command === cmd) writeDraft(null); }
     const getEditing   = () => getState().editing || null;
     const writeEditing = (e) => vscode.setState({ ...getState(), editing: e });
     const clearEditing = () => { const s = getState(); delete s.editing; vscode.setState(s); };
 
-    /* ---------- VS Code 原生確認對話框：round-trip ---------- */
+    function updateRunningBadge(){
+      const el = document.getElementById('running-count');
+      if (!el) return;
+      const n = getRunningSet().size;   // 你現有的 union: host + panel
+      el.textContent = String(n);
+      el.classList.toggle('badge--accent', n > 0);
+    }
+
+    /* ---------- VS Code 原生確認對話框 ---------- */
     function confirmDiscardWithVSCode() {
       const token = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
       return new Promise((resolve) => {
@@ -234,165 +367,310 @@
         vscode.postMessage({ command: 'confirmDiscard', token });
       });
     }
+    /* ---------- Formatters ---------- */
+    function formatBytes(n){ if (!Number.isFinite(n)) return '0 B'; const u = ['B','KB','MB','GB']; let i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; } return `${Math.round(n*10)/10} ${u[i]}`; }
+    const typeIcon = (row) => { if (row.kind === 'kv') return 'database'; if (row.ext === 'text') return 'file-text'; if (row.ext === 'json') return 'file-code'; return 'file-binary'; };
 
+    /* ---------- Monaco Editor Setup ---------- */
     require.config({ paths: { 'vs': '{{monacoUri}}' } });
-
-    window.addEventListener('message', e => {
-      const msg = e.data;
-      if (msg.command === 'loadState') {
-        items = msg.items || [];
-        typeDefs = msg.typeDefs;
-        if (msg.activeView === 'edit' && msg.editingItem) {
-          if (editView.style.display === 'flex') return; // 正在編輯就不要重建洗掉
-          const idx = items.findIndex(i => i.command === msg.editingItem.command);
-          showEditView(idx<0?null:idx, msg.editingItem);
-        } else {
-          showListView();
-        }
-      }
-      if (msg.command === 'importDone' && Array.isArray(msg.items)) { items = msg.items; showListView(); }
-      if (msg.command === 'runLog')  { const out = document.getElementById('run-output'); if (out) { out.textContent += msg.chunk; out.parentElement.scrollTop = out.parentElement.scrollHeight; } }
-      if (msg.command === 'runDone') { const out = document.getElementById('run-output'); if (out) { out.textContent += `\n[exit code ${msg.code}]`; out.parentElement.scrollTop = out.parentElement.scrollHeight; } }
-    });
-    vscode.postMessage({ command: 'getSettings' });
-
-    function saveAndPostSettings(){ vscode.postMessage({ command:'updateSettings', items }); }
-
-    /* ---------- 搜尋欄 ---------- */
-    let filterText = '';
-    const filterInput = document.getElementById('filter-input');
-    if (filterInput) {
-      let timer;
-      filterInput.addEventListener('input', () => {
-        clearTimeout(timer);
-        timer = setTimeout(()=>{ filterText = filterInput.value; renderListView(); }, 80);
-      });
-    }
-
-    function showListView(){
-      listHeader.style.display='flex';
-      listView.style.display='block';
-      editView.style.display='none';
-      if (currentEditor) currentEditor.dispose();
-      vscode.postMessage({ command: 'exitEditView' });
-      renderListView();
-    }
-
-    function renderListView(){
-      const el = document.getElementById('items-list');
-      el.innerHTML='';
-      const q = (filterText || '').trim().toLowerCase();
-      const escapeHtml = (s='') => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-      items.forEach((item,i)=>{
-        const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
-        const icon  = m?m[1]:'';
-        const label = m?m[2]:item.text;
-        const cmd   = item.command || '';
-        const tip   = item.tooltip || '';
-
-        if (q && !(label.toLowerCase().includes(q) || tip.toLowerCase().includes(q) || cmd.toLowerCase().includes(q))) return;
-
-        const row = document.createElement('div');
-        row.className='item-summary';
-        if (item.hidden) row.classList.add('is-hidden');
-
-        row.innerHTML = `
-          <span class="drag-handle" title="Drag to reorder"><i class="codicon codicon-grabber"></i></span>
-          <span class="item-visibility">
-            <label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${i}" ${item.hidden?'':'checked'}><span class="slider"></span></label>
-          </span>
-          <span class="item-icon"><i class="codicon codicon-${icon}"></i></span>
-          <div class="item-details">
-            <div class="item-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
-            <div class="item-tooltip" title="${escapeHtml(tip)}">${escapeHtml(tip||'No tooltip')}</div>
-          </div>
-          <div class="item-actions">
-            <button class="btn-ghost edit-item"   data-index="${i}" type="button">Edit</button>
-            <button class="btn-ghost delete-item" data-index="${i}" type="button">Delete</button>
-          </div>
-        `;
-
-        // 拖拉排序
-        row.setAttribute('draggable','true'); row.dataset.index=i;
-        row.addEventListener('dragstart', ev => { el.classList.add('dragging'); ev.dataTransfer.setData('text/plain', String(i)); });
-        row.addEventListener('dragend', ()=> el.classList.remove('dragging'));
-        row.addEventListener('dragover',  ev => ev.preventDefault());
-        row.addEventListener('drop', ev => {
-          ev.preventDefault();
-          const from=+ev.dataTransfer.getData('text/plain'); const to=+row.dataset.index;
-          if (Number.isNaN(from)||Number.isNaN(to)||from===to) return;
-          const moved=items.splice(from,1)[0]; items.splice(from<to?to-1:to,0,moved);
-          saveAndPostSettings(); renderListView();
+    function setupMonaco(item) {
+      require(['vs/editor/editor.main'], ()=> {
+        const ct = document.getElementById('editor-container');
+        if(currentEditor) currentEditor.dispose();
+        const theme = document.body.classList.contains('vscode-light') ? 'vs' : 'vs-dark';
+        currentEditor = monaco.editor.create(ct, {
+          value: item.script,
+          language: 'javascript',
+          theme,
+          automaticLayout: true,
+          lineNumbers: 'relative',
+          glyphMargin: true,
+          folding: true,
+          foldingStrategy: 'auto',
+          showFoldingControls: 'mouseover',
+          matchBrackets: 'always',
+          scrollBeyondLastLine: false,
+          smoothScrolling: true,
+          mouseWheelZoom: true,
+          wordWrap: 'on',
+          wrappingIndent: 'indent',
+          quickSuggestions: { other: true, comments: false, strings: false },
+          quickSuggestionsDelay: 50,
+          parameterHints: { enabled: true, cycle: true },
+          snippetSuggestions: 'inline',
+          suggestOnTriggerCharacters: true,
+          acceptSuggestionOnEnter: 'on',
+          renderWhitespace: 'boundary',
+          renderControlCharacters: true,
+          renderIndentGuides: true,
+          highlightActiveIndentGuide: true,
+          bracketPairColorization: { enabled: true },
+          colorDecorators: true,
+          codeLens: true,
+          lightbulb: { enabled: true },
+          inlayHints: { enabled: true },
+          links: true,
+          multiCursorModifier: 'ctrlCmd',
+          minimap: { enabled: false },
+          target: monaco.languages.typescript.ScriptTarget.ES2020,
+          module: monaco.languages.typescript.ModuleKind.CommonJS,
+          allowNonTsExtensions: true,
         });
 
-        el.appendChild(row);
+        currentEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => document.getElementById('save-item-btn').click());
+        currentEditor.onDidChangeModelContent(() => { saveDraft({ command: item.command, script: currentEditor.getValue() }); });
+
+        if(typeDefs){
+          if(typeDefs.node){ typeDefs.node.forEach(lib => monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, lib.path)); }
+          if(typeDefs.vscode){ monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDefs.vscode, 'file:///vscode.d.ts'); }
+        }
+        const sbhTypeDefs = `
+/**
+ * StatusBarHelper API definition
+ * Provides persistent storage (global/workspace) and file operations for custom scripts
+ */
+interface StatusBarHelper {
+  v1: {
+    /** Global and workspace storage management */
+    storage: {
+      /** Global storage (shared across all workspaces) */
+      global: {
+        /** Get a value from global storage */
+        get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
+        /** Set a value in global storage */
+        set<T>(key: string, value: T): Promise<void>;
+        /** Remove a value from global storage */
+        remove(key: string): Promise<void>;
+        /** Get all keys in global storage */
+        keys(): Promise<string[]>;
+      };
+      /** Workspace storage (only available when a workspace is open) */
+      workspace: {
+        /** Get a value from workspace storage */
+        get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
+        /** Set a value in workspace storage */
+        set<T>(key: string, value: T): Promise<void>;
+        /** Remove a value from workspace storage */
+        remove(key: string): Promise<void>;
+        /** Get all keys in workspace storage */
+        keys(): Promise<string[]>;
+      };
+    };
+    /** File operations for reading/writing files in global/workspace storage */
+    files: {
+      /** Get absolute paths for global/workspace storage folders */
+      dirs(): Promise<{ global: string; workspace: string | null }>;
+
+      /** Read a UTF-8 text file */
+      readText(scope: 'global' | 'workspace', relativePath: string): Promise<string>;
+      /** Write a UTF-8 text file (overwrites existing) */
+      writeText(scope: 'global' | 'workspace', relativePath: string, content: string): Promise<void>;
+
+      /** Read a JSON file */
+      readJSON<T>(scope: 'global' | 'workspace', relativePath: string): Promise<T>;
+      /** Write a JSON file */
+      writeJSON(scope: 'global' | 'workspace', relativePath: string, data: any): Promise<void>;
+
+      /** Read binary file as Uint8Array */
+      readBytes(scope: 'global' | 'workspace', relativePath: string): Promise<Uint8Array>;
+      /**
+       * Write binary file
+       * @param data Can be Uint8Array, ArrayBuffer, or base64 string
+       */
+      writeBytes(scope: 'global' | 'workspace', relativePath: string, data: Uint8Array | ArrayBuffer | string): Promise<void>;
+
+      /** Check if a file or directory exists */
+      exists(scope: 'global' | 'workspace', relativePath: string): Promise<boolean>;
+
+      /** List files and directories in a folder */
+      list(scope: 'global' | 'workspace', relativePath?: string): Promise<{ name: string; type: 'directory' | 'file' }[]>;
+      /** List files with stats (size and relative path) */
+      listStats(scope: 'global' | 'workspace', relativePath?: string): Promise<{ name: string; type: 'file'; size: number; rel: string }[]>;
+
+      /** Remove a file or directory */
+      remove(scope: 'global' | 'workspace', relativePath: string): Promise<void>;
+      /** Clear all files in the given scope */
+      clearAll(scope: 'global' | 'workspace'): Promise<void>;
+    };
+    vm: {
+      /**
+       * Stop the current script's VM from inside the script
+       * @param reason Optional reason object or string
+       */
+      stop(reason?: any): void;
+      /**
+       * Listen for when this VM is stopped externally
+       */
+      onStop(cb: (reason?: any) => void): void;
+      /**
+       * Get the reason for stopping the VM
+       */
+      reason(): any;
+      /**
+       * Stop the VM by command
+       * @param cmd Optional the command to stop; if not provided, it is equivalent to stopping itself.
+       * @param reason Optional reason object or string
+       */
+      stopByCommand(cmd?: string, reason?: any): void;
+    };
+  };
+}
+
+// Global API aliases
+declare const statusBarHelper: StatusBarHelper; // Main API
+declare const sbh: StatusBarHelper;             // Short alias
+declare const SBH: StatusBarHelper;             // Uppercase alias
+`;
+        monaco.languages.typescript.javascriptDefaults.addExtraLib(sbhTypeDefs, 'file:///sbh.d.ts');
       });
     }
 
-    document.getElementById('list-view').addEventListener('click', ev=>{
-      const b = ev.target.closest('button'); if(!b) return;
-      const idx = +b.dataset.index;
-      if (b.classList.contains('edit-item')) showEditView(idx, {...items[idx]});
-      if (b.classList.contains('delete-item')) { items.splice(idx,1); saveAndPostSettings(); renderListView(); }
-    });
+    /* ---------- Main Views Logic ---------- */
+    function showListView() {
+      listViewWrapper.style.display = 'flex';
+      editView.style.display = 'none';
+      if (currentEditor) { currentEditor.dispose(); currentEditor = null; }
+      vscode.postMessage({ command: 'exitEditView' });
+      renderListView();
+      refreshStoredData();
+      if (dataRefreshInterval) clearInterval(dataRefreshInterval);
+      dataRefreshInterval = setInterval(refreshStoredData, 1500);
+      vscode.postMessage({ command: 'vm:refresh' });
+    }
 
-    document.getElementById('list-view').addEventListener('change', ev=>{
-      const cb = ev.target; if(!cb.classList.contains('visibility-toggle')) return;
-      const idx = +cb.dataset.index; items[idx].hidden = !cb.checked; saveAndPostSettings();
-    });
+    function showEditView(index, item) {
+      if (dataRefreshInterval) { clearInterval(dataRefreshInterval); dataRefreshInterval = null; }
+      listViewWrapper.style.display = 'none';
+      editView.style.display = 'flex';
+      renderEditView(index, item);
+      vscode.postMessage({ command: 'enterEditView', item });
+    }
 
-    document.getElementById('add-new-item-btn').addEventListener('click', ()=>{
-      showEditView(null,{ text:'$(rocket) New Item', tooltip:'', command:'my.new.'+Date.now(), script: defaultScript });
-    });
-    document.getElementById('export-btn').addEventListener('click', ()=>vscode.postMessage({ command:'exportSettings', items }));
-    document.getElementById('import-btn').addEventListener('click', ()=>vscode.postMessage({ command:'importSettings' }));
-    document.getElementById('restore-btn').addEventListener('click', ()=>vscode.postMessage({ command:'restoreDefaults' }));
+    /* ---------- List View Rendering & Events ---------- */
+    function renderListView() {
+      const tbody = document.getElementById('items-list-body');
+      tbody.innerHTML = '';
+      const q = filterText.trim().toLowerCase();
+      const escapeHtml = (s='') => s.replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m]);
 
-    const defaultScript = `// Please require any Node.js modules your script needs here
-const vscode = require('vscode');
-const { exec } = require('child_process');
-const fs = require('fs');
-const fsp = require('fs').promises;
-const path = require('path');
-const process = require('process');
-const util = require('util');
+      const filteredItems = items.filter(item => {
+        const label = item.text.replace(/^\$\(([^)]+)\) /, '');
+        return !q || label.toLowerCase().includes(q) || (item.tooltip||'').toLowerCase().includes(q) || (item.command||'').toLowerCase().includes(q);
+      });
 
-// Your script here `;
+      if (!filteredItems.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; opacity:.7">${q ? 'No matching items' : 'No items to display'}</td></tr>`;
+        return;
+      }
 
-    // 為了避免事件委派重覆綁定
+      const runningSet = getRunningSet();
+
+      filteredItems.forEach(item => {
+        const originalIndex = items.indexOf(item);
+        const m = item.text.match(/^\$\(([^)]+)\)(?:\s+(.*))?$/);
+        const icon = m ? m[1] : '';
+        const label = m ? (m[2] ?? '---') : item.text;
+        const isRunning = runningSet.has(item.command);
+        
+        const row = document.createElement('tr');
+        row.className = 'item-row';
+        if (item.hidden) row.classList.add('is-hidden');
+        row.dataset.index = originalIndex;
+        row.setAttribute('draggable', 'true');
+
+        row.innerHTML = `
+          <td class="drag-handle" title="Drag to reorder"><div class="td-content-wrapper"><i class="codicon codicon-grabber"></i></div></td>
+          <td class="item-icon"><div class="td-content-wrapper justify-center"><i class="codicon codicon-${icon || 'ellipsis'}"></i></div></td>
+          <td>
+            <div class="td-content-wrapper">
+              <div class="item-details">
+                <div class="item-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+                <div class="item-tooltip" title="${escapeHtml(item.tooltip || '')}">${escapeHtml(item.tooltip || 'No tooltip')}</div>
+              </div>
+            </div>
+          </td>
+          <td><div class="td-content-wrapper justify-center">${isRunning ? `<span class="running-dot">Running</span>` : `<span style="opacity:.5">—</span>`}</div></td>
+          <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${originalIndex}" ${item.hidden ? '' : 'checked'}><span class="slider"></span></label></div></td>
+          <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="run-on-enable-toggle" data-index="${originalIndex}" ${item.enableOnInit ? 'checked' : ''}><span class="slider"></span></label></div></td>
+          <td class="item-actions">
+            <div class="td-content-wrapper justify-end">
+              <button class="run-now-item" data-index="${originalIndex}" type="button">Run</button>
+              <button class="stop-item" data-index="${originalIndex}" type="button">Stop</button>
+              <button class="edit-item" data-index="${originalIndex}" type="button">Edit</button>
+              <button class="delete-item" data-index="${originalIndex}" type="button">Delete</button>
+            </div>
+          </td>
+        `;
+
+        row.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', originalIndex); e.dataTransfer.effectAllowed = 'move'; });
+        row.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+        row.addEventListener('drop', e => {
+          e.preventDefault();
+          const fromIndex = +e.dataTransfer.getData('text/plain');
+          const toEl = e.target.closest('tr.item-row');
+          if (!toEl || Number.isNaN(fromIndex)) return;
+          const toIndex = +toEl.dataset.index;
+          if (fromIndex === toIndex) return;
+          const movedItem = items.splice(fromIndex, 1)[0];
+          items.splice(toIndex, 0, movedItem);
+          saveAndPostSettings();
+          renderListView();
+        });
+        tbody.appendChild(row);
+      });
+      updateRunningBadge();
+    }
+
+    /* ---------- Stored Data ---------- */
+    function refreshStoredData() { vscode.postMessage({ command: 'data:refresh' }); }
+    function renderStoredData(rows) {
+      storedRows = rows || [];
+      const tbody = document.querySelector('#data-table-body');
+      tbody.innerHTML = '';
+      const q = dataFilterText.trim().toLowerCase();
+      const filteredRows = q ? storedRows.filter(r => r.keyPath.toLowerCase().includes(q)) : storedRows;
+
+      if (!filteredRows.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; opacity:.7">${q ? 'No matching data' : 'No data'}</td></tr>`;
+        return;
+      }
+
+      filteredRows.forEach(r => {
+        const originalIndex = storedRows.indexOf(r);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="type-cell"><span class="type-badge"><i class="codicon codicon-${typeIcon(r)}"></i></span><span>${r.kind==='kv'?`${r.scope} storage`:`${r.scope} ${r.ext}`}</span></td>
+          <td class="mono">${r.keyPath}</td>
+          <td>${formatBytes(r.size)}</td>
+          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    /* ---------- Edit View ---------- */
+    const defaultScript = `// Press Ctrl+S (or Cmd+S) to save\nconst vscode = require('vscode');\nconst { storage, files, vm } = statusBarHelper.v1;\nconst { setTimeout, clearTimeout, setInterval, clearInterval } = require('timers');\nconst { randomUUID } = require('crypto');\nconst fs = require('fs');\nconst path = require('path');\nconst { exec, spawn } = require('child_process');\nconst util = require('util');\n`;
+
     let editClickHandler = null;
-
-    function showEditView(index,item){
-      const isNew = index===null;
+    function renderEditView(index, item) {
+      const isNew = index === null;
       const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
-
-      // 1) 先用「已保存的 item」拆出初始 icon/label（不要先套 draft）
-      let initIcon  = m ? m[1] : '';
+      let initIcon = m ? m[1] : '';
       let initLabel = m ? m[2] : item.text;
+      const original = { icon: initIcon, label: initLabel, tooltip: item.tooltip || '', script: item.script || '' };
 
-      // 2) 建立 original：進入本次編輯當下的基準（不受 draft 影響）
-      const original = {
-        icon: initIcon,
-        label: initLabel,
-        tooltip: item.tooltip || '',
-        script: item.script  || ''
-      };
-
-      // 3) 若尚未有 editing.pristine，存一份在 state（以 command 區分）
       let editing = getEditing();
       if (!editing || editing.command !== item.command || !editing.pristine) {
         editing = { command: item.command, pristine: JSON.stringify(original) };
         writeEditing(editing);
       }
 
-      // 4) 再把 draft 套回 UI 初值（讓沒存完的內容能帶回來）
       const curDraft = getDraft();
       if (curDraft?.command === item.command) {
-        if (curDraft.icon    != null) initIcon     = curDraft.icon;
-        if (curDraft.label   != null) initLabel    = curDraft.label;
+        if (curDraft.icon != null) initIcon = curDraft.icon;
+        if (curDraft.label != null) initLabel = curDraft.label;
         if (curDraft.tooltip != null) item.tooltip = curDraft.tooltip;
-        if (curDraft.script  != null) item.script  = curDraft.script;
+        if (curDraft.script != null) item.script = curDraft.script;
       }
 
       editView.innerHTML = `
@@ -400,65 +678,108 @@ const util = require('util');
           <div class="controls-row">
             <div class="field icon-field">
               <label>Icon</label>
-              <div id="icon-trigger" class="icon-trigger">
-                <i id="selected-icon" class="codicon codicon-${initIcon||'ellipsis'}"></i>
-                <span id="selected-icon-name">${initIcon||'Select icon'}</span>
-                <i class="codicon codicon-chevron-down"></i>
-              </div>
-              <div id="icon-dropdown" class="icon-dropdown">
-                <input type="text" id="icon-search" placeholder="Search icons…" autocomplete="off">
-                <div id="icon-list" class="icon-list"></div>
-              </div>
+              <div id="icon-trigger" class="icon-trigger"><i id="selected-icon" class="codicon codicon-${initIcon||'ellipsis'}"></i><span id="selected-icon-name">${initIcon||'Select icon'}</span><i class="codicon codicon-chevron-down"></i></div>
+              <div id="icon-dropdown" class="icon-dropdown"><input type="text" id="icon-search" placeholder="Search icons…"><div id="icon-list" class="icon-list"></div></div>
             </div>
-            <div class="field label-field">
-              <label for="edit-label">Label</label>
-              <input type="text" id="edit-label">
-            </div>
-            <div class="field tooltip-field">
-              <label for="edit-tooltip">Tooltip</label>
-              <input type="text" id="edit-tooltip">
-            </div>
+            <div class="field label-field"><label for="edit-label">Label</label><input type="text" id="edit-label"></div>
+            <div class="field tooltip-field"><label for="edit-tooltip">Tooltip</label><input type="text" id="edit-tooltip"></div>
             <div class="actions">
-              <button type="button" id="save-item-btn">Save</button>
-              <button type="button" id="cancel-edit-btn">Cancel</button>
               <button type="button" id="run-btn" title="Smart Run (auto-detect)">Run</button>
               <button type="button" id="stop-btn">Stop</button>
+              <button type="button" id="save-item-btn">Save</button>
+              <button type="button" id="cancel-edit-btn">Cancel</button>
             </div>
           </div>
-          <div class="editor-container" id="editor-container"></div>
-          <div class="output-container" id="output-container">
-            <div class="output-header" id="output-toggle">
-              <i class="codicon codicon-terminal"></i>
-              <span class="title">Output</span>
-              <i class="codicon codicon-chevron-down chev" id="output-chevron"></i>
+
+          <div class="eo-stack" id="eo-stack">
+            <div class="editor-container" id="editor-container"></div>
+            <div class="splitter" id="eo-splitter" title="Drag to resize"></div>
+            <div class="output-container" id="output-container">
+              <div class="output-header" id="output-toggle">
+                <i class="codicon codicon-terminal"></i>
+                <span class="title">Output</span>
+                <i class="codicon codicon-chevron-down chev" id="output-chevron"></i>
+              </div>
+              <pre id="run-output"></pre>
             </div>
-            <pre id="run-output"></pre>
           </div>
         </div>`;
 
-      listHeader.style.display='none'; listView.style.display='none'; editView.style.display='flex';
-      document.getElementById('edit-label').value   = initLabel;
-      document.getElementById('edit-tooltip').value = item.tooltip||'';
+      document.getElementById('edit-label').value = initLabel;
+      document.getElementById('edit-tooltip').value = item.tooltip || '';
+      setupMonaco(item);
 
-      // Icon 下拉（浮到 body，不擠版）
-      let selectedIcon = initIcon;
-      const trigger  = document.getElementById('icon-trigger');
-      const dropdown = document.getElementById('icon-dropdown');
-      const inEl     = document.getElementById('icon-search');
-      const listEl   = document.getElementById('icon-list');
-      const host     = trigger.parentElement;
-      let isOpen=false, detachFn=null;
+      /* --- Editor/Output resizer & collapse-aware layout --- */
+      const stackEl  = document.getElementById('eo-stack');
+      const splitEl  = document.getElementById('eo-splitter');
+      const editorEl = document.getElementById('editor-container');
+      const outEl    = document.getElementById('output-container');
+      const SPLIT_MIN_EDITOR = 120; // 編輯器區域的最小高度（px），避免被拖到太小看不到
+      const SPLIT_MIN_OUTPUT = 60;  // Output 區塊的最小高度（px）
+      const SPLIT_BAR = 6;          // 中間分隔條的厚度（px）
 
-      function placeDropdown(){
-        const r = trigger.getBoundingClientRect();
-        Object.assign(dropdown.style,{
-          position:'fixed', left:`${Math.round(r.left)}px`, top:`${Math.round(r.bottom)}px`,
-          width:`${Math.round(r.width)}px`, display:'block'
+      function isCollapsed(){ return !!getState().outCollapsed; }
+      function setCollapsed(b){ vscode.setState({ ...getState(), outCollapsed: !!b }); }
+
+      function getSplitState(){ const s = getState(); return typeof s.splitRatio === 'number' ? s.splitRatio : 0.65; }
+      function setSplitState(r){ vscode.setState({ ...getState(), splitRatio: r }); }
+
+      function applySplitByRatio(r){
+        const H = stackEl.clientHeight - SPLIT_BAR;
+        const edH = Math.max(SPLIT_MIN_EDITOR, Math.min(H - SPLIT_MIN_OUTPUT, Math.round(H * r)));
+        const outH = Math.max(SPLIT_MIN_OUTPUT, H - edH);
+        editorEl.style.height = edH + 'px';
+        outEl.style.height    = outH + 'px';
+        if (currentEditor) currentEditor.layout();
+      }
+      function applyLayout(){
+        const H = stackEl.clientHeight - SPLIT_BAR;
+        if (isCollapsed()) {
+          const headerH = outEl.querySelector('.output-header').offsetHeight || 28;
+          const edH = Math.max(SPLIT_MIN_EDITOR, H - headerH);
+          editorEl.style.height = edH + 'px';
+          outEl.style.height    = headerH + 'px';
+        } else {
+          applySplitByRatio(getSplitState());
+        }
+      }
+      function bindSplitter(){
+        let startY = 0, startEdH = 0, totalH = 0;
+        const onMove = (e)=>{
+          const dy = e.clientY - startY;
+          const H = totalH - SPLIT_BAR;
+          const edH = Math.max(SPLIT_MIN_EDITOR, Math.min(H - SPLIT_MIN_OUTPUT, startEdH + dy));
+          const ratio = edH / H;
+          editorEl.style.height = edH + 'px';
+          outEl.style.height    = (H - edH) + 'px';
+          if (currentEditor) currentEditor.layout();
+          setSplitState(ratio);
+        };
+        const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+        splitEl.addEventListener('mousedown', (e)=>{
+          if (isCollapsed()) return; // ignore drag while collapsed
+          e.preventDefault();
+          startY   = e.clientY;
+          startEdH = editorEl.getBoundingClientRect().height;
+          totalH   = stackEl.getBoundingClientRect().height;
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
         });
       }
-      function openDropdown(){
-        if(isOpen) return; isOpen=true;
-        document.body.appendChild(dropdown); placeDropdown(); inEl.focus();
+      applyLayout();
+      bindSplitter();
+      window.addEventListener('resize', () => applyLayout(), { passive:true });
+
+      // Icon dropdown logic
+      let selectedIcon = initIcon;
+      const trigger = document.getElementById('icon-trigger');
+      const dropdown = document.getElementById('icon-dropdown');
+      const inEl = document.getElementById('icon-search');
+      const listEl = document.getElementById('icon-list');
+      const host = trigger.parentElement;
+      let isOpen = false, detachFn = null;
+      function placeDropdown(){ const r = trigger.getBoundingClientRect(); Object.assign(dropdown.style,{ position:'fixed', left:`${Math.round(r.left)}px`, top:`${Math.round(r.bottom)}px`, width:`${Math.round(r.width)}px`, display:'block' }); }
+      function openDropdown(){ if(isOpen) return; isOpen=true; document.body.appendChild(dropdown); placeDropdown(); inEl.focus();
         const onDocClick = (e)=>{ if(e.target===trigger||trigger.contains(e.target)||dropdown.contains(e.target)) return; closeDropdown(); };
         const onScrollOrResize = ()=>{ if(isOpen) placeDropdown(); };
         document.addEventListener('click', onDocClick);
@@ -466,158 +787,195 @@ const util = require('util');
         window.addEventListener('scroll', onScrollOrResize, {passive:true});
         detachFn = ()=>{ document.removeEventListener('click', onDocClick); window.removeEventListener('resize', onScrollOrResize); window.removeEventListener('scroll', onScrollOrResize); };
       }
-      function closeDropdown(){
-        if(!isOpen) return; isOpen=false;
-        dropdown.style.display='none'; host.appendChild(dropdown);
-        if(detachFn){ detachFn(); detachFn=null; }
-      }
-      function renderIcons(filter=''){
-        const f=filter.toLowerCase(); listEl.innerHTML='';
-        vscodeIcons.filter(n=>n.toLowerCase().includes(f)).forEach(name=>{
-          const d=document.createElement('div'); d.className='icon-item'+(name===selectedIcon?' selected':'');
-          d.innerHTML=`<i class="codicon codicon-${name}" title="${name}"></i>`;
-          d.onclick=()=>{
-            selectedIcon=name;
-            document.getElementById('selected-icon').className=`codicon codicon-${name}`;
-            document.getElementById('selected-icon-name').textContent=name;
-            saveDraft({ command: item.command, icon: name });
-            closeDropdown();
-          };
-          listEl.appendChild(d);
-        });
-      }
+      function closeDropdown(){ if(!isOpen) return; isOpen=false; dropdown.style.display='none'; host.appendChild(dropdown); if(detachFn){ detachFn(); detachFn=null; } }
+      function renderIcons(filter=''){ const f=filter.toLowerCase(); listEl.innerHTML=''; vscodeIcons.filter(n=>n.toLowerCase().includes(f)).forEach(name=>{
+        const d=document.createElement('div'); d.className='icon-item'+(name===selectedIcon?' selected':'');
+        d.innerHTML=`<i class="codicon codicon-${name}" title="${name}"></i>`;
+        d.onclick=()=>{ selectedIcon=name; document.getElementById('selected-icon').className=`codicon codicon-${name}`; document.getElementById('selected-icon-name').textContent=name; saveDraft({ command: item.command, icon: name }); closeDropdown(); };
+        listEl.appendChild(d);
+      });}
       trigger.onclick = ()=> (isOpen ? closeDropdown() : openDropdown());
       inEl.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeDropdown(); trigger.focus(); } if(e.key==='Enter'){ const first=listEl.querySelector('.icon-item'); if(first) first.click(); } });
       let iconTimer; inEl.oninput = ()=>{ clearTimeout(iconTimer); iconTimer=setTimeout(()=>renderIcons(inEl.value.trim()), 80); };
       renderIcons();
 
-      // Monaco
-      require(['vs/editor/editor.main'], ()=>{
-        const ct=document.getElementById('editor-container');
-        if(currentEditor) currentEditor.dispose();
-        const theme=document.body.classList.contains('vscode-light')?'vs':'vs-dark';
-        currentEditor=monaco.editor.create(ct,{
-          lineNumbers:'relative', glyphMargin:true, folding:true, foldingStrategy:'auto', showFoldingControls:'mouseover',
-          matchBrackets:'always', scrollBeyondLastLine:false, smoothScrolling:true, mouseWheelZoom:true,
-          wordWrap:'bounded', wrappingIndent:'indent', quickSuggestions:{other:true,comments:false,strings:false},
-          quickSuggestionsDelay:50, parameterHints:{enabled:true,cycle:true}, snippetSuggestions:'inline',
-          suggestOnTriggerCharacters:true, acceptSuggestionOnEnter:'on', renderWhitespace:'boundary',
-          renderControlCharacters:true, renderIndentGuides:true, highlightActiveIndentGuide:true,
-          bracketPairColorization:{enabled:true}, colorDecorators:true, codeLens:true, lightbulb:{enabled:true},
-          inlayHints:{enabled:true}, links:true, multiCursorModifier:'ctrlCmd',
-          value:item.script, language:'javascript', theme, automaticLayout:true, minimap:{enabled:false},
-          target: monaco.languages.typescript.ScriptTarget.ES2020,
-          module: monaco.languages.typescript.ModuleKind.CommonJS,
-          allowNonTsExtensions:true,
-        });
-        currentEditor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS, ()=>document.getElementById('save-item-btn').click());
-        currentEditor.onDidChangeModelContent(()=>{ saveDraft({ command: item.command, script: currentEditor.getValue() }); });
+      // Edit inputs
+      document.getElementById('edit-label').addEventListener('input', e => { saveDraft({ command: item.command, label: e.target.value }); });
+      document.getElementById('edit-tooltip').addEventListener('input', e => { saveDraft({ command: item.command, tooltip: e.target.value }); });
 
-        if(typeDefs){
-          if(typeDefs.node){ typeDefs.node.forEach(lib=>monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, lib.path)); }
-          if(typeDefs.vscode){ monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDefs.vscode,'file:///vscode.d.ts'); }
+      // Output collapse toggle
+      document.getElementById('output-toggle').onclick = () => {
+        const oc  = document.getElementById('output-container');
+        const pre = document.getElementById('run-output');
+        if (isCollapsed()) {
+          oc.classList.remove('collapsed');
+          pre.removeAttribute('hidden');
+          setCollapsed(false);
+        } else {
+          oc.classList.add('collapsed');
+          pre.setAttribute('hidden','');
+          setCollapsed(true);
         }
-      });
-
-      // 欄位改動 → 草稿
-      document.getElementById('edit-label').addEventListener('input', e=>{
-        saveDraft({
-          command: item.command,
-          icon: selectedIcon,
-          label: e.target.value,
-          tooltip: document.getElementById('edit-tooltip').value,
-          script: currentEditor ? currentEditor.getValue() : item.script
-        });
-      });
-      document.getElementById('edit-tooltip').addEventListener('input', e=>{
-        saveDraft({
-          command: item.command,
-          icon: selectedIcon,
-          label: document.getElementById('edit-label').value,
-          tooltip: e.target.value,
-          script: currentEditor ? currentEditor.getValue() : item.script
-        });
-      });
-
-      // 以 state.editing.pristine 作為比較基準
-      const hasUnsaved = () => {
-        const current = {
-          icon: selectedIcon,
-          label: document.getElementById('edit-label').value,
-          tooltip: document.getElementById('edit-tooltip').value,
-          script: currentEditor ? currentEditor.getValue() : (item.script || '')
-        };
-        const ed = getEditing();
-        const pristineJson = (ed && ed.command === item.command) ? ed.pristine : JSON.stringify(current);
-        return JSON.stringify(current) !== pristineJson;
+        applyLayout();
+        setTimeout(() => { if (currentEditor) currentEditor.layout(); }, 0);
       };
 
-      // Output 收合
-      const outputContainer=document.getElementById('output-container');
-      document.getElementById('output-toggle').onclick=()=>{
-        outputContainer.classList.toggle('collapsed');
-        setTimeout(()=>{ if(currentEditor) currentEditor.layout(); },0);
-      };
-
-      // 事件委派（避免重複綁定）
+      // Buttons
       if (editClickHandler) editView.removeEventListener('click', editClickHandler);
-      editClickHandler = (ev) => {
+      editClickHandler = async (ev) => {
         const btn = ev.target.closest('button');
         if (!btn) return;
 
         if (btn.id === 'save-item-btn') {
-          const lbl=document.getElementById('edit-label').value.trim();
-          let txt=lbl; if(selectedIcon) txt = `$(${selectedIcon}) ${lbl}`;
-          const upd={ ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
+          const lbl = document.getElementById('edit-label').value.trim();
+          let txt = lbl; if(selectedIcon) txt = `\$(${selectedIcon}) ${lbl}`;
+          const upd = { ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
           if(isNew) items.push(upd); else items[index]=upd;
           saveAndPostSettings();
           clearDraftIfMatch(item.command);
           clearEditing();
-          closeDropdown();
           showListView();
-          return;
         }
-
-        if (btn.id === 'cancel-edit-btn') {
-          const discardAndBack = () => {
-            clearDraftIfMatch(item.command);
-            clearEditing();
-            closeDropdown();
-            showListView();
+        else if (btn.id === 'cancel-edit-btn') {
+          const hasUnsaved = () => {
+            const current = { icon: selectedIcon, label: document.getElementById('edit-label').value, tooltip: document.getElementById('edit-tooltip').value, script: currentEditor ? currentEditor.getValue() : (item.script || '') };
+            const ed = getEditing();
+            const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify(original);
+            return JSON.stringify(current) !== pristineJson;
           };
-          if (!hasUnsaved()) {
-            discardAndBack();
-          } else {
-            confirmDiscardWithVSCode().then(ok => { if (ok) discardAndBack(); });
-          }
-          return;
+          const discardAndBack = () => { clearDraftIfMatch(item.command); clearEditing(); showListView(); };
+          if (hasUnsaved()) { if (await confirmDiscardWithVSCode()) discardAndBack(); } else { discardAndBack(); }
         }
-
-        if (btn.id === 'run-btn') {
+        else if (btn.id === 'run-btn') {
           const code = currentEditor.getValue();
+          const cmd  = item.command;
           const out = document.getElementById('run-output');
-          out.textContent = '';
-          outputContainer.classList.remove('collapsed');
-          const stripComments = (src)=>src.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
-          const usesVsCode = (code)=>{ const s=stripComments(code); return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])vscode\./.test(s); };
-          if (usesVsCode(code)) {
-            out.textContent = '▶ Detected VS Code API — running in VS Code mode…\n';
-            vscode.postMessage({ command:'runScriptTrusted', code });
-          } else {
-            vscode.postMessage({ command:'runScript', code });
-          }
-          return;
-        }
+          out.textContent = '▶ Running script...\n';
+          const oc = document.getElementById('output-container');
+          oc.classList.remove('collapsed');
+          out.removeAttribute('hidden');
+          setCollapsed(false);
+          applyLayout();
 
-        if (btn.id === 'stop-btn') {
-          vscode.postMessage({ command:'stopRun' });
-          return;
+          const stripComments = (src)=>src.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
+          const usesVsCode = (code)=>{ const s=stripComments(code); return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s); };
+          vscode.postMessage({ command: usesVsCode(code) ? 'runScriptTrusted' : 'runScript', code, itemCommand: cmd });
+        }
+        else if (btn.id === 'stop-btn') {
+          const cmd  = item.command;
+          vscode.postMessage({ command:'stopByCommand' , itemCommand: cmd });
         }
       };
       editView.addEventListener('click', editClickHandler);
-
-      vscode.postMessage({ command:'enterEditView', item });
     }
-  </script>
-</body>
+
+    /* ---------- Global Event Listeners ---------- */
+    function saveAndPostSettings(){ vscode.postMessage({ command:'updateSettings', items }); }
+
+    document.getElementById('filter-input').addEventListener('input', e => {
+      clearTimeout(e.target.timer);
+      e.target.timer = setTimeout(() => { filterText = e.target.value; renderListView(); }, 80);
+    });
+
+    document.getElementById('data-filter-input').addEventListener('input', e => {
+      clearTimeout(e.target.timer);
+      e.target.timer = setTimeout(() => { dataFilterText = e.target.value; renderStoredData(storedRows); }, 80);
+    });
+
+    document.getElementById('list-view').addEventListener('click', e => {
+      const target = e.target.closest('button, input');
+      if (!target) return;
+      const index = +target.closest('tr')?.dataset.index;
+      if (Number.isNaN(index)) return;
+
+      if (target.classList.contains('edit-item')) {
+        showEditView(index, { ...items[index] });
+      }
+      else if (target.classList.contains('delete-item')) {
+        items.splice(index, 1);
+        saveAndPostSettings();
+        renderListView();
+      }
+      else if (target.classList.contains('visibility-toggle')) {
+        items[index].hidden = !target.checked;
+        saveAndPostSettings();
+        target.closest('tr').classList.toggle('is-hidden', items[index].hidden);
+      }
+      else if (target.classList.contains('run-on-enable-toggle')) {
+        items[index].enableOnInit = target.checked;
+        saveAndPostSettings();
+      } else if (target.classList.contains('run-now-item')) {
+        const itemToRun = items[index];
+        vscode.postMessage({ command: 'runScriptTrusted', code: itemToRun.script, itemCommand: itemToRun.command });
+      } else if (target.classList.contains('stop-item')) {
+        const itemToStop = items[index];
+        vscode.postMessage({ command: 'stopByCommand', itemCommand: itemToStop.command });
+      }
+    });
+
+    document.getElementById('data-view').addEventListener('click', e => {
+      const target = e.target.closest('button.data-del');
+      if (!target) return;
+      const index = +target.dataset.i;
+      if (Number.isNaN(index) || !storedRows[index]) return;
+      vscode.postMessage({ command: 'data:delete', row: storedRows[index] });
+    });
+
+    document.getElementById('add-new-item-btn').onclick = () => showEditView(null, { 
+      text:'New Item', tooltip:'', command:'my.new.'+Date.now(), script: defaultScript, enableOnInit: false, hidden: false
+    });
+    
+    document.getElementById('export-btn').onclick = () => vscode.postMessage({ command:'exportSettings', items });
+    document.getElementById('import-btn').onclick = () => vscode.postMessage({ command:'importSettings' });
+    document.getElementById('restore-btn').onclick = () => vscode.postMessage({ command:'restoreDefaults' });
+    document.getElementById('clear-all-btn').onclick = async () => vscode.postMessage({ command: 'data:clearAll' });
+
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      switch (msg.command) {
+        case 'loadState':
+          items = msg.items || [];
+          typeDefs = msg.typeDefs;
+          if (msg.activeView === 'edit' && msg.editingItem) {
+            const idx = items.findIndex(i => i.command === msg.editingItem.command);
+            showEditView(idx < 0 ? null : idx, msg.editingItem);
+          } else {
+            showListView();
+          }
+          break;
+        case 'importDone':
+          items = msg.items || [];
+          showListView();
+          break;
+        case 'runLog': {
+          const out = document.getElementById('run-output');
+          if (out) { out.textContent += msg.chunk; out.parentElement.scrollTop = out.parentElement.scrollHeight; }
+          break;
+        }
+        case 'runDone': {
+          const out = document.getElementById('run-output');
+          if (out) { out.textContent += `\n[exit code ${msg.code}] ${msg.chunk}`; out.parentElement.scrollTop = out.parentElement.scrollHeight; }
+          break;
+        }
+        case 'data:setRows':
+          renderStoredData(msg.rows || []);
+          break;
+        case 'themeChanged':
+          if (currentEditor) {
+            const themeName = msg.isDark ? 'vs-dark' : 'vs';
+            monaco.editor.setTheme(themeName);
+          }
+          break;
+        case 'vm:setRunning': {
+          runningHost = new Set(msg.hostRunning || []);
+          runningPanel = new Set(msg.panelRunning || []);
+          renderListView();
+          break;
+        }
+      }
+    });
+
+    vscode.postMessage({ command: 'getSettings' });
+        </script>
+    </body>
 </html>

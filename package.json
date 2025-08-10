@@ -1,8 +1,8 @@
 {
   "name": "status-bar-helper",
   "displayName": "Status Bar Helper",
-  "description": "在 VS Code 狀態列放上自訂按鈕；支援 VS Code 與 Node.js API，並內建 Log / Git / Board 範例與設定面板。",
-  "version": "1.0.0",
+  "description": "在 VS Code 狀態列建立自訂按鈕，支援 VS Code 與 Node.js API，並內建 Log、Git、Board 等可擴充範例腳本與可視化設定面板。",
+  "version": "1.1.0",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",

@@ -2,6 +2,278 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
+import {
+  DEFAULT_MINIMAL_LOG_SCRIPT,
+  DEFAULT_GIT_ADD_SCRIPT,
+  DEFAULT_SBH_STORAGE_SCRIPT,
+  DEFAULT_TOGGLE_THEME_SCRIPT,
+  DEFAULT_WHITEBOARD_SCRIPT,
+  DEFAULT_POMODORO_SCRIPT
+} from './default-items';
+import { SettingsPanel } from './SettingsPanel';
+
+let _runOnceExecutedCommands: Set<string> = new Set();
+
+// ─────────────────────────────────────────────────────────────
+// 常數與小工具
+// ─────────────────────────────────────────────────────────────
+const fsp = fs.promises;
+const KV_PREFIX = 'sbh.kv.';
+const STORAGE_KEY_LIMIT   =  512 * 1024;      // 512KB
+const STORAGE_TOTAL_LIMIT = 20 * 1024 * 1024; // 20MB
+const JSON_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
+const TEXT_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
+const FILE_SIZE_LIMIT     = 20 * 1024 * 1024; // 20MB
+
+const utf8Bytes = (v: any): number => {
+  try {
+    if (typeof v === 'string') return Buffer.byteLength(v, 'utf8');
+    return Buffer.byteLength(JSON.stringify(v ?? null), 'utf8');
+  } catch { return 0; }
+};
+
+const toBridgeError = (e: unknown) =>
+  ({ ok: false, error: (e as any)?.message ?? String(e) });
+
+const scopeBase = (scope: 'global'|'workspace', ctx: vscode.ExtensionContext) => {
+  if (scope === 'global') return ctx.globalStorageUri.fsPath;
+  const ws = ctx.storageUri?.fsPath;
+  if (!ws) throw new Error('workspace storage not available');
+  return ws;
+};
+
+const inside = (base: string, rel = '') => {
+  if (!rel) return base;
+  if (path.isAbsolute(rel)) throw new Error('absolute path not allowed');
+  if (rel.includes('..')) throw new Error('path escape rejected');
+  const abs = path.resolve(base, rel);
+  const baseAbs = path.resolve(base);
+  if (!abs.startsWith(baseAbs)) throw new Error('path escape rejected');
+  return abs;
+};
+
+const ensureDir = async (absFile: string) => {
+  await fsp.mkdir(path.dirname(absFile), { recursive: true }).catch(() => {});
+};
+
+// ─────────────────────────────────────────────────────────────
+// ★ Runtime Manager（依 command 管理 VM）
+// ─────────────────────────────────────────────────────────────
+type RuntimeCtx = {
+  abort: AbortController;
+  timers: Set<NodeJS.Timeout>;
+  disposables: Set<vscode.Disposable>;
+};
+
+const RUNTIMES = new Map<string, RuntimeCtx>();
+
+function abortByCommand(command: string, reason: any = { type: 'external', at: Date.now() }) {
+  const ctx = RUNTIMES.get(command);
+  if (!ctx) return false;
+  try { ctx.abort.abort(reason); } catch {}
+  RUNTIMES.delete(command);
+  return true;
+}
+
+function buildSbh() {
+  // 透過 _bridge 指令統一呼叫；提供給 VM 沙箱
+  const call = async (ns: string, fn: string, ...args: any[]) => {
+    const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns, fn, args }) as any;
+    if (r && r.ok) return r.data;
+    throw new Error(r?.error || 'bridge error');
+  };
+
+  return {
+    v1: {
+      storage: {
+        global: {
+          get:  (key: string, def?: any) => call('storage', 'getGlobal', key, def),
+          set:  (key: string, val: any)  => call('storage', 'setGlobal', key, val),
+          remove: (key: string)          => call('storage', 'removeGlobal', key),
+          keys: ()                       => call('storage', 'keysGlobal'),
+        },
+        workspace: {
+          get:  (key: string, def?: any) => call('storage', 'getWorkspace', key, def),
+          set:  (key: string, val: any)  => call('storage', 'setWorkspace', key, val),
+          remove: (key: string)          => call('storage', 'removeWorkspace', key),
+          keys: ()                       => call('storage', 'keysWorkspace'),
+        },
+      },
+      files: {
+        dirs:       () => call('files', 'dirs'),
+        readText:   (scope: 'global'|'workspace', rel: string) => call('files', 'readText', scope, rel),
+        writeText:  (scope: 'global'|'workspace', rel: string, s: string) => call('files', 'writeText', scope, rel, s),
+        readJSON:   (scope: 'global'|'workspace', rel: string) => call('files', 'readJSON', scope, rel),
+        writeJSON:  (scope: 'global'|'workspace', rel: string, data: any) => call('files', 'writeJSON', scope, rel, data),
+        readBytes:  (scope: 'global'|'workspace', rel: string) => call('files', 'readBytes', scope, rel),
+        writeBytes: (scope: 'global'|'workspace', rel: string, data: Uint8Array|ArrayBuffer|string) => call('files', 'writeBytes', scope, rel, data),
+        exists:     (scope: 'global'|'workspace', rel: string) => call('files', 'exists', scope, rel),
+        list:       (scope: 'global'|'workspace', rel?: string) => call('files', 'list', scope, rel ?? ''),
+        listStats:  (scope: 'global'|'workspace', rel?: string) => call('files', 'listStats', scope, rel ?? ''),
+        remove:     (scope: 'global'|'workspace', rel: string) => call('files', 'remove', scope, rel),
+        clearAll:   (scope: 'global'|'workspace') => call('files', 'clearAll', scope),
+      },
+      // vm 會在 runScriptInVm 執行時注入
+      vm: {} as any,
+    }
+  };
+}
+
+/** 封裝：在 Extension Host 內跑 VM（依 command 註冊、可被 stop） */
+function runScriptInVm(
+  context: vscode.ExtensionContext,
+  command: string,
+  code: string,
+  origin: 'statusbar' | 'autorun' | 'settingsPanel'
+) {
+  // 同 command 舊 VM 先取代
+  abortByCommand(command, { type: 'replaced', from: origin, at: Date.now() });
+
+  const abort = new AbortController();
+  const signal = abort.signal;
+  const timers = new Set<NodeJS.Timeout>();
+  const disposables = new Set<vscode.Disposable>();
+
+  const wrapTimeout = <T extends (...a: any[]) => any>(orig: T) =>
+    ((...args: any[]) => { const h = orig(...args); timers.add(h as any); return h; }) as unknown as T;
+
+  // 方便往設定面板丟訊息
+  const postToSettingsPanel = (m: any) => {
+    if (origin !== 'settingsPanel') return;
+    const p = (SettingsPanel.currentPanel as any);
+    p?._panel?.webview?.postMessage?.(m);
+  };
+
+  // 讓 console.* 也回傳到 webview 的 Output
+  const makeConsoleProxy = (base: Console) => {
+    const forward = (level: 'log'|'info'|'warn'|'error') =>
+      (...args: any[]) => {
+        try { (base as any)[level](...args); } catch {}
+        // 轉成字串（盡量好看）
+        const text = args.map(a => {
+          if (typeof a === 'string') return a;
+          try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+        }).join(' ') + '\n';
+        postToSettingsPanel({ command: 'runLog', chunk: text });
+      };
+    return {
+      ...base,
+      log:  forward('log'),
+      info: forward('info'),
+      warn: forward('warn'),
+      error: forward('error'),
+    } as Console;
+  };
+
+  // 深層 proxy vscode（原本就有）
+  const makeDeepVscodeProxy = (root: any) => {
+    const cache = new WeakMap<object, any>();
+    const wrapFn = (fn: Function, thisArg: any) => (...args: any[]) => {
+      if (signal.aborted) throw new Error('Execution stopped');
+      const ret = Reflect.apply(fn, thisArg, args);
+      if (ret && typeof ret === 'object' && typeof (ret as any).dispose === 'function') {
+        try { disposables.add(ret as vscode.Disposable); } catch {}
+      }
+      return ret;
+    };
+    const proxify = (obj: any): any => {
+      if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return obj;
+      if (cache.has(obj)) return cache.get(obj);
+      const p = new Proxy(obj, {
+        get(t, prop, recv) {
+          const v = Reflect.get(t, prop, recv);
+          if (typeof v === 'function') return wrapFn(v, t);
+          if (v && (typeof v === 'object' || typeof v === 'function')) return proxify(v);
+          return v;
+        }
+      });
+      cache.set(obj, p);
+      return p;
+    };
+    return proxify(root);
+  };
+
+  const sandbox: any = {
+    fs, path, process,
+    // ▶ 如果從 settingsPanel 跑，就用 proxy console，把輸出回傳給 webview
+    console: origin === 'settingsPanel' ? makeConsoleProxy(console) : console,
+    __dirname: path.dirname(context.extensionPath),
+    require: (m: string) => {
+      if (m === 'vscode') return sandbox.vscode;
+      if (require.resolve(m) === m) return require(m); // 只允許 Node 內建模組
+      throw new Error(`Only built-in modules are allowed: ${m}`);
+    }
+  };
+  sandbox.Buffer = require('buffer').Buffer;
+  sandbox.vscode = makeDeepVscodeProxy(vscode);
+
+  // 注入 sbh 與 vm API
+  const api = buildSbh();
+
+  (api as any).v1.vm = {
+    onStop: (handler: (r:any)=>void) => {
+      if (signal.aborted) { queueMicrotask(() => handler((signal as any).reason)); return () => {}; }
+      const h = () => handler((signal as any).reason);
+      signal.addEventListener('abort', h, { once: true });
+      return () => signal.removeEventListener('abort', h);
+    },
+    stop: (reason?: any) => {
+      try { abort.abort(reason ?? { type: 'userStop', at: Date.now() }); } catch {}
+    },
+    reason: () => (signal as any).reason,
+    command,
+    stopByCommand: (cmd?: string, reason?: any) => {
+      try { abortByCommand(cmd ?? command, reason ?? { type: 'userStop', at: Date.now() }); } catch {}
+    },
+    signal,
+  };
+
+  // 當 VM 結束時通知 webview（對 Trusted VM 也要有 runDone）
+  sandbox.__sbhDone = (code: number) => {
+    if (code === 0) {
+      postToSettingsPanel({ command: 'runDone', code, chunk: '[Run succeeded]' });
+    } else {
+      postToSettingsPanel({ command: 'runDone', code, chunk: '[Run failed]' });
+    }
+  };
+
+  sandbox.sbh = sandbox.statusBarHelper = sandbox.SBH = api;
+
+  // 攔住計時器，便於 stop 清掉
+  sandbox.setTimeout  = wrapTimeout(setTimeout);
+  sandbox.setInterval = wrapTimeout(setInterval);
+  sandbox.clearTimeout  = (h: any) => { timers.delete(h); clearTimeout(h); };
+  sandbox.clearInterval = (h: any) => { timers.delete(h); clearInterval(h); };
+
+  // 記錄這顆 VM
+  RUNTIMES.set(command, { abort, timers, disposables });
+
+  // 被 stop 時清理
+  signal.addEventListener('abort', () => {
+    for (const t of timers) { try { clearTimeout(t); clearInterval(t as any); } catch {} }
+    for (const d of disposables) { try { d.dispose(); } catch {} }
+    RUNTIMES.delete(command);
+    // 如果是從設定面板跑的，中止也當作 done（非 0 退出碼）
+    postToSettingsPanel({ command: 'runDone', code: 0 , chunk: '[VM closed]' });
+  }, { once: true });
+
+  // 包起來：resolve / reject 都會呼叫 __sbhDone
+  const wrapped =
+    `(async()=>{try{${code}}catch(e){console.error('❌',e&&(e.stack||e.message||e));throw e}})()
+      .then(()=>{try{__sbhDone?.(0)}catch{}})
+      .catch(()=>{try{__sbhDone?.(1)}catch{}})`;
+
+  try {
+    vm.runInNewContext(wrapped, sandbox);
+  } catch (e) {
+    RUNTIMES.delete(command);
+    // 啟動失敗也要把錯誤丟給 webview
+    postToSettingsPanel({ command: 'runLog', chunk: `[VM bootstrap error] ${(e as any)?.message || String(e)}\n` });
+    postToSettingsPanel({ command: 'runDone', code: 1  , chunk: '[Run failed]' });
+    throw e;
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────
 // 狀態列項目管理
@@ -9,7 +281,7 @@ import * as vm from 'vm';
 let itemDisposables: vscode.Disposable[] = [];
 let gearItem: vscode.StatusBarItem | null = null;
 
-function updateStatusBarItems(context: vscode.ExtensionContext) {
+function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation = false) {
   // 清掉舊的
   itemDisposables.forEach(d => d.dispose());
   itemDisposables = [];
@@ -18,36 +290,20 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
   const items = config.get<any[]>('items', []);
 
   items.forEach((item, index) => {
-    const { text, tooltip, command, script, hidden } = item || {};
-    if (!text || !command || hidden) return;
-
+    const { text, tooltip, command, script, hidden, enableOnInit } = item || {};
+    if (hidden && !enableOnInit) {
+      return;
+    }
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100 - index);
     statusBarItem.text = text;
     statusBarItem.tooltip = tooltip;
     statusBarItem.command = command;
 
-    // 每個 item 對應一個 command，VM 內執行腳本（允許 vscode + Node 內建模組）
+    // 每個 item 對應一個 command：透過 runScriptInVm 執行
     const commandDisposable = vscode.commands.registerCommand(command, () => {
       if (!script) return;
-
-      const sandbox = {
-        vscode,
-        fs,
-        path,
-        process,
-        console: console,
-        __dirname: path.dirname(context.extensionPath),
-        require: (moduleName: string) => {
-          if (moduleName === 'vscode') return vscode;
-          // 只允許 Node 內建模組
-          if (require.resolve(moduleName) === moduleName) return require(moduleName);
-          throw new Error(`Only built-in modules are allowed: ${moduleName}`);
-        }
-      };
-
-      const wrapped = `(function(){ ${script} })();`;
       try {
-        vm.runInNewContext(wrapped, sandbox);
+        runScriptInVm(context, command, script, 'statusbar');
       } catch (e: any) {
         vscode.window.showErrorMessage(`❌ Script error: ${e?.message || String(e)}`);
         console.error(e);
@@ -55,14 +311,27 @@ function updateStatusBarItems(context: vscode.ExtensionContext) {
     });
 
     itemDisposables.push(statusBarItem, commandDisposable);
-    statusBarItem.show();
+
+    if (!hidden) {
+      statusBarItem.show();
+    }
+
+    if (firstActivation && enableOnInit && !_runOnceExecutedCommands.has(command)) {
+      try {
+        runScriptInVm(context, command, script, 'autorun');
+        _runOnceExecutedCommands.add(command);
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`❌ Script error (Run Once): ${e?.message || String(e)}`);
+        console.error(e);
+      }
+    }
   });
 }
 
 function refreshGearButton() {
   if (gearItem) { gearItem.dispose(); gearItem = null; }
   const enabled = vscode.workspace.getConfiguration('statusBarHelper')
-    .get<boolean>('showGearOnStartup', true); // 無此設定時預設顯示
+    .get<boolean>('showGearOnStartup', true);
 
   if (!enabled) return;
 
@@ -78,7 +347,7 @@ function refreshGearButton() {
 // 預設樣本（第一次安裝/空清單時植入）
 // ─────────────────────────────────────────────────────────────
 async function ensureDefaultItems(context: vscode.ExtensionContext) {
-  const seededKey = 'sbh.seededDefaults.v2'; // bump key for new defaults
+  const seededKey = 'sbh.seededDefaults.v2';
   const already = context.globalState.get<boolean>(seededKey);
   const config = vscode.workspace.getConfiguration('statusBarHelper');
   const items = config.get<any[]>('items', []);
@@ -90,189 +359,366 @@ async function ensureDefaultItems(context: vscode.ExtensionContext) {
 function getDefaultItems(): any[] {
   return [
     {
-      text: '$(notebook) Log',
-      tooltip: 'VS Code + Node log demo',
+      text: '$(output) Log',
+      tooltip: 'VS Code + Node. Output + bottom log',
       command: 'sbh.demo.logMinimalPlus',
-      script: minimalLogScript(),
+      script: DEFAULT_MINIMAL_LOG_SCRIPT,
+      enableOnInit: false,
+      hidden: true
     },
     {
       text: '$(diff-added) Git Add',
-      tooltip: 'Run "git add ." in workspace root',
+      tooltip: 'Stage all changes in the first workspace folder',
       command: 'sbh.demo.gitAdd',
-      script: gitAddScript(),
+      script: DEFAULT_GIT_ADD_SCRIPT,
+      enableOnInit: false,
+      hidden: true
+    },
+    {
+      text: '$(database) Storage',
+      tooltip: 'how to use the custom statusBarHelper API',
+      command: 'sbh.demo.storage',
+      script: DEFAULT_SBH_STORAGE_SCRIPT,
+      enableOnInit: false,
+      hidden: true
+    },
+    {
+      text: '$(color-mode)',
+      tooltip: 'Toggle between light and dark theme',
+      command: 'sbh.demo.toggleTheme',
+      script: DEFAULT_TOGGLE_THEME_SCRIPT,
+      enableOnInit: false,
+      hidden: false
     },
     {
       text: '$(paintcan) Board',
-      tooltip: 'Whiteboard (draw only)',
+      tooltip: 'Board',
       command: 'sbh.demo.whiteboard',
-      script: whiteboardNoSaveScript(),
+      script: DEFAULT_WHITEBOARD_SCRIPT,
+      enableOnInit: false,
+      hidden: false
     },
+    {
+      text: '🍅 Pomodoro',
+      tooltip: 'Open Pomodoro Timer',
+      command: 'sbh.demo.pomodoro',
+      script: DEFAULT_POMODORO_SCRIPT,
+      enableOnInit: true,
+      hidden: true
+    }
   ];
 }
 
 // ─────────────────────────────────────────────────────────────
-// 三個預設腳本
+// Bridge 指令：statusBarHelper._bridge
 // ─────────────────────────────────────────────────────────────
-function minimalLogScript(): string {
-  return `
-// Minimal Log: VS Code + Node (read-only, one-click, dual output)
-const vscode = require('vscode');
-const fs = require('fs');
-const path = require('path');
+function registerBridge(context: vscode.ExtensionContext) {
+  return vscode.commands.registerCommand('statusBarHelper._bridge', async (payload?: any) => {
+    try {
+      if (!payload || typeof payload !== 'object') throw new Error('invalid payload');
+      const { ns, fn, args = [] } = payload as { ns: string; fn: string; args: any[] };
 
-(function main(){
-  const ch = vscode.window.createOutputChannel('SBH Minimal Log');
-  const emit = (...a) => { const s = a.join(' '); ch.appendLine(s); console.log(s); };
-  ch.show(true);
+      // ---------- storage ----------
+      if (ns === 'storage') {
+        const mapKey = (k: string) => KV_PREFIX + String(k ?? '');
 
-  emit('▶ Start');
-  emit('Node:', process.version, 'Platform:', process.platform + '/' + process.arch);
+        const keysOf = (m: vscode.Memento) =>
+          (typeof (m as any).keys === 'function'
+            ? (m as any).keys() as string[]
+            : [] as string[]).filter((k) => k.startsWith(KV_PREFIX));
 
-  const ws = vscode.workspace.workspaceFolders;
-  const root = ws && ws.length ? ws[0].uri.fsPath : process.cwd();
-  emit('Workdir:', root);
+        const enforceStorage = async (m: vscode.Memento, key: string, value: any) => {
+          // 單鍵
+          const size = utf8Bytes(value);
+          if (size > STORAGE_KEY_LIMIT) {
+            throw new Error(
+              `Value too large (${(size / 1024).toFixed(1)} KB > ${STORAGE_KEY_LIMIT / 1024} KB).
+              Please use the files API (writeText / writeJSON / writeBytes) for large data.`
+            );
+          }
+          // 總量（僅計算我方前綴）
+          const ks = keysOf(m);
+          let total = 0;
+          for (const k of ks) {
+            const v = m.get(k);
+            total += utf8Bytes(v);
+          }
+          // 更新後大小（替換同鍵）
+          const wireKey = mapKey(key);
+          const existing = m.get(wireKey);
+          total -= utf8Bytes(existing);
+          total += size;
+          if (total > STORAGE_TOTAL_LIMIT) {
+            throw new Error(`total storage exceeded (>${STORAGE_TOTAL_LIMIT} bytes)`);
+          }
+        };
 
-  try {
-    fs.readdirSync(root, { withFileTypes: true }).slice(0, 8)
-      .forEach(e => emit((e.isDirectory() ? '[D]' : '[F]'), e.name));
-  } catch (e) { emit('readdir failed:', e.message); }
+        switch (fn) {
+          case 'getGlobal': {
+            const [key, def] = args;
+            return { ok: true, data: context.globalState.get(mapKey(key), def) };
+          }
+          case 'setGlobal': {
+            const [key, val] = args;
+            await enforceStorage(context.globalState, key, val);
+            await context.globalState.update(mapKey(key), val);
+            return { ok: true, data: true };
+          }
+          case 'removeGlobal': {
+            const [key] = args;
+            await context.globalState.update(mapKey(key), undefined);
+            return { ok: true, data: true };
+          }
+          case 'keysGlobal': {
+            const ks = (context.globalState as any).keys?.() as string[] | undefined;
+            const out = (ks ?? []).filter(k => k.startsWith(KV_PREFIX)).map(k => k.slice(KV_PREFIX.length));
+            return { ok: true, data: out };
+          }
 
-  const ed = vscode.window.activeTextEditor;
-  if (ed && ed.document.uri.scheme === 'file') {
-    emit('Active file:', path.basename(ed.document.uri.fsPath), '(' + ed.document.languageId + ')');
-  }
+          case 'getWorkspace': {
+            const [key, def] = args;
+            return { ok: true, data: context.workspaceState.get(mapKey(key), def) };
+          }
+          case 'setWorkspace': {
+            const [key, val] = args;
+            await enforceStorage(context.workspaceState, key, val);
+            await context.workspaceState.update(mapKey(key), val);
+            return { ok: true, data: true };
+          }
+          case 'removeWorkspace': {
+            const [key] = args;
+            await context.workspaceState.update(mapKey(key), undefined);
+            return { ok: true, data: true };
+          }
+          case 'keysWorkspace': {
+            const ks = (context.workspaceState as any).keys?.() as string[] | undefined;
+            const out = (ks ?? []).filter(k => k.startsWith(KV_PREFIX)).map(k => k.slice(KV_PREFIX.length));
+            return { ok: true, data: out };
+          }
+        }
+      }
 
-  emit('✔ Done');
-  vscode.window.showInformationMessage('Log demo finished. Check "SBH Minimal Log" and bottom run log.');
-})();
-`.trim();
-}
+      // ---------- vm state ----------
+      if (ns === 'vm') {
+        switch (fn) {
+          case 'list': {
+            const data = Array.from(RUNTIMES.keys());
+            return { ok: true, data };
+          }
+          case 'isRunning': {
+            const [cmd] = args as [string];
+            return { ok: true, data: RUNTIMES.has(String(cmd || '')) };
+          }
+        }
+      }
 
-function gitAddScript(): string {
-  return `
-// Git Add: run "git add ." at workspace root; log to Output and bottom panel
-const vscode = require('vscode');
-const { exec } = require('child_process');
+      // ---------- files ----------
+      if (ns === 'files') {
+        const dirs = () => ({
+          global: context.globalStorageUri.fsPath,
+          workspace: context.storageUri?.fsPath ?? null,
+        });
 
-(function main(){
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders || folders.length === 0) {
-    console.log('[git add] no workspace');
-    vscode.window.showWarningMessage('No workspace open — cannot run git add.');
-    return;
-  }
+        const [scope, rel, extra] = args as [ 'global'|'workspace', string, any ];
+        switch (fn) {
+          case 'dirs': {
+            return { ok: true, data: dirs() };
+          }
 
-  const cwd = folders[0].uri.fsPath;
-  console.log('[git add] cwd:', cwd);
+          case 'readText': {
+            const abs = inside(scopeBase(scope, context), rel);
+            const s = await fsp.readFile(abs, 'utf8');
+            return { ok: true, data: s };
+          }
+          case 'writeText': {
+            const s = String(extra ?? '');
+            const size = utf8Bytes(s);
+            if (size > TEXT_SIZE_LIMIT) throw new Error(`file too large (>${TEXT_SIZE_LIMIT} bytes)`);
+            const abs = inside(scopeBase(scope, context), rel);
+            await ensureDir(abs);
+            await fsp.writeFile(abs, s, 'utf8');
+            return { ok: true, data: true };
+          }
 
-  const ch = vscode.window.createOutputChannel('SBH Git');
-  ch.show(true);
-  ch.appendLine('▶ git add .');
+          case 'readJSON': {
+            const abs = inside(scopeBase(scope, context), rel);
+            const s = await fsp.readFile(abs, 'utf8');
+            const j = JSON.parse(s);
+            return { ok: true, data: j };
+          }
+          case 'writeJSON': {
+            const data = extra;
+            const s = JSON.stringify(data ?? null);
+            const size = utf8Bytes(s);
+            if (size > JSON_SIZE_LIMIT) throw new Error(`file too large (>${JSON_SIZE_LIMIT} bytes)`);
+            const abs = inside(scopeBase(scope, context), rel);
+            await ensureDir(abs);
+            await fsp.writeFile(abs, s, 'utf8');
+            return { ok: true, data: true };
+          }
 
-  exec('git add .', { cwd }, (err, stdout, stderr) => {
-    if (stdout) { ch.append(stdout); console.log(stdout.trim()); }
-    if (stderr) { ch.append(stderr); console.log(stderr.trim()); }
+          case 'readBytes': {
+            const abs = inside(scopeBase(scope, context), rel);
+            const buf = await fsp.readFile(abs);
+            // 回傳 Uint8Array（VM 與 Webview 都好處理）
+            return { ok: true, data: new Uint8Array(buf) };
+          }
+          case 'writeBytes': {
+            let data = extra as Uint8Array | ArrayBuffer | string;
+            let buf: Buffer;
+            if (typeof data === 'string') {
+              buf = Buffer.from(data, 'base64'); // 字串視為 base64
+            } else if (data instanceof Uint8Array) {
+              buf = Buffer.from(data);
+            } else if (data && (data as any).byteLength != null) {
+              buf = Buffer.from(new Uint8Array(data as ArrayBuffer));
+            } else {
+              throw new Error('unsupported byte payload');
+            }
+            if (buf.byteLength > FILE_SIZE_LIMIT) throw new Error(`file too large (>${FILE_SIZE_LIMIT} bytes)`);
+            const abs = inside(scopeBase(scope, context), rel);
+            await ensureDir(abs);
+            await fsp.writeFile(abs, buf);
+            return { ok: true, data: true };
+          }
 
-    if (err) {
-      ch.appendLine('✖ git add failed');
-      vscode.window.showErrorMessage('Git add failed: ' + (stderr || err.message));
-      return;
+          case 'exists': {
+            const abs = inside(scopeBase(scope, context), rel);
+            try { const st = await fsp.stat(abs); return { ok: true, data: st.isFile() || st.isDirectory() }; }
+            catch { return { ok: true, data: false }; }
+          }
+
+          // 非遞迴列出（單層）
+          case 'list': {
+            const base = scopeBase(scope, context);
+            const root = inside(base, rel || '');
+            let ents: fs.Dirent[] = [];
+            try { ents = await fsp.readdir(root, { withFileTypes: true }); } catch { ents = []; }
+            const data = ents.map(e => ({ name: e.name, type: e.isDirectory() ? 'directory' : 'file' as const }));
+            return { ok: true, data };
+          }
+
+          // 遞迴列出所有檔案 + 大小
+          case 'listStats': {
+            const base = scopeBase(scope, context);
+            const root = inside(base, rel || '');
+            const baseRel = (rel || '').replace(/^[/\\]+/, '');
+            const out: Array<{name:string; type:'file'; size:number; rel:string}> = [];
+
+            const walk = async (dir: string, curRel: string) => {
+              let ents: fs.Dirent[] = [];
+              try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
+              for (const e of ents) {
+                const abs = path.join(dir, e.name);
+                const nextRel = curRel ? `${curRel}/${e.name}` : e.name;
+                if (e.isDirectory()) {
+                  await walk(abs, nextRel);
+                } else if (e.isFile()) {
+                  try {
+                    const st = await fsp.stat(abs);
+                    out.push({
+                      name: e.name,
+                      type: 'file',
+                      size: st.size,
+                      rel: baseRel ? `${baseRel}/${nextRel}` : nextRel,
+                    });
+                  } catch {}
+                }
+              }
+            };
+            await walk(root, '');
+            return { ok: true, data: out };
+          }
+
+          case 'remove': {
+            const abs = inside(scopeBase(scope, context), rel);
+            await fsp.unlink(abs);
+            return { ok: true, data: true };
+          }
+
+          // 清空整個 scope 目錄（僅刪內容，不刪根）
+          case 'clearAll': {
+            const base = scopeBase(scope, context);
+            let ents: fs.Dirent[] = [];
+            try { ents = await fsp.readdir(base, { withFileTypes: true }); } catch {}
+            for (const e of ents) {
+              const p = path.join(base, e.name);
+              try {
+                // Node 16+ 可用 rm；舊版 fallback
+                // @ts-ignore
+                if (e.isDirectory() && fsp.rm) await fsp.rm(p, { recursive: true, force: true });
+                else if (e.isDirectory()) {
+                  const rmrf = async (d: string) => {
+                    const list = await fsp.readdir(d, { withFileTypes: true });
+                    for (const x of list) {
+                      const q = path.join(d, x.name);
+                      if (x.isDirectory()) await rmrf(q), await fsp.rmdir(q).catch(()=>{});
+                      else await fsp.unlink(q).catch(()=>{});
+                    }
+                  };
+                  await rmrf(p); await fsp.rmdir(p).catch(()=>{});
+                } else {
+                  await fsp.unlink(p).catch(()=>{});
+                }
+              } catch {}
+            }
+            return { ok: true, data: true };
+          }
+        }
+
+        throw new Error('Unknown files fn');
+      }
+
+      // ---------- vm state ----------    //（若你尚未加過）
+      if (ns === 'vm') {
+        switch (fn) {
+          case 'list': {
+            const data = Array.from(RUNTIMES.keys());
+            return { ok: true, data };
+          }
+          case 'isRunning': {
+            const [cmd] = args as [string];
+            return { ok: true, data: RUNTIMES.has(String(cmd || '')) };
+          }
+        }
+      }
+
+      // ---------- hostRun ----------
+      if (ns === 'hostRun') {
+        switch (fn) {
+          case 'start': {
+            const [cmd, code] = args as [string, string];
+            if (!cmd || !code) throw new Error('hostRun.start: invalid args');
+            // 啟動前先把同 command 的舊 VM 關掉（只影響同名）
+            abortByCommand(cmd, { type: 'replaced', from: 'settingsPanel', at: Date.now() });
+            // 直接用 host 端的 runScriptInVm 執行
+            runScriptInVm(context, cmd, code, 'settingsPanel');
+            return { ok: true, data: true };
+          }
+        }
+      }
+
+
+      throw new Error('Unknown bridge ns');
+    } catch (e) {
+      return toBridgeError(e);
     }
-
-    ch.appendLine('✔ git add done');
-    vscode.window.showInformationMessage('✅ git add . done');
   });
-})();
-`.trim();
 }
 
-function whiteboardNoSaveScript(): string {
-  return `
-// Whiteboard (no save): draw-only Webview with color/size, undo/redo, clear
-const vscode = require('vscode');
-
-(function main(){
-  const panel = vscode.window.createWebviewPanel(
-    'sbhWhiteboard',
-    'Whiteboard — Draw Only',
-    vscode.ViewColumn.Active,
-    { enableScripts: true, retainContextWhenHidden: true }
-  );
-
-  const nonce = Math.random().toString(36).slice(2);
-  panel.webview.html = getHtml(nonce);
-
-  function getHtml(nonce){
-    let html = '';
-    html += '<!doctype html>\\n';
-    html += '<meta http-equiv="Content-Security-Policy" content="default-src \\'none\\'; img-src data:; style-src \\'unsafe-inline\\'; script-src \\'nonce-' + nonce + '\\';">\\n';
-    html += '<title>Whiteboard (Draw Only)</title>\\n';
-    html += '<style>\\n';
-    html += '  :root{ --h:32px }\\n';
-    html += '  body{font-family:var(--vscode-font-family);color:var(--vscode-foreground);background:var(--vscode-editor-background);margin:0}\\n';
-    html += '  .bar{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--vscode-editorGroup-border);padding:6px 8px;height:var(--h);user-select:none;background:var(--vscode-sideBar-background)}\\n';
-    html += '  .bar input[type="color"]{width:28px;height:20px;border:1px solid var(--vscode-input-border);background:var(--vscode-input-background)}\\n';
-    html += '  .bar input[type="range"]{width:120px}\\n';
-    html += '  button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:1px solid var(--vscode-button-border,transparent);padding:4px 10px;border-radius:4px;cursor:pointer}\\n';
-    html += '  button:hover{background:var(--vscode-button-hoverBackground)}\\n';
-    html += '  #wrap{position:relative;height:calc(100vh - var(--h) - 2px)}\\n';
-    html += '  canvas{width:100%;height:100%}\\n';
-    html += '  #grid{position:absolute;inset:0;background:' +
-            'linear-gradient(to right, transparent 99%, var(--vscode-editorGroup-border) 0) 0 0/20px 20px,' +
-            'linear-gradient(to bottom, transparent 99%, var(--vscode-editorGroup-border) 0) 0 0/20px 20px;pointer-events:none;opacity:.2}\\n';
-    html += '</style>\\n';
-    html += '<div class="bar">\\n';
-    html += '  <span>Color</span><input id="color" type="color" value="#00d3a7">\\n';
-    html += '  <span>Size</span><input id="size" type="range" min="1" max="32" value="4">\\n';
-    html += '  <button id="undo">Undo</button>\\n';
-    html += '  <button id="redo">Redo</button>\\n';
-    html += '  <button id="clear">Clear</button>\\n';
-    html += '</div>\\n';
-    html += '<div id="wrap">\\n';
-    html += '  <canvas id="c"></canvas>\\n';
-    html += '  <div id="grid"></div>\\n';
-    html += '</div>\\n';
-    html += '<script nonce="' + nonce + '">\\n';
-    html += '  const c = document.getElementById(\\'c\\'); const ctx = c.getContext(\\'2d\\');\\n';
-    html += '  let drawing=false, last=null; let color=document.getElementById(\\'color\\').value; let size=+document.getElementById(\\'size\\').value;\\n';
-    html += '  const undoStack=[], redoStack=[];\\n';
-    html += '  function snapshot(){ undoStack.push(c.toDataURL()); if(undoStack.length>30) undoStack.shift(); redoStack.length=0; }\\n';
-    html += '  function restore(url){ return new Promise(res=>{ const img=new Image(); img.onload=()=>{ ctx.clearRect(0,0,c.width,c.height); ctx.drawImage(img,0,0); res(); }; img.src=url; }); }\\n';
-    html += '  function resize(){ const r=c.getBoundingClientRect(); const tmp=document.createElement(\\'canvas\\'); tmp.width=r.width*devicePixelRatio; tmp.height=r.height*devicePixelRatio; const tctx=tmp.getContext(\\'2d\\'); tctx.drawImage(c,0,0); c.width=r.width*devicePixelRatio; c.height=r.height*devicePixelRatio; ctx.setTransform(1,0,0,1,0,0); ctx.scale(devicePixelRatio,devicePixelRatio); ctx.drawImage(tmp,0,0); }\\n';
-    html += '  new ResizeObserver(resize).observe(document.getElementById(\\'wrap\\')); setTimeout(resize,0);\\n';
-    html += '  function line(p1,p2){ ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap=\\'round\\'; ctx.lineJoin=\\'round\\'; ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke(); }\\n';
-    html += '  function pos(e){ const r=c.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }\\n';
-    html += '  c.addEventListener(\\'pointerdown\\', e=>{ e.preventDefault(); snapshot(); drawing=true; last=pos(e); });\\n';
-    html += '  c.addEventListener(\\'pointermove\\', e=>{ if(!drawing) return; const p=pos(e); line(last,p); last=p; });\\n';
-    html += '  c.addEventListener(\\'pointerup\\', ()=>{ drawing=false; last=null; });\\n';
-    html += '  c.addEventListener(\\'pointerleave\\', ()=>{ drawing=false; last=null; });\\n';
-    html += '  document.getElementById(\\'color\\').oninput=e=>color=e.target.value;\\n';
-    html += '  document.getElementById(\\'size\\').oninput =e=>size=+e.target.value;\\n';
-    html += '  document.getElementById(\\'undo\\').onclick= async ()=>{ if(!undoStack.length) return; const snap=undoStack.pop(); undoStack.push(c.toDataURL()); await restore(snap); };\\n';
-    html += '  document.getElementById(\\'redo\\').onclick= async ()=>{ if(!redoStack.length) return; const snap=redoStack.pop(); undoStack.push(c.toDataURL()); await restore(snap); };\\n';
-    html += '  document.getElementById(\\'clear\\').onclick= ()=>{ snapshot(); ctx.clearRect(0,0,c.width,c.height); };\\n';
-    html += '<\\/script>';
-    return html;
-  }
-})();
-`.trim();
-}
-
-// ─────────────────────────────────────────────────────────────
-// 啟動/釋放
 // ─────────────────────────────────────────────────────────────
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('✅ Status Bar Helper Activated (lazy import)');
+  console.log('✅ Status Bar Helper Activated');
 
   // 1) 植入預設項目（若目前為空）
   await ensureDefaultItems(context);
 
-  // 2) 建立使用者自訂的狀態列項目
-  updateStatusBarItems(context);
+  // 2) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
+  updateStatusBarItems(context, true);
 
-  // 3) 註冊指令：用到才載入 SettingsPanel（lazy import）
+  // 3) 註冊 Settings（lazy import）
   const showSettings = vscode.commands.registerCommand('statusBarHelper.showSettings', async () => {
-    const { SettingsPanel } = await import('./SettingsPanel.js'); // ← lazy import
+    const { SettingsPanel } = await import('./SettingsPanel.js');
     SettingsPanel.createOrShow(context.extensionUri);
   });
   context.subscriptions.push(showSettings);
@@ -289,11 +735,37 @@ export async function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration('statusBarHelper.showGearOnStartup')) {
         refreshGearButton();
       }
+      // 主題變更 → 通知面板
+      if (e.affectsConfiguration('workbench.colorTheme')) {
+        const currentTheme = vscode.workspace.getConfiguration().get('workbench.colorTheme');
+        const isDark = (currentTheme as string || '').toLowerCase().includes('dark');
+        if (SettingsPanel.currentPanel) {
+          (SettingsPanel.currentPanel as any)['_panel'].webview.postMessage({
+            command: 'themeChanged',
+            isDark
+          });
+        }
+      }
     })
   );
+
+  // 6) 註冊橋接指令
+  context.subscriptions.push(registerBridge(context));
+
+  // 7) 對外：依 command 中止目前在 host 端跑的 VM（給 SettingsPanel / 列表 Stop 用）
+  context.subscriptions.push(
+    vscode.commands.registerCommand('statusBarHelper._abortByCommand', (cmd: string, reason?: any) =>
+      abortByCommand(String(cmd || ''), reason ?? { type: 'external', at: Date.now() })
+    )
+  );
+
+  // （可選）同步白名單
+  // context.globalState.setKeysForSync?.(['sbh.seededDefaults.v2']);
 }
 
 export function deactivate() {
   if (gearItem) { gearItem.dispose(); gearItem = null; }
   itemDisposables.forEach(d => d.dispose());
+  // 安全收掉所有仍在跑的 VM
+  for (const [cmd] of RUNTIMES) abortByCommand(cmd, { type: 'deactivate', at: Date.now() });
 }
