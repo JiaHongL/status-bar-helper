@@ -1,12 +1,24 @@
-.vscode/**
-.vscode-test/**
-src/**
-!src/types.ts
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
+# 忽略所有 node_modules
+node_modules/
+
+# 忽略原始碼，因為我們只發布編譯後的 'out' 目錄
+src/
+
+# 忽略測試相關的檔案和目錄
+.vscode-test/
+out/test/
+
+# 忽略 Source Maps 以減小打包體積
 **/*.map
 
-**/.vscode-test.*
+# 忽略開發環境和專案設定檔
+.vscode/
+.gitignore
+**/tsconfig.json
+**/eslint.config.mjs
+vsc-extension-quickstart.md
+
+# 忽略不必要的資源和文件
+.vscode/
+.gitignore
+image/
