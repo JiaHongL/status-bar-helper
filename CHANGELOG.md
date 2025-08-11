@@ -15,3 +15,11 @@ All notable changes to this project will be documented in this file.
 - add Status Bar Helper v1 API
 - improve documentation
 - improve vm management
+
+## [1.2.0] - 2025-08-12
+
+- improve ui/ux
+- add vm.open
+- add vm.onMessage
+- add vm.sendMessage
+- add sbh.demo.vmChatA、 sbh.demo.vmChatB

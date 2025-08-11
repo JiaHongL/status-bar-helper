@@ -8,7 +8,9 @@ import {
   DEFAULT_SBH_STORAGE_SCRIPT,
   DEFAULT_TOGGLE_THEME_SCRIPT,
   DEFAULT_WHITEBOARD_SCRIPT,
-  DEFAULT_POMODORO_SCRIPT
+  DEFAULT_POMODORO_SCRIPT,
+  DEFAULT_VM_CHAT_A_SCRIPT,
+  DEFAULT_VM_CHAT_B_SCRIPT
 } from './default-items';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -20,14 +22,14 @@ let _runOnceExecutedCommands: Set<string> = new Set();
 const fsp = fs.promises;
 const KV_PREFIX = 'sbh.kv.';
 const STORAGE_KEY_LIMIT   =  512 * 1024;      // 512KB
-const STORAGE_TOTAL_LIMIT = 20 * 1024 * 1024; // 20MB
+const STORAGE_TOTAL_LIMIT = 50 * 1024 * 1024; // 50MB
 const JSON_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
 const TEXT_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
 const FILE_SIZE_LIMIT     = 20 * 1024 * 1024; // 20MB
 
 const utf8Bytes = (v: any): number => {
   try {
-    if (typeof v === 'string') return Buffer.byteLength(v, 'utf8');
+  if (typeof v === 'string') { return Buffer.byteLength(v, 'utf8'); }
     return Buffer.byteLength(JSON.stringify(v ?? null), 'utf8');
   } catch { return 0; }
 };
@@ -36,19 +38,19 @@ const toBridgeError = (e: unknown) =>
   ({ ok: false, error: (e as any)?.message ?? String(e) });
 
 const scopeBase = (scope: 'global'|'workspace', ctx: vscode.ExtensionContext) => {
-  if (scope === 'global') return ctx.globalStorageUri.fsPath;
+  if (scope === 'global') { return ctx.globalStorageUri.fsPath; }
   const ws = ctx.storageUri?.fsPath;
-  if (!ws) throw new Error('workspace storage not available');
+  if (!ws) { throw new Error('workspace storage not available'); }
   return ws;
 };
 
 const inside = (base: string, rel = '') => {
-  if (!rel) return base;
-  if (path.isAbsolute(rel)) throw new Error('absolute path not allowed');
-  if (rel.includes('..')) throw new Error('path escape rejected');
+  if (!rel) { return base; }
+  if (path.isAbsolute(rel)) { throw new Error('absolute path not allowed'); }
+  if (rel.includes('..')) { throw new Error('path escape rejected'); }
   const abs = path.resolve(base, rel);
   const baseAbs = path.resolve(base);
-  if (!abs.startsWith(baseAbs)) throw new Error('path escape rejected');
+  if (!abs.startsWith(baseAbs)) { throw new Error('path escape rejected'); }
   return abs;
 };
 
@@ -67,11 +69,54 @@ type RuntimeCtx = {
 
 const RUNTIMES = new Map<string, RuntimeCtx>();
 
+// ─────────────────────────────────────────────────────────────
+// VM 之間的訊息傳遞 (簡易 Bus)
+// - 允許腳本呼叫 vm.sendMessage(target, msg)
+// - 允許腳本註冊 vm.onMessage(handler)
+// - vm.open(cmdId, payload?)：若目標尚未啟動則啟動；啟動後（或已在跑）可傳遞初始 payload
+// - 若目標尚未註冊任何 handler，訊息會暫存於佇列，待第一個 handler 註冊時 flush
+// - 訊息只在當次 VM 生命週期內有效；VM 關閉後其 handlers 與 queue 一併移除
+// -----------------------------------------------------------------
+type MessageRecord = { from: string; message: any };
+const MESSAGE_HANDLERS = new Map<string, Set<(from: string, message: any) => void>>();
+const MESSAGE_QUEUES   = new Map<string, MessageRecord[]>();
+
+function dispatchMessage(target: string, from: string, message: any) {
+  const handlers = MESSAGE_HANDLERS.get(target);
+  if (!handlers || handlers.size === 0) {
+    // queue
+    let q = MESSAGE_QUEUES.get(target);
+    if (!q) { q = []; MESSAGE_QUEUES.set(target, q); }
+    q.push({ from, message });
+    return;
+  }
+  for (const h of handlers) {
+    try { h(from, message); } catch (e) { console.error('[vm message handler error]', e); }
+  }
+}
+
+function registerMessageHandler(command: string, handler: (from: string, message: any) => void) {
+  let set = MESSAGE_HANDLERS.get(command);
+  if (!set) { set = new Set(); MESSAGE_HANDLERS.set(command, set); }
+  set.add(handler);
+  // flush queued
+  const q = MESSAGE_QUEUES.get(command);
+  if (q && q.length) {
+    for (const rec of q) {
+      try { handler(rec.from, rec.message); } catch {}
+    }
+    MESSAGE_QUEUES.delete(command);
+  }
+  return () => { try { set?.delete(handler); } catch {} };
+}
+
 function abortByCommand(command: string, reason: any = { type: 'external', at: Date.now() }) {
   const ctx = RUNTIMES.get(command);
-  if (!ctx) return false;
+  if (!ctx) { return false; }
   try { ctx.abort.abort(reason); } catch {}
   RUNTIMES.delete(command);
+  MESSAGE_HANDLERS.delete(command);
+  MESSAGE_QUEUES.delete(command);
   return true;
 }
 
@@ -79,7 +124,7 @@ function buildSbh() {
   // 透過 _bridge 指令統一呼叫；提供給 VM 沙箱
   const call = async (ns: string, fn: string, ...args: any[]) => {
     const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns, fn, args }) as any;
-    if (r && r.ok) return r.data;
+  if (r && r.ok) { return r.data; }
     throw new Error(r?.error || 'bridge error');
   };
 
@@ -139,7 +184,7 @@ function runScriptInVm(
 
   // 方便往設定面板丟訊息
   const postToSettingsPanel = (m: any) => {
-    if (origin !== 'settingsPanel') return;
+  if (origin !== 'settingsPanel') { return; }
     const p = (SettingsPanel.currentPanel as any);
     p?._panel?.webview?.postMessage?.(m);
   };
@@ -151,7 +196,7 @@ function runScriptInVm(
         try { (base as any)[level](...args); } catch {}
         // 轉成字串（盡量好看）
         const text = args.map(a => {
-          if (typeof a === 'string') return a;
+          if (typeof a === 'string') { return a; }
           try { return JSON.stringify(a, null, 2); } catch { return String(a); }
         }).join(' ') + '\n';
         postToSettingsPanel({ command: 'runLog', chunk: text });
@@ -169,7 +214,7 @@ function runScriptInVm(
   const makeDeepVscodeProxy = (root: any) => {
     const cache = new WeakMap<object, any>();
     const wrapFn = (fn: Function, thisArg: any) => (...args: any[]) => {
-      if (signal.aborted) throw new Error('Execution stopped');
+  if (signal.aborted) { throw new Error('Execution stopped'); }
       const ret = Reflect.apply(fn, thisArg, args);
       if (ret && typeof ret === 'object' && typeof (ret as any).dispose === 'function') {
         try { disposables.add(ret as vscode.Disposable); } catch {}
@@ -177,13 +222,13 @@ function runScriptInVm(
       return ret;
     };
     const proxify = (obj: any): any => {
-      if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return obj;
-      if (cache.has(obj)) return cache.get(obj);
+    if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) { return obj; }
+    if (cache.has(obj)) { return cache.get(obj); }
       const p = new Proxy(obj, {
         get(t, prop, recv) {
           const v = Reflect.get(t, prop, recv);
-          if (typeof v === 'function') return wrapFn(v, t);
-          if (v && (typeof v === 'object' || typeof v === 'function')) return proxify(v);
+      if (typeof v === 'function') { return wrapFn(v, t); }
+      if (v && (typeof v === 'object' || typeof v === 'function')) { return proxify(v); }
           return v;
         }
       });
@@ -199,8 +244,8 @@ function runScriptInVm(
     console: origin === 'settingsPanel' ? makeConsoleProxy(console) : console,
     __dirname: path.dirname(context.extensionPath),
     require: (m: string) => {
-      if (m === 'vscode') return sandbox.vscode;
-      if (require.resolve(m) === m) return require(m); // 只允許 Node 內建模組
+  if (m === 'vscode') { return sandbox.vscode; }
+  if (require.resolve(m) === m) { return require(m); } // 只允許 Node 內建模組
       throw new Error(`Only built-in modules are allowed: ${m}`);
     }
   };
@@ -226,6 +271,37 @@ function runScriptInVm(
       try { abortByCommand(cmd ?? command, reason ?? { type: 'userStop', at: Date.now() }); } catch {}
     },
     signal,
+    // ─── 新增：訊息 / 啟動 API ───
+    sendMessage: (targetCmdId: string, message: any) => {
+      if (!targetCmdId || typeof targetCmdId !== 'string') { return; }
+      dispatchMessage(targetCmdId, command, message);
+    },
+    onMessage: (handler: (fromCmdId: string, message: any) => void) => {
+      if (typeof handler !== 'function') { return () => {}; }
+      return registerMessageHandler(command, handler);
+    },
+    open: async (cmdId: string, payload?: any) => {
+      if (!cmdId || typeof cmdId !== 'string') { throw new Error('vm.open: invalid cmdId'); }
+      // 已在跑 → 直接送 payload
+      if (RUNTIMES.has(cmdId)) {
+        if (arguments.length >= 2) { dispatchMessage(cmdId, command, payload); }
+        return;
+      }
+      // 找設定中的腳本
+      const config = vscode.workspace.getConfiguration('statusBarHelper');
+      const items = config.get<any[]>('items', []);
+      const targetItem = items.find(i => i && i.command === cmdId);
+      if (!targetItem || !targetItem.script) { throw new Error(`vm.open: command not found or empty script: ${cmdId}`); }
+      try {
+        runScriptInVm(context, cmdId, targetItem.script, 'statusbar');
+      } catch (e) {
+        throw new Error(`vm.open: failed to start target: ${(e as any)?.message || e}`);
+      }
+      // 等待下一輪 tick 讓目標 VM 有機會註冊 onMessage 再送 payload（若有）
+      if (arguments.length >= 2) {
+        setTimeout(() => dispatchMessage(cmdId, command, payload), 0);
+      }
+    }
   };
 
   // 當 VM 結束時通知 webview（對 Trusted VM 也要有 runDone）
@@ -247,12 +323,16 @@ function runScriptInVm(
 
   // 記錄這顆 VM
   RUNTIMES.set(command, { abort, timers, disposables });
+  // 初始化訊息 handler 集合（確保存在，方便 queue flush）
+  if (!MESSAGE_HANDLERS.has(command)) { MESSAGE_HANDLERS.set(command, new Set()); }
 
   // 被 stop 時清理
   signal.addEventListener('abort', () => {
     for (const t of timers) { try { clearTimeout(t); clearInterval(t as any); } catch {} }
     for (const d of disposables) { try { d.dispose(); } catch {} }
     RUNTIMES.delete(command);
+  MESSAGE_HANDLERS.delete(command);
+  MESSAGE_QUEUES.delete(command);
     // 如果是從設定面板跑的，中止也當作 done（非 0 退出碼）
     postToSettingsPanel({ command: 'runDone', code: 0 , chunk: '[VM closed]' });
   }, { once: true });
@@ -301,7 +381,7 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
 
     // 每個 item 對應一個 command：透過 runScriptInVm 執行
     const commandDisposable = vscode.commands.registerCommand(command, () => {
-      if (!script) return;
+    if (!script) { return; }
       try {
         runScriptInVm(context, command, script, 'statusbar');
       } catch (e: any) {
@@ -333,7 +413,7 @@ function refreshGearButton() {
   const enabled = vscode.workspace.getConfiguration('statusBarHelper')
     .get<boolean>('showGearOnStartup', true);
 
-  if (!enabled) return;
+  if (!enabled) { return; }
 
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   item.text = '$(gear)';
@@ -351,7 +431,7 @@ async function ensureDefaultItems(context: vscode.ExtensionContext) {
   const already = context.globalState.get<boolean>(seededKey);
   const config = vscode.workspace.getConfiguration('statusBarHelper');
   const items = config.get<any[]>('items', []);
-  if (already || (Array.isArray(items) && items.length > 0)) return;
+  if (already || (Array.isArray(items) && items.length > 0)) { return; }
   await config.update('items', getDefaultItems(), vscode.ConfigurationTarget.Global);
   await context.globalState.update(seededKey, true);
 }
@@ -405,8 +485,48 @@ function getDefaultItems(): any[] {
       script: DEFAULT_POMODORO_SCRIPT,
       enableOnInit: true,
       hidden: true
+    },
+    {
+      text: '$(comment) Chat A',
+      tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+      command: 'sbh.demo.vmChatA',
+      script: DEFAULT_VM_CHAT_A_SCRIPT,
+      enableOnInit: false,
+      hidden: true
+    },
+    {
+      text: '$(comment-discussion) Chat B',
+      tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage',
+      command: 'sbh.demo.vmChatB',
+      script: DEFAULT_VM_CHAT_B_SCRIPT,
+      enableOnInit: false,
+      hidden: true
     }
   ];
+}
+
+// 若使用者在加入 Chat A/B 之前已安裝，設定中可能沒有這兩個項目或 script 為空字串。
+async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
+  const config = vscode.workspace.getConfiguration('statusBarHelper');
+  const items = config.get<any[]>('items', []) || [];
+  let changed = false;
+  const ensure = (cmd: string, scriptConst: string, defaultItem: any) => {
+    const idx = items.findIndex(i => i && i.command === cmd);
+    if (idx === -1) {
+      // 不自動插入全新項目（避免驚嚇）；若需要可 Restore Defaults。
+      return;
+    }
+    const it = items[idx];
+    if (!it.script || typeof it.script !== 'string' || it.script.trim().length < 50) {
+      it.script = scriptConst;
+      changed = true;
+    }
+  };
+  ensure('sbh.demo.vmChatA', DEFAULT_VM_CHAT_A_SCRIPT, null);
+  ensure('sbh.demo.vmChatB', DEFAULT_VM_CHAT_B_SCRIPT, null);
+  if (changed) {
+    await config.update('items', items, vscode.ConfigurationTarget.Global);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -415,7 +535,7 @@ function getDefaultItems(): any[] {
 function registerBridge(context: vscode.ExtensionContext) {
   return vscode.commands.registerCommand('statusBarHelper._bridge', async (payload?: any) => {
     try {
-      if (!payload || typeof payload !== 'object') throw new Error('invalid payload');
+  if (!payload || typeof payload !== 'object') { throw new Error('invalid payload'); }
       const { ns, fn, args = [] } = payload as { ns: string; fn: string; args: any[] };
 
       // ---------- storage ----------
@@ -533,7 +653,7 @@ function registerBridge(context: vscode.ExtensionContext) {
           case 'writeText': {
             const s = String(extra ?? '');
             const size = utf8Bytes(s);
-            if (size > TEXT_SIZE_LIMIT) throw new Error(`file too large (>${TEXT_SIZE_LIMIT} bytes)`);
+            if (size > TEXT_SIZE_LIMIT) { throw new Error(`file too large (>${TEXT_SIZE_LIMIT} bytes)`); }
             const abs = inside(scopeBase(scope, context), rel);
             await ensureDir(abs);
             await fsp.writeFile(abs, s, 'utf8');
@@ -550,7 +670,7 @@ function registerBridge(context: vscode.ExtensionContext) {
             const data = extra;
             const s = JSON.stringify(data ?? null);
             const size = utf8Bytes(s);
-            if (size > JSON_SIZE_LIMIT) throw new Error(`file too large (>${JSON_SIZE_LIMIT} bytes)`);
+            if (size > JSON_SIZE_LIMIT) { throw new Error(`file too large (>${JSON_SIZE_LIMIT} bytes)`); }
             const abs = inside(scopeBase(scope, context), rel);
             await ensureDir(abs);
             await fsp.writeFile(abs, s, 'utf8');
@@ -570,12 +690,12 @@ function registerBridge(context: vscode.ExtensionContext) {
               buf = Buffer.from(data, 'base64'); // 字串視為 base64
             } else if (data instanceof Uint8Array) {
               buf = Buffer.from(data);
-            } else if (data && (data as any).byteLength != null) {
+            } else if (data && (data as any).byteLength !== null && (data as any).byteLength !== undefined) {
               buf = Buffer.from(new Uint8Array(data as ArrayBuffer));
             } else {
               throw new Error('unsupported byte payload');
             }
-            if (buf.byteLength > FILE_SIZE_LIMIT) throw new Error(`file too large (>${FILE_SIZE_LIMIT} bytes)`);
+            if (buf.byteLength > FILE_SIZE_LIMIT) { throw new Error(`file too large (>${FILE_SIZE_LIMIT} bytes)`); }
             const abs = inside(scopeBase(scope, context), rel);
             await ensureDir(abs);
             await fsp.writeFile(abs, buf);
@@ -646,14 +766,14 @@ function registerBridge(context: vscode.ExtensionContext) {
               try {
                 // Node 16+ 可用 rm；舊版 fallback
                 // @ts-ignore
-                if (e.isDirectory() && fsp.rm) await fsp.rm(p, { recursive: true, force: true });
+                if (e.isDirectory() && fsp.rm) { await fsp.rm(p, { recursive: true, force: true }); }
                 else if (e.isDirectory()) {
                   const rmrf = async (d: string) => {
                     const list = await fsp.readdir(d, { withFileTypes: true });
                     for (const x of list) {
                       const q = path.join(d, x.name);
-                      if (x.isDirectory()) await rmrf(q), await fsp.rmdir(q).catch(()=>{});
-                      else await fsp.unlink(q).catch(()=>{});
+                      if (x.isDirectory()) { await rmrf(q); await fsp.rmdir(q).catch(()=>{}); }
+                      else { await fsp.unlink(q).catch(()=>{}); }
                     }
                   };
                   await rmrf(p); await fsp.rmdir(p).catch(()=>{});
@@ -688,7 +808,7 @@ function registerBridge(context: vscode.ExtensionContext) {
         switch (fn) {
           case 'start': {
             const [cmd, code] = args as [string, string];
-            if (!cmd || !code) throw new Error('hostRun.start: invalid args');
+            if (!cmd || !code) { throw new Error('hostRun.start: invalid args'); }
             // 啟動前先把同 command 的舊 VM 關掉（只影響同名）
             abortByCommand(cmd, { type: 'replaced', from: 'settingsPanel', at: Date.now() });
             // 直接用 host 端的 runScriptInVm 執行
@@ -712,6 +832,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // 1) 植入預設項目（若目前為空）
   await ensureDefaultItems(context);
+  // 1b) 回填可能為空的 Chat A/B 範例腳本
+  await backfillChatMessagingSamples(context);
 
   // 2) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
   updateStatusBarItems(context, true);
@@ -767,5 +889,5 @@ export function deactivate() {
   if (gearItem) { gearItem.dispose(); gearItem = null; }
   itemDisposables.forEach(d => d.dispose());
   // 安全收掉所有仍在跑的 VM
-  for (const [cmd] of RUNTIMES) abortByCommand(cmd, { type: 'deactivate', at: Date.now() });
+  for (const [cmd] of RUNTIMES) { abortByCommand(cmd, { type: 'deactivate', at: Date.now() }); }
 }

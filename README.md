@@ -18,11 +18,13 @@
 
 在這個頁面，你可以撰寫並即時測試狀態列項目的腳本：
 
-- 內建 Run / Stop 按鈕，隨時執行或停止腳本。
-- 內建 Monaco 編輯器，支援 Node.js 原生模組與 VS Code API。
-- 下方 Output 面板 即時顯示腳本輸出與執行狀態（成功 / 失敗 / VM 關閉）。
-- Output 面板可隱藏，並支援拖曳調整高度。
-- 適合快速開發、測試與除錯自訂功能。
+- 顯示 / 隱藏 狀態列按鈕。
+- 新增、編輯、刪除 狀態列項目。
+- 即時查看 Running 狀態（綠點 / 計數）。
+- 切換是否顯示於狀態列，以及啟動時自動執行。
+- 複製 cmdId
+- 一鍵 Run / Stop 控制腳本運行狀態。
+- 管理套件儲存的全域與工作區資料（包含刪除與大小顯示）。
 
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1.png)
 
@@ -53,13 +55,42 @@
 
 - Log：示範如何將輸出同時顯示在面板 Output 區塊與 VS Code 的 Output Channel。
 - Git Add：示範如何在擴充套件中執行全域 Git 指令（例如 git add）。
-- Storage：示範如何使用 StatusBarHelper 的 Storage 與 File API 進行資料讀寫與檔案操作。
+- Storage：示範如何使用 StatusBarHelper.v1 的 Storage 與 File API 進行資料讀寫與檔案操作。
+  - Global Storage（跨工作區）
+    - storage.global.get(key, default?)：讀取值
+    - storage.global.set(key, value)：寫入值
+    - storage.global.remove(key)：刪除鍵值
+    - storage.global.keys()：列出所有鍵
+  - Workspace Storage（僅開啟工作區時）
+    - storage.workspace.get(key, default?)
+    - storage.workspace.set(key, value)
+    - storage.workspace.remove(key)
+    - storage.workspace.keys()
+  - Files API（檔案存取）
+    - files.dirs()：取得實體資料夾路徑（global / workspace）
+    - 文字：readText(scope, relPath)／writeText(scope, relPath, content)
+    - JSON：readJSON(scope, relPath)／writeJSON(scope, relPath, data)
+    - 二進位：readBytes(scope, relPath)／writeBytes(scope, relPath, data)（Uint8Array／ArrayBuffer／base64）
+    - exists(scope, relPath)：檢查檔案/資料夾是否存在
+    - list(scope, relPath?)：列出檔案/資料夾
+    - listStats(scope, relPath?)：列出檔案與大小/相對路徑
+    - remove(scope, relPath)：刪除檔案或資料夾
+    - clearAll(scope)：清空該範圍所有檔案
 - Toggle Light/Dark Mode：示範如何將 VS Code 指令製作成狀態列按鈕，快速切換主題。
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/01.gif)
 - Board：示範如何使用 VS Code Webview 建立自訂互動介面。
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/02.gif)
 - Pomodoro：示範結合狀態列與 showQuickPick 建立簡單的番茄鐘計時器。
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/03.gif)
+- Chat A、Chat B：示範如何使用 StatusBarHelper.v1 的 vm 在兩個腳本間建立通訊並互相控制生命週期，包含：
+  - vm.open(cmd, payload)：啟動（或喚醒）另一個腳本，並可附帶初始訊息。
+  - vm.sendMessage(targetCmd, message)：向目標腳本傳送訊息。
+  - vm.onMessage(handler)：接收其他腳本傳來的訊息。
+  - vm.stopByCommand(cmd, reason)：結束指定腳本。
+  - vm.stop(reason)：自行結束目前腳本。
+  - vm.onStop(handler)：監聽 VM 關閉事件。
+  
+  ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/04.gif)
 
 > 備註：每個 VM 執行完成後不會自動關閉，必須由使用者自行呼叫 vm.stop() 來結束；可搭配 vm.onStop() 監聽 VM 關閉事件。
 
@@ -282,6 +313,28 @@ interface StatusBarHelper {
        */
       stopByCommand(cmd?: string, reason?: any): void;
 
+      /**
+       * 開啟（啟動）另一個 command 對應的腳本（若尚未執行）。
+       * 若已在執行且提供 payload，則作為訊息傳送。
+       * @param cmdId 目標腳本的 command Id
+       * @param payload（可選）啟動後要傳遞的第一個訊息
+       */
+      open(cmdId: string, payload?: any): Promise<void>;
+
+      /**
+       * 傳送訊息給另一顆執行中的 VM（若對方尚未註冊 onMessage 會暫存佇列，直到註冊）。
+       * @param targetCmdId 目標 VM 的 command Id
+       * @param message 要傳遞的資料
+       */
+      sendMessage(targetCmdId: string, message: any): void;
+
+      /**
+       * 監聽從其他 VM 傳入的訊息，回傳取消監聽函式。
+       * @param handler 處理函式 (fromCmdId, message)
+       * @returns unsubscribe 函式
+       */
+      onMessage(handler: (fromCmdId: string, message: any) => void): () => void;
+      
       /**
        * 這顆 VM 的 AbortSignal；可自行監聽 'abort' 事件。
        * 一般建議使用 onStop 即可。

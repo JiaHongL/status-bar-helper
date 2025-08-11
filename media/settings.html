@@ -69,11 +69,15 @@
     table.list-table td{
       padding:0px 10px; border-bottom:1px dotted var(--vscode-editorGroup-border); vertical-align: middle; 
     }
-    table.data-table td{ 
+    table.data-table td{
       padding:6px 10px; border-bottom:1px dotted var(--vscode-editorGroup-border); vertical-align: middle; 
     }
 
     tr.item-row { height: 34px; }
+
+    table.list-table tr.item-row:hover, table.data-table tr:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
 
     .td-content-wrapper { height: 100%; display: flex; align-items: center; }
     .td-content-wrapper.justify-center { justify-content: center; }
@@ -211,6 +215,87 @@
       background: var(--vscode-testing-iconPassed);
       color: var(--vscode-sideBar-background);
     }
+
+    #confirm-dialog-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #confirm-dialog-overlay.hidden {
+      display: none;
+    }
+
+    #confirm-dialog {
+      background-color: var(--vscode-editor-background);
+      padding: 20px;
+      border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      max-width: 400px;
+      width: 90%;
+      border: 1px solid var(--vscode-editorGroup-border);
+    }
+
+    #confirm-dialog h3 {
+      margin-top: 0;
+      color: var(--vscode-editor-foreground);
+    }
+
+    #confirm-dialog p {
+      margin: 10px 0;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .confirm-buttons {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .confirm-buttons button {
+      margin-left: 10px;
+      padding: 8px 16px;
+    }
+
+    .confirm-buttons button.secondary {
+        background-color: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+    }
+    .confirm-buttons button.secondary:hover {
+        background-color: var(--vscode-button-secondaryHoverBackground);
+    }
+    .command-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .command-input {
+        flex-grow: 1;
+        background-color: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        border: 1px solid var(--vscode-input-border);
+        padding: 2px 6px;
+        font-family: var(--vscode-editor-font-family, monospace);
+        font-size: 0.9em;
+        border-radius: 3px;
+    }
+    .copy-btn {
+        background: transparent;
+        border: none;
+        color: var(--vscode-icon-foreground);
+        cursor: pointer;
+        opacity: 0.7;
+    }
+    .copy-btn:hover {
+        opacity: 1;
+    }
   </style>
     </head>
     <body>
@@ -270,6 +355,7 @@
                                 <th style="width: 120px; text-align:center;">Running<span id="running-count" class="badge" title="Running scripts">0</span></th>
                                 <th style="width: 50px; text-align:center;">Visible</th>
                                 <th style="width: 100px; text-align:center;">Run at Startup</th>
+                                <th style="width: 50px; text-align:center;">CmdId</th>
                                 <th style="width: 120px; text-align:right;">Actions</th>
                             </tr>
                         </thead>
@@ -319,6 +405,14 @@
 
         <div id="edit-view"></div>
 
+        <div id="confirm-dialog-overlay" class="hidden">
+            <div id="confirm-dialog">
+                <h3 id="confirm-title"></h3>
+                <p id="confirm-message"></p>
+                <div class="confirm-buttons"></div>
+            </div>
+        </div>
+
         <script src="{{monacoUri}}/loader.js"></script>
         <script src="{{monacoUri}}/vscode-icons.js"></script>
         <script>
@@ -352,21 +446,46 @@
       el.classList.toggle('badge--accent', n > 0);
     }
 
-    /* ---------- VS Code 原生確認對話框 ---------- */
-    function confirmDiscardWithVSCode() {
-      const token = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
-      return new Promise((resolve) => {
-        function onMsg(e) {
-          const m = e.data || {};
-          if (m.command === 'confirmDiscardResult' && m.token === token) {
-            window.removeEventListener('message', onMsg);
-            resolve(m.choice === 'Discard');
-          }
-        }
-        window.addEventListener('message', onMsg);
-        vscode.postMessage({ command: 'confirmDiscard', token });
-      });
+    /* ---------- Custom Choice Dialog ---------- */
+    function showChoiceDialog(title, message, buttons = ['OK']) {
+        const overlay = document.getElementById('confirm-dialog-overlay');
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const buttonsEl = document.querySelector('.confirm-buttons');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        buttonsEl.innerHTML = ''; // Clear existing buttons
+
+        overlay.classList.remove('hidden');
+
+        return new Promise((resolve) => {
+            const listeners = [];
+
+            buttons.forEach(btnText => {
+                const btn = document.createElement('button');
+                btn.textContent = btnText;
+                if (btnText === 'Cancel' || btnText === 'Discard') {
+                    btn.classList.add('secondary');
+                }
+                const listener = () => {
+                    overlay.classList.add('hidden');
+                    cleanup();
+                    resolve(btnText);
+                };
+                btn.addEventListener('click', listener);
+                buttonsEl.appendChild(btn);
+                listeners.push({ btn, listener });
+            });
+
+            const cleanup = () => {
+                listeners.forEach(({ btn, listener }) => {
+                    btn.removeEventListener('click', listener);
+                });
+            };
+        });
     }
+
     /* ---------- Formatters ---------- */
     function formatBytes(n){ if (!Number.isFinite(n)) return '0 B'; const u = ['B','KB','MB','GB']; let i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; } return `${Math.round(n*10)/10} ${u[i]}`; }
     const typeIcon = (row) => { if (row.kind === 'kv') return 'database'; if (row.ext === 'text') return 'file-text'; if (row.ext === 'json') return 'file-code'; return 'file-binary'; };
@@ -512,6 +631,23 @@ interface StatusBarHelper {
        * @param reason Optional reason object or string
        */
       stopByCommand(cmd?: string, reason?: any): void;
+      /**
+      * Open (start) another script by its command id if not already running, then optionally send an initial payload.
+      * If it is already running and payload is provided, the payload is sent as a message.
+      * @param cmdId Target command id registered in statusBarHelper.items
+      * @param payload Optional initial payload message
+      */
+      open(cmdId: string, payload?: any): Promise<void>;
+      /**
+      * Send a message to another running VM (or queue until it registers onMessage).
+      * @param targetCmdId Target VM command id
+      * @param message Arbitrary serializable data
+      */
+      sendMessage(targetCmdId: string, message: any): void;
+      /**
+      * Listen for messages coming from other VMs. Returns an unsubscribe function.
+      */
+      onMessage(handler: (fromCmdId: string, message: any) => void): () => void;
     };
   };
 }
@@ -551,7 +687,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const tbody = document.getElementById('items-list-body');
       tbody.innerHTML = '';
       const q = filterText.trim().toLowerCase();
-      const escapeHtml = (s='') => s.replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[m]);
+      const escapeHtml = (s='') => s.replace(/[&<>'"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
 
       const filteredItems = items.filter(item => {
         const label = item.text.replace(/^\$\(([^)]+)\) /, '');
@@ -592,6 +728,12 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           <td><div class="td-content-wrapper justify-center">${isRunning ? `<span class="running-dot">Running</span>` : `<span style="opacity:.5">—</span>`}</div></td>
           <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${originalIndex}" ${item.hidden ? '' : 'checked'}><span class="slider"></span></label></div></td>
           <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="run-on-enable-toggle" data-index="${originalIndex}" ${item.enableOnInit ? 'checked' : ''}><span class="slider"></span></label></div></td>
+          <td>
+            <div class="command-cell">
+              <button class="copy-btn" title="Copy ${escapeHtml(item.command || '')}"><i class="codicon codicon-clippy"></i></button>
+            </div>
+            <input hidden style="width:0px" type="text" readonly class="command-input" value="${escapeHtml(item.command || '')}" />
+          </td>
           <td class="item-actions">
             <div class="td-content-wrapper justify-end">
               <button class="run-now-item" data-index="${originalIndex}" type="button">Run</button>
@@ -755,7 +897,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           if (currentEditor) currentEditor.layout();
           setSplitState(ratio);
         };
-        const onUp = ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+        const onUp = ()=>{
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
         splitEl.addEventListener('mousedown', (e)=>{
           if (isCollapsed()) return; // ignore drag while collapsed
           e.preventDefault();
@@ -844,7 +989,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             return JSON.stringify(current) !== pristineJson;
           };
           const discardAndBack = () => { clearDraftIfMatch(item.command); clearEditing(); showListView(); };
-          if (hasUnsaved()) { if (await confirmDiscardWithVSCode()) discardAndBack(); } else { discardAndBack(); }
+          if (hasUnsaved()) { 
+              if (await showChoiceDialog('Discard changes?', 'You have unsaved changes. Are you sure you want to discard them?', ['Discard', 'Cancel']) === 'Discard') {
+                discardAndBack();
+              }
+          } else { 
+              discardAndBack(); 
+          }
         }
         else if (btn.id === 'run-btn') {
           const code = currentEditor.getValue();
@@ -858,7 +1009,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           applyLayout();
 
           const stripComments = (src)=>src.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:])\/\/.*$/gm,'$1');
-          const usesVsCode = (code)=>{ const s=stripComments(code); return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s); };
+          const usesVsCode = (code)=>{
+            const s=stripComments(code);
+            return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s);
+          };
           vscode.postMessage({ command: usesVsCode(code) ? 'runScriptTrusted' : 'runScript', code, itemCommand: cmd });
         }
         else if (btn.id === 'stop-btn') {
@@ -882,19 +1036,37 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       e.target.timer = setTimeout(() => { dataFilterText = e.target.value; renderStoredData(storedRows); }, 80);
     });
 
-    document.getElementById('list-view').addEventListener('click', e => {
+    document.getElementById('list-view').addEventListener('click', async e => {
       const target = e.target.closest('button, input');
       if (!target) return;
       const index = +target.closest('tr')?.dataset.index;
       if (Number.isNaN(index)) return;
 
-      if (target.classList.contains('edit-item')) {
+      else if (target.classList.contains('copy-btn')) {
+        const row = target.closest('tr');
+        const commandInput = row.querySelector('.command-input');
+        if (commandInput) {
+            navigator.clipboard.writeText(commandInput.value);
+            const originalText = target.innerHTML;
+            target.innerHTML = '<i class="codicon codicon-check"></i>';
+            setTimeout(() => {
+                target.innerHTML = originalText;
+            }, 1000);
+        }
+      }
+      else if (target.classList.contains('edit-item')) {
         showEditView(index, { ...items[index] });
       }
       else if (target.classList.contains('delete-item')) {
-        items.splice(index, 1);
-        saveAndPostSettings();
-        renderListView();
+        const row = target.closest('tr');
+        const labelEl = row.querySelector('.item-label');
+        const label = labelEl ? labelEl.textContent : '';
+        const choice = await showChoiceDialog('Delete Item', `Are you sure you want to delete the item "${label}"?`, ['Delete', 'Cancel']);
+        if (choice === 'Delete') {
+            items.splice(index, 1);
+            saveAndPostSettings();
+            renderListView();
+        }
       }
       else if (target.classList.contains('visibility-toggle')) {
         items[index].hidden = !target.checked;
@@ -913,22 +1085,40 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       }
     });
 
-    document.getElementById('data-view').addEventListener('click', e => {
+    document.getElementById('data-view').addEventListener('click', async e => {
       const target = e.target.closest('button.data-del');
       if (!target) return;
       const index = +target.dataset.i;
       if (Number.isNaN(index) || !storedRows[index]) return;
-      vscode.postMessage({ command: 'data:delete', row: storedRows[index] });
+      const row = target.closest('tr');
+      const keyPathEl = row.querySelector('.mono');
+      const keyPath = keyPathEl ? keyPathEl.textContent : '';
+      const choice = await showChoiceDialog('Delete Data', `Are you sure you want to delete the data at "${keyPath}"?`, ['Delete', 'Cancel']);
+      if (choice === 'Delete') {
+        vscode.postMessage({ command: 'data:delete', row: storedRows[index] });
+      }
     });
 
-    document.getElementById('add-new-item-btn').onclick = () => showEditView(null, { 
-      text:'New Item', tooltip:'', command:'my.new.'+Date.now(), script: defaultScript, enableOnInit: false, hidden: false
-    });
+    document.getElementById('add-new-item-btn').onclick = () => {
+      const newCommand = 'cmd.' + Math.random().toString(36).slice(2,7) + Math.random().toString(36).slice(2,7);
+      showEditView(null, { 
+        text:'New Item', tooltip:'', command:newCommand, script: defaultScript, enableOnInit: false, hidden: false
+      });
+    }
     
     document.getElementById('export-btn').onclick = () => vscode.postMessage({ command:'exportSettings', items });
     document.getElementById('import-btn').onclick = () => vscode.postMessage({ command:'importSettings' });
-    document.getElementById('restore-btn').onclick = () => vscode.postMessage({ command:'restoreDefaults' });
-    document.getElementById('clear-all-btn').onclick = async () => vscode.postMessage({ command: 'data:clearAll' });
+    document.getElementById('restore-btn').onclick = async () => {
+        const choice = await showChoiceDialog('Restore Samples', 'This will restore the default sample items. How would you like to proceed?', ['Replace All', 'Append', 'Cancel']);
+        if (choice === 'Replace All' || choice === 'Append') {
+            vscode.postMessage({ command: 'restoreDefaults', choice: choice });
+        }
+    };
+    document.getElementById('clear-all-btn').onclick = async () => {
+        if (await showChoiceDialog('Clear All Data', 'Are you sure you want to clear all stored data? This cannot be undone.', ['Clear All', 'Cancel']) === 'Clear All') {
+            vscode.postMessage({ command: 'data:clearAll' });
+        }
+    };
 
     window.addEventListener('message', e => {
       const msg = e.data;

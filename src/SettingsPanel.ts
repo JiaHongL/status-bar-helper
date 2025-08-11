@@ -8,7 +8,9 @@ import {
   DEFAULT_SBH_STORAGE_SCRIPT, 
   DEFAULT_TOGGLE_THEME_SCRIPT,
   DEFAULT_WHITEBOARD_SCRIPT, 
-  DEFAULT_POMODORO_SCRIPT
+  DEFAULT_POMODORO_SCRIPT,
+  DEFAULT_VM_CHAT_A_SCRIPT,
+  DEFAULT_VM_CHAT_B_SCRIPT
 } from './default-items';
 
 export class SettingsPanel {
@@ -40,18 +42,7 @@ export class SettingsPanel {
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
-          case 'confirmDiscard': {
-            vscode.window
-              .showWarningMessage('Discard changes?', { modal: true }, 'Discard', 'Cancel')
-              .then((selection) => {
-                this._panel.webview.postMessage({
-                  command: 'confirmDiscardResult',
-                  token: message.token,
-                  choice: selection || 'Cancel',
-                });
-              });
-            return;
-          }
+          
           case 'updateSettings': {
             await vscode.workspace.getConfiguration('statusBarHelper')
               .update('items', message.items, vscode.ConfigurationTarget.Global);
@@ -132,12 +123,8 @@ export class SettingsPanel {
 
           // === Restore defaults ===
           case 'restoreDefaults': {
-            const pick = await vscode.window.showWarningMessage(
-              'Restore sample items?',
-              { modal: true },
-              'Replace All', 'Append', 'Cancel'
-            );
-            if (!pick || pick === 'Cancel') {
+            const pick = message.choice; // 'Replace All' or 'Append'
+            if (!pick) {
               return;
             }
             const cfg = vscode.workspace.getConfiguration('statusBarHelper');
@@ -146,7 +133,7 @@ export class SettingsPanel {
             let next: any[] = [];
             if (pick === 'Replace All') {
               next = defaults;
-            } else {
+            } else if (pick === 'Append') {
               const exists = new Set(items.map(i => i?.command));
               const toAdd = defaults.filter(d => !exists.has(d.command));
               next = items.concat(toAdd);
@@ -228,25 +215,19 @@ export class SettingsPanel {
             return;
           }
           case 'data:clearAll': {
-            vscode.window.showWarningMessage('Are you sure you want to clear all stored data?', { modal: true }, 'Clear', 'Cancel')
-              .then( async(selection) => {
-                if (!selection || selection === 'Cancel') {
-                  return;
-                }
-                for (const scope of ['global', 'workspace'] as const) {
-                  try {
-                    const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
-                    const fnRm = scope === 'global' ? 'removeGlobal' : 'removeWorkspace';
-                    const keys: string[] = await this._callBridge('storage', fnKeys);
-                    for (const k of keys) await this._callBridge('storage', fnRm, k);
-                  } catch {}
-                  try {
-                    await this._callBridge('files', 'clearAll', scope);
-                  } catch {}
-                }
-                const rows = await this._collectStoredRows();
-                this._panel.webview.postMessage({ command: 'data:setRows', rows });
-              });
+            for (const scope of ['global', 'workspace'] as const) {
+              try {
+                const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
+                const fnRm = scope === 'global' ? 'removeGlobal' : 'removeWorkspace';
+                const keys: string[] = await this._callBridge('storage', fnKeys);
+                for (const k of keys) { await this._callBridge('storage', fnRm, k); }
+              } catch {}
+              try {
+                await this._callBridge('files', 'clearAll', scope);
+              } catch {}
+            }
+            const rows = await this._collectStoredRows();
+            this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
         }
@@ -258,7 +239,7 @@ export class SettingsPanel {
     this._panel.onDidChangeViewState(
       e => {
         if (e.webviewPanel.visible) {
-            if (this._activeView === 'list') this._sendRunningToWebview();
+          if (this._activeView === 'list') { this._sendRunningToWebview(); }
         }
       },
       null,
@@ -392,7 +373,7 @@ export class SettingsPanel {
     }
     SettingsPanel.currentPanel = undefined;
     this._panel.dispose();
-    while (this._disposables.length) { const x = this._disposables.pop(); if (x) x.dispose(); }
+  while (this._disposables.length) { const x = this._disposables.pop(); if (x) { x.dispose(); } }
   }
 
   // ---------- Smart Run helpers ----------
@@ -447,7 +428,7 @@ export class SettingsPanel {
   // === Bridge 呼叫工具（Webview / VM 共用）===
   private async _callBridge(ns: string, fn: string, ...args: any[]) {
     const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns, fn, args }) as any;
-    if (r && r.ok) return r.data;
+  if (r && r.ok) { return r.data; }
     throw new Error(r?.error || 'bridge error');
   }
 
@@ -460,7 +441,7 @@ export class SettingsPanel {
         const list: Array<{rel:string; name:string; size:number}> = await this._callBridge('files','listStats', scope, '');
         list.forEach(f => {
           const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
-          if (!rel) return;
+          if (!rel) { return; }
           const ext = /\.json$/i.test(rel) ? 'json' : /\.txt$/i.test(rel) ? 'text' : 'bytes';
           rows.push({ kind:'file', scope, ext, keyPath: rel, size: Number(f.size || 0) });
         });
@@ -533,6 +514,22 @@ function buildDefaultItems(): any[] {
       command: 'sbh.demo.pomodoro',
       script: DEFAULT_POMODORO_SCRIPT,
       enableOnInit: true,
+      hidden: true
+    },
+    {
+      text: '$(comment) Chat A',
+      tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+      command: 'sbh.demo.vmChatA',
+      script: DEFAULT_VM_CHAT_A_SCRIPT,
+      enableOnInit: false,
+      hidden: true
+    },
+    {
+      text: '$(comment-discussion) Chat B',
+      tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage',
+      command: 'sbh.demo.vmChatB',
+      script: DEFAULT_VM_CHAT_B_SCRIPT,
+      enableOnInit: false,
       hidden: true
     }
   ];
