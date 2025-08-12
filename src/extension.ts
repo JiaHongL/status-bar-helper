@@ -13,6 +13,15 @@ import {
   DEFAULT_VM_CHAT_B_SCRIPT
 } from './default-items';
 import { SettingsPanel } from './SettingsPanel';
+import {
+  initGlobalSyncKeys,
+  loadFromGlobal,
+  saveOneToGlobal,
+  SbhItem,
+  MIGRATION_FLAG_KEY,
+  GLOBAL_MANIFEST_KEY,
+  GLOBAL_ITEMS_KEY
+} from './globalStateManager';
 
 let _runOnceExecutedCommands: Set<string> = new Set();
 
@@ -48,11 +57,137 @@ const inside = (base: string, rel = '') => {
   if (!rel) { return base; }
   if (path.isAbsolute(rel)) { throw new Error('absolute path not allowed'); }
   if (rel.includes('..')) { throw new Error('path escape rejected'); }
-  const abs = path.resolve(base, rel);
-  const baseAbs = path.resolve(base);
-  if (!abs.startsWith(baseAbs)) { throw new Error('path escape rejected'); }
-  return abs;
+  return path.join(base, rel);
 };
+
+// ─────────────────────────────────────────────────────────────
+// 遷移函數（在此檔案中實現，因為需要存取其他設定）
+// ─────────────────────────────────────────────────────────────
+
+async function migrateFromSettingsIfNeeded(context: vscode.ExtensionContext): Promise<boolean> {
+  // 檢查是否已遷移
+  const isMigrated = context.globalState.get<boolean>(MIGRATION_FLAG_KEY);
+  
+  try {
+    const config = vscode.workspace.getConfiguration('statusBarHelper');
+    const oldItems = config.get<any[]>('items', []);
+    
+    if (!Array.isArray(oldItems) || oldItems.length === 0) {
+      // 沒有舊資料
+      if (!isMigrated) {
+        // 首次執行，標記完成
+        await context.globalState.update(MIGRATION_FLAG_KEY, true);
+        return true;
+      }
+      return false;
+    }
+    
+    // 有舊資料 - 無論是否已遷移，都檢查是否有新項目
+    const existingItems = loadFromGlobal(context);
+    const existingCommands = new Set(existingItems.map(i => i.command));
+    const newItems = oldItems.filter(item => 
+      item && typeof item === 'object' && 
+      item.command && 
+      !existingCommands.has(item.command)
+    );
+    
+    if (newItems.length === 0) {
+      // 沒有新項目，清空用戶級別的舊設定即可
+      await config.update('items', [], vscode.ConfigurationTarget.Global);
+      if (!isMigrated) {
+        await context.globalState.update(MIGRATION_FLAG_KEY, true);
+      }
+      return false;
+    }
+    
+    // 有新項目需要遷移
+    if (isMigrated) {
+      console.log(`Found ${newItems.length} new items to migrate from settings.json (sync scenario)`);
+    }
+    
+    // 備份舊設定（可選，失敗不阻斷）
+    try {
+      const backupPath = path.join(context.globalStorageUri.fsPath, 'settings-backup.json');
+      await fsp.mkdir(path.dirname(backupPath), { recursive: true });
+      await fsp.writeFile(backupPath, JSON.stringify({ 
+        timestamp: new Date().toISOString(),
+        items: oldItems 
+      }, null, 2));
+    } catch (backupError) {
+      console.warn('Failed to backup settings:', backupError);
+    }
+    
+    // 載入現有 globalState 資料
+    const manifest = context.globalState.get<any>(GLOBAL_MANIFEST_KEY, { version: 1, items: [] });
+    const itemsMap = context.globalState.get<any>(GLOBAL_ITEMS_KEY, {});
+    
+    // 遷移每個項目（如果已遷移過，只處理新項目；否則處理全部）
+    const itemsToMigrate = isMigrated ? newItems : oldItems;
+    
+    for (const oldItem of itemsToMigrate) {
+      if (!oldItem || typeof oldItem !== 'object') {
+        continue;
+      }
+      
+      let command = oldItem.command;
+      if (!command || typeof command !== 'string') {
+        // 產生新的 command ID
+        command = `sbh.user.${Math.random().toString(36).substr(2, 8)}`;
+      }
+      
+      // 更新 manifest
+      const existingIndex = manifest.items.findIndex((i: any) => i.command === command);
+      const meta = {
+        command,
+        text: oldItem.text || '$(question) Unknown',
+        tooltip: oldItem.tooltip,
+        hidden: Boolean(oldItem.hidden),
+        enableOnInit: Boolean(oldItem.enableOnInit)
+      };
+      
+      if (existingIndex >= 0) {
+        manifest.items[existingIndex] = meta;
+      } else {
+        manifest.items.push(meta);
+      }
+      
+      // 更新 script
+      itemsMap[command] = oldItem.script || '';
+    }
+    
+    // 寫回 globalState
+    await context.globalState.update(GLOBAL_MANIFEST_KEY, manifest);
+    await context.globalState.update(GLOBAL_ITEMS_KEY, itemsMap);
+    
+    // 清空舊設定（只清空用戶級別，因為通常用戶不會在工作區設定這個）
+    await config.update('items', [], vscode.ConfigurationTarget.Global);
+    
+    // 標記遷移完成
+    await context.globalState.update(MIGRATION_FLAG_KEY, true);
+    
+    if (itemsToMigrate.length > 0) {
+      const messagePrefix = isMigrated ? 'imported' : 'migrated';
+      vscode.window.showInformationMessage(
+        `✅ Status Bar Helper: Successfully ${messagePrefix} ${itemsToMigrate.length} items to the new storage format`
+      );
+    }
+    
+    return true;
+    
+  } catch (error) {
+    console.error('Migration failed:', error);
+    vscode.window.showWarningMessage(
+      `⚠️ Status Bar Helper: Migration failed, old settings will be preserved. See Output panel for details.`
+    );
+    
+    // 輸出詳細錯誤到 Output
+    const output = vscode.window.createOutputChannel('Status Bar Helper');
+    output.appendLine(`Migration Error: ${error}`);
+    output.show(true);
+    
+    return false;
+  }
+}
 
 const ensureDir = async (absFile: string) => {
   await fsp.mkdir(path.dirname(absFile), { recursive: true }).catch(() => {});
@@ -287,9 +422,8 @@ function runScriptInVm(
         if (arguments.length >= 2) { dispatchMessage(cmdId, command, payload); }
         return;
       }
-      // 找設定中的腳本
-      const config = vscode.workspace.getConfiguration('statusBarHelper');
-      const items = config.get<any[]>('items', []);
+      // 從 globalState 載入腳本
+      const items = loadFromGlobal(context);
       const targetItem = items.find(i => i && i.command === cmdId);
       if (!targetItem || !targetItem.script) { throw new Error(`vm.open: command not found or empty script: ${cmdId}`); }
       try {
@@ -366,14 +500,13 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
   itemDisposables.forEach(d => d.dispose());
   itemDisposables = [];
 
-  const config = vscode.workspace.getConfiguration('statusBarHelper');
-  const items = config.get<any[]>('items', []);
+  // 從 globalState 載入項目
+  const items = loadFromGlobal(context);
 
   items.forEach((item, index) => {
-    const { text, tooltip, command, script, hidden, enableOnInit } = item || {};
-    if (hidden && !enableOnInit) {
-      return;
-    }
+    const { text, tooltip, command, script, hidden, enableOnInit } = item;
+    
+    // 創建狀態列項目（即使隱藏也要創建，以便動態切換顯示）
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100 - index);
     statusBarItem.text = text;
     statusBarItem.tooltip = tooltip;
@@ -392,10 +525,12 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
 
     itemDisposables.push(statusBarItem, commandDisposable);
 
+    // 根據 hidden 狀態決定是否顯示
     if (!hidden) {
       statusBarItem.show();
     }
 
+    // enableOnInit 邏輯（只在首次啟動時執行）
     if (firstActivation && enableOnInit && !_runOnceExecutedCommands.has(command)) {
       try {
         runScriptInVm(context, command, script, 'autorun');
@@ -429,14 +564,20 @@ function refreshGearButton() {
 async function ensureDefaultItems(context: vscode.ExtensionContext) {
   const seededKey = 'sbh.seededDefaults.v2';
   const already = context.globalState.get<boolean>(seededKey);
-  const config = vscode.workspace.getConfiguration('statusBarHelper');
-  const items = config.get<any[]>('items', []);
-  if (already || (Array.isArray(items) && items.length > 0)) { return; }
-  await config.update('items', getDefaultItems(), vscode.ConfigurationTarget.Global);
+  const items = loadFromGlobal(context);
+  
+  if (already || items.length > 0) { return; }
+  
+  // 植入預設項目到 globalState
+  const defaultItems = getDefaultItems();
+  for (const item of defaultItems) {
+    await saveOneToGlobal(context, item);
+  }
+  
   await context.globalState.update(seededKey, true);
 }
 
-function getDefaultItems(): any[] {
+function getDefaultItems(): SbhItem[] {
   return [
     {
       text: '$(output) Log',
@@ -505,28 +646,42 @@ function getDefaultItems(): any[] {
   ];
 }
 
-// 若使用者在加入 Chat A/B 之前已安裝，設定中可能沒有這兩個項目或 script 為空字串。
+// 若使用者在加入 Chat A/B 之前已安裝，globalState 中可能沒有這兩個項目或 script 為空字串。
 async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
-  const config = vscode.workspace.getConfiguration('statusBarHelper');
-  const items = config.get<any[]>('items', []) || [];
+  const items = loadFromGlobal(context);
   let changed = false;
-  const ensure = (cmd: string, scriptConst: string, defaultItem: any) => {
-    const idx = items.findIndex(i => i && i.command === cmd);
-    if (idx === -1) {
+  
+  const ensure = async (cmd: string, scriptConst: string, defaultItem: SbhItem) => {
+    const existing = items.find(i => i.command === cmd);
+    if (!existing) {
       // 不自動插入全新項目（避免驚嚇）；若需要可 Restore Defaults。
       return;
     }
-    const it = items[idx];
-    if (!it.script || typeof it.script !== 'string' || it.script.trim().length < 50) {
-      it.script = scriptConst;
+    
+    if (!existing.script || existing.script.trim().length < 50) {
+      existing.script = scriptConst;
+      await saveOneToGlobal(context, existing);
       changed = true;
     }
   };
-  ensure('sbh.demo.vmChatA', DEFAULT_VM_CHAT_A_SCRIPT, null);
-  ensure('sbh.demo.vmChatB', DEFAULT_VM_CHAT_B_SCRIPT, null);
-  if (changed) {
-    await config.update('items', items, vscode.ConfigurationTarget.Global);
-  }
+  
+  await ensure('sbh.demo.vmChatA', DEFAULT_VM_CHAT_A_SCRIPT, {
+    text: '$(comment) Chat A',
+    tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+    command: 'sbh.demo.vmChatA',
+    script: DEFAULT_VM_CHAT_A_SCRIPT,
+    enableOnInit: false,
+    hidden: true
+  });
+  
+  await ensure('sbh.demo.vmChatB', DEFAULT_VM_CHAT_B_SCRIPT, {
+    text: '$(comment-discussion) Chat B',
+    tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage', 
+    command: 'sbh.demo.vmChatB',
+    script: DEFAULT_VM_CHAT_B_SCRIPT,
+    enableOnInit: false,
+    hidden: true
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -830,29 +985,39 @@ function registerBridge(context: vscode.ExtensionContext) {
 export async function activate(context: vscode.ExtensionContext) {
   console.log('✅ Status Bar Helper Activated');
 
-  // 1) 植入預設項目（若目前為空）
+  // 1) 初始化 globalState 同步設定
+  initGlobalSyncKeys(context);
+
+  // 2) 執行一次性遷移（從 settings.json 到 globalState）
+  await migrateFromSettingsIfNeeded(context);
+
+  // 3) 植入預設項目（若目前為空）
   await ensureDefaultItems(context);
-  // 1b) 回填可能為空的 Chat A/B 範例腳本
+  
+  // 4) 回填可能為空的 Chat A/B 範例腳本
   await backfillChatMessagingSamples(context);
 
-  // 2) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
+  // 5) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
   updateStatusBarItems(context, true);
 
-  // 3) 註冊 Settings（lazy import）
+  // 6) 註冊 Settings（lazy import）
   const showSettings = vscode.commands.registerCommand('statusBarHelper.showSettings', async () => {
     const { SettingsPanel } = await import('./SettingsPanel.js');
-    SettingsPanel.createOrShow(context.extensionUri);
+    SettingsPanel.createOrShow(context.extensionUri, context);
   });
   context.subscriptions.push(showSettings);
 
-  // 4) 顯示右下角齒輪（可由設定關閉）
+  // 7) 顯示右下角齒輪（可由設定關閉）
   refreshGearButton();
 
-  // 5) 設定變更時更新
+  // 8) 設定變更時更新（保留向後相容，也監聽可能的舊設定變更）
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('statusBarHelper.items')) {
-        updateStatusBarItems(context);
+        // 舊設定變更時嘗試重新遷移
+        migrateFromSettingsIfNeeded(context).then(() => {
+          updateStatusBarItems(context);
+        });
       }
       if (e.affectsConfiguration('statusBarHelper.showGearOnStartup')) {
         refreshGearButton();
@@ -871,18 +1036,22 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 6) 註冊橋接指令
+  // 9) 註冊橋接指令
   context.subscriptions.push(registerBridge(context));
 
-  // 7) 對外：依 command 中止目前在 host 端跑的 VM（給 SettingsPanel / 列表 Stop 用）
+  // 10) 對外：依 command 中止目前在 host 端跑的 VM（給 SettingsPanel / 列表 Stop 用）
   context.subscriptions.push(
     vscode.commands.registerCommand('statusBarHelper._abortByCommand', (cmd: string, reason?: any) =>
       abortByCommand(String(cmd || ''), reason ?? { type: 'external', at: Date.now() })
     )
   );
 
-  // （可選）同步白名單
-  // context.globalState.setKeysForSync?.(['sbh.seededDefaults.v2']);
+  // 11) 內部：重新整理狀態列項目（給 SettingsPanel 用）
+  context.subscriptions.push(
+    vscode.commands.registerCommand('statusBarHelper._refreshStatusBar', () => {
+      updateStatusBarItems(context, false);
+    })
+  );
 }
 
 export function deactivate() {

@@ -12,9 +12,16 @@ import {
   DEFAULT_VM_CHAT_A_SCRIPT,
   DEFAULT_VM_CHAT_B_SCRIPT
 } from './default-items';
+import {
+  loadFromGlobal,
+  saveAllToGlobal,
+  SbhItem
+} from './globalStateManager';
 
 export class SettingsPanel {
   public static currentPanel: SettingsPanel | undefined;
+  public static extensionContext: vscode.ExtensionContext | undefined;
+  
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
@@ -44,8 +51,15 @@ export class SettingsPanel {
         switch (message.command) {
           
           case 'updateSettings': {
-            await vscode.workspace.getConfiguration('statusBarHelper')
-              .update('items', message.items, vscode.ConfigurationTarget.Global);
+            if (SettingsPanel.extensionContext) {
+              await saveAllToGlobal(SettingsPanel.extensionContext, message.items);
+              // 通知主擴充功能更新狀態列
+              try {
+                await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              } catch (e) {
+                console.warn('Failed to refresh status bar:', e);
+              }
+            }
             this._activeView = 'list';
             this._editingItem = null;
             return;
@@ -104,9 +118,8 @@ export class SettingsPanel {
                 const content = fs.readFileSync(uri.fsPath, 'utf8');
                 try {
                   const items = JSON.parse(content);
-                  if (Array.isArray(items)) {
-                    await vscode.workspace.getConfiguration('statusBarHelper')
-                      .update('items', items, vscode.ConfigurationTarget.Global);
+                  if (Array.isArray(items) && SettingsPanel.extensionContext) {
+                    await saveAllToGlobal(SettingsPanel.extensionContext, items);
                     this._sendStateToWebview();
                     this._panel.webview.postMessage({ command: 'importDone', items });
                     vscode.window.showInformationMessage('Settings imported successfully.');
@@ -124,22 +137,21 @@ export class SettingsPanel {
           // === Restore defaults ===
           case 'restoreDefaults': {
             const pick = message.choice; // 'Replace All' or 'Append'
-            if (!pick) {
+            if (!pick || !SettingsPanel.extensionContext) {
               return;
             }
-            const cfg = vscode.workspace.getConfiguration('statusBarHelper');
-            const items = cfg.get<any[]>('items', []) || [];
+            const items = loadFromGlobal(SettingsPanel.extensionContext);
             const defaults = buildDefaultItems();
-            let next: any[] = [];
+            let next: SbhItem[] = [];
             if (pick === 'Replace All') {
               next = defaults;
             } else if (pick === 'Append') {
-              const exists = new Set(items.map(i => i?.command));
+              const exists = new Set(items.map(i => i.command));
               const toAdd = defaults.filter(d => !exists.has(d.command));
               next = items.concat(toAdd);
             }
 
-            await cfg.update('items', next, vscode.ConfigurationTarget.Global);
+            await saveAllToGlobal(SettingsPanel.extensionContext, next);
             this._activeView = 'list';
             this._editingItem = null;
             this._sendStateToWebview();
@@ -249,7 +261,11 @@ export class SettingsPanel {
     this._update();
   }
 
-  public static createOrShow(extensionUri: vscode.Uri) {
+  public static createOrShow(extensionUri: vscode.Uri, context?: vscode.ExtensionContext) {
+    if (context) {
+      SettingsPanel.extensionContext = context;
+    }
+    
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -304,8 +320,7 @@ export class SettingsPanel {
   }
 
   private _sendStateToWebview() {
-    const config = vscode.workspace.getConfiguration('statusBarHelper');
-    const items = config.get<any[]>('items', []);
+    const items = SettingsPanel.extensionContext ? loadFromGlobal(SettingsPanel.extensionContext) : [];
 
     let typeDefs: { node: any[], vscode: string } | null = null;
     try {
@@ -466,7 +481,7 @@ export class SettingsPanel {
 }
 
 /* ---------- Restore defaults helpers (same as extension.ts) ---------- */
-function buildDefaultItems(): any[] {
+function buildDefaultItems(): SbhItem[] {
   return [
     {
       text: '$(output) Log',
