@@ -17,6 +17,7 @@ import {
   saveAllToGlobal,
   SbhItem
 } from './globalStateManager';
+import { localize } from './nls';
 
 export class SettingsPanel {
   public static currentPanel: SettingsPanel | undefined;
@@ -101,12 +102,12 @@ export class SettingsPanel {
 
             vscode.window.showSaveDialog({
               defaultUri,
-              saveLabel: 'Export Settings',
+              saveLabel: localize('export.saveLabel', 'Export Settings'),
               filters: { 'JSON': ['json'] }
             }).then(uri => {
               if (uri) {
                 fs.writeFileSync(uri.fsPath, JSON.stringify(items, null, 2));
-                vscode.window.showInformationMessage('Settings exported successfully.');
+                vscode.window.showInformationMessage(localize('export.success', 'Settings exported successfully.'));
               }
             });
             return;
@@ -122,12 +123,12 @@ export class SettingsPanel {
                     await saveAllToGlobal(SettingsPanel.extensionContext, items);
                     this._sendStateToWebview();
                     this._panel.webview.postMessage({ command: 'importDone', items });
-                    vscode.window.showInformationMessage('Settings imported successfully.');
+                    vscode.window.showInformationMessage(localize('import.success', 'Settings imported successfully.'));
                   } else {
-                    vscode.window.showErrorMessage('Invalid file format.');
+                    vscode.window.showErrorMessage(localize('err.import.invalidFormat', 'Invalid file format.'));
                   }
                 } catch (e) {
-                  vscode.window.showErrorMessage('Error parsing settings file.');
+                  vscode.window.showErrorMessage(localize('err.import.parse', 'Error parsing settings file.'));
                 }
               }
             });
@@ -143,9 +144,14 @@ export class SettingsPanel {
             const items = loadFromGlobal(SettingsPanel.extensionContext);
             const defaults = buildDefaultItems();
             let next: SbhItem[] = [];
-            if (pick === 'Replace All') {
+            
+            // 支援中英文按鈕文字比較
+            const isReplaceAll = pick === 'Replace All' || pick === '取代全部';
+            const isAppend = pick === 'Append' || pick === '附加';
+            
+            if (isReplaceAll) {
               next = defaults;
-            } else if (pick === 'Append') {
+            } else if (isAppend) {
               const exists = new Set(items.map(i => i.command));
               const toAdd = defaults.filter(d => !exists.has(d.command));
               next = items.concat(toAdd);
@@ -156,7 +162,7 @@ export class SettingsPanel {
             this._editingItem = null;
             this._sendStateToWebview();
             vscode.window.showInformationMessage(
-              pick === 'Replace All' ? 'Replaced with sample items.' : 'Appended sample items (no duplicates).'
+              isReplaceAll ? localize('restore.replaceDone', 'Replaced with sample items.') : localize('restore.appendDone', 'Appended sample items (no duplicates).')
             );
             return;
           }
@@ -171,7 +177,7 @@ export class SettingsPanel {
             const code: string = message.code || '';
             const cmd: string | undefined = message.itemCommand;
             if (!cmd) {
-              vscode.window.showErrorMessage('此項目的 command 不可為空，無法執行。');
+              vscode.window.showErrorMessage(localize('err.run.noCommand', 'Command cannot be empty for this item.'));
               return;
             }
 
@@ -180,7 +186,7 @@ export class SettingsPanel {
                 ns: 'hostRun', fn: 'start', args: [cmd, code]
               });
             } catch (e:any) {
-              vscode.window.showErrorMessage('啟動失敗：' + (e?.message || String(e)));
+              vscode.window.showErrorMessage(localize('err.run.startFailed', 'Failed to start: {0}', e?.message || String(e)));
             }
 
             // 跑起來後同步一次 Running 給 webview
@@ -277,7 +283,7 @@ export class SettingsPanel {
 
     const panel = vscode.window.createWebviewPanel(
       'statusBarHelperSettings',
-      'StatusBar Helper Settings',
+      localize('panel.title', 'StatusBar Helper Settings'),
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -294,7 +300,7 @@ export class SettingsPanel {
 
   private _update() {
     const webview = this._panel.webview;
-    this._panel.title = 'StatusBar Helper Settings';
+  this._panel.title = localize('panel.title', 'StatusBar Helper Settings');
     this._panel.webview.html = this._getHtmlForWebview(webview);
     this._sendStateToWebview();
   }
@@ -333,17 +339,50 @@ export class SettingsPanel {
       typeDefs = { node: nodeTypeDefs, vscode: vscodeDtsContent };
     } catch (error) {
       console.error('Error reading type definitions:', error);
-      vscode.window.showErrorMessage('Error loading script editor type definitions. Autocomplete may not work correctly.');
+      vscode.window.showErrorMessage(localize('err.typedefs.load', 'Error loading script editor type definitions. Autocomplete may not work correctly.'));
     }
+
+    // Load translations
+    const translations = this._loadTranslations();
 
     this._panel.webview.postMessage({
       command: 'loadState',
       items,
       activeView: this._activeView,
       editingItem: this._editingItem,
-      typeDefs
+      typeDefs,
+      translations
     });
     this._sendRunningToWebview();
+  }
+
+  private _loadTranslations(): Record<string, string> {
+    try {
+      const locale = vscode.env.language;
+      let translations: Record<string, string> = {};
+      
+      // Load English fallback first
+      const enPath = path.join(this._extensionUri.fsPath, 'media', 'nls.en.json');
+      if (fs.existsSync(enPath)) {
+        const enContent = fs.readFileSync(enPath, 'utf-8');
+        translations = JSON.parse(enContent);
+      }
+      
+      // Overlay with locale-specific translations if Chinese
+      if (locale.startsWith('zh-') || locale === 'zh') {
+        const zhPath = path.join(this._extensionUri.fsPath, 'media', 'nls.zh-tw.json');
+        if (fs.existsSync(zhPath)) {
+          const zhContent = fs.readFileSync(zhPath, 'utf-8');
+          const zhTranslations = JSON.parse(zhContent);
+          translations = { ...translations, ...zhTranslations };
+        }
+      }
+      
+      return translations;
+    } catch (error) {
+      console.warn('Failed to load webview translations:', error);
+      return {};
+    }
   }
 
   private async _sendRunningToWebview() {
@@ -366,6 +405,10 @@ export class SettingsPanel {
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'settings.html');
     let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+  // Localize document title
+  const localizedTitle = localize('panel.title', 'StatusBar Helper Settings');
+  htmlContent = htmlContent.replace(/<title>.*?<\/title>/i, `<title>${localizedTitle}</title>`);
 
     htmlContent = htmlContent.replace(
       /<head>/,
@@ -484,64 +527,64 @@ export class SettingsPanel {
 function buildDefaultItems(): SbhItem[] {
   return [
     {
-      text: '$(output) Log',
-      tooltip: 'VS Code + Node. Output + bottom log',
+  text: localize('item.log.text', '$(output) Log'),
+  tooltip: localize('item.log.tooltip', 'VS Code + Node. Output + bottom log'),
       command: 'sbh.demo.logMinimalPlus',
       script: DEFAULT_MINIMAL_LOG_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(diff-added) Git Add',
-      tooltip: 'Stage all changes in the first workspace folder',
+  text: localize('item.gitAdd.text', '$(diff-added) Git Add'),
+  tooltip: localize('item.gitAdd.tooltip', 'Stage all changes in the first workspace folder'),
       command: 'sbh.demo.gitAdd',
       script: DEFAULT_GIT_ADD_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(database) Storage',
-      tooltip: 'how to use the custom statusBarHelper API',
+  text: localize('item.storage.text', '$(database) Storage'),
+  tooltip: localize('item.storage.tooltip', 'How to use the custom statusBarHelper API'),
       command: 'sbh.demo.storage',
       script: DEFAULT_SBH_STORAGE_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(color-mode)',
-      tooltip: 'Toggle between light and dark theme',
+  text: localize('item.toggleTheme.text', '$(color-mode)'),
+  tooltip: localize('item.toggleTheme.tooltip', 'Toggle between light and dark theme'),
       command: 'sbh.demo.toggleTheme',
       script: DEFAULT_TOGGLE_THEME_SCRIPT,
       enableOnInit: false,
       hidden: false
     },
     {
-      text: '$(paintcan) Board',
-      tooltip: 'Board',
+  text: localize('item.board.text', '$(paintcan) Board'),
+  tooltip: localize('item.board.tooltip', 'Board'),
       command: 'sbh.demo.whiteboard',
       script: DEFAULT_WHITEBOARD_SCRIPT,
       enableOnInit: false,
       hidden: false
     },
     {
-      text: '🍅 Pomodoro',
-      tooltip: 'Open Pomodoro Timer',
+  text: localize('item.pomodoro.text', '🍅 Pomodoro'),
+  tooltip: localize('item.pomodoro.tooltip', 'Open Pomodoro Timer'),
       command: 'sbh.demo.pomodoro',
       script: DEFAULT_POMODORO_SCRIPT,
       enableOnInit: true,
       hidden: true
     },
     {
-      text: '$(comment) Chat A',
-      tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+  text: localize('item.chatA.text', '$(comment) Chat A'),
+  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
       command: 'sbh.demo.vmChatA',
       script: DEFAULT_VM_CHAT_A_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(comment-discussion) Chat B',
-      tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage',
+  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
+  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'),
       command: 'sbh.demo.vmChatB',
       script: DEFAULT_VM_CHAT_B_SCRIPT,
       enableOnInit: false,

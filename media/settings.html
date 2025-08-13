@@ -54,6 +54,16 @@
     }
     #filter-input, #data-filter-input { all:unset; flex:1; height:100%; font-size:.95em; color:var(--vscode-input-foreground); }
 
+    .data-filter-wrap {
+      display: flex; align-items: center; margin: 0 8px;
+    }
+    .data-filter-wrap select {
+      height: 28px; padding: 2px 6px; min-width: 140px;
+      background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border); font-size: .95em;
+      border-radius: 4px;
+    }
+
     .actions, .data-actions { display:flex; gap:8px; }
     .actions button, .data-actions button { height:28px; padding:0 10px; }
     .data-actions button { height: 26px; }
@@ -378,6 +388,18 @@
                             placeholder="Filter by key/path…"
                         >
                     </div>
+                    <div class="data-filter-wrap">
+                        <select id="data-type-filter">
+                            <option value="all">All</option>
+                            <option value="global-storage">Global Storage</option>
+                            <option value="workspace-storage">Workspace Storage</option>
+                            <option value="global-files">Global Files</option>
+                            <option value="workspace-files">Workspace Files</option>
+                            <option value="text-files">Text Files</option>
+                            <option value="json-files">JSON Files</option>
+                            <option value="binary-files">Binary Files</option>
+                        </select>
+                    </div>
                     <div class="data-actions">
                         <button
                             id="clear-all-btn"
@@ -417,8 +439,92 @@
         <script src="{{monacoUri}}/vscode-icons.js"></script>
         <script>
             const vscode = acquireVsCodeApi();
+    
+    /* ---------- Internationalization ---------- */
+    let nls = {};
+    
+    function t(key, defaultValue) {
+        return nls[key] || defaultValue || key;
+    }
+    
+    function updateUITexts() {
+        // Update static texts
+        document.title = t('title', 'StatusBar Helper Settings');
+        
+        // Update main sections
+        const statusBarTitle = document.querySelector('#list-view .list-title span');
+        if (statusBarTitle) statusBarTitle.textContent = t('statusBarItems', 'Status Bar Items');
+        
+        const storedDataTitle = document.querySelector('#data-view .data-title span');
+        if (storedDataTitle) storedDataTitle.textContent = t('storedData', 'Stored Data');
+        
+        // Update input placeholders and titles
+        const filterInput = document.getElementById('filter-input');
+        if (filterInput) {
+            filterInput.placeholder = t('filterItems', 'Filter items…');
+            filterInput.parentElement.title = t('filterItems', 'Filter items…');
+        }
+        
+        const dataFilterInput = document.getElementById('data-filter-input');
+        if (dataFilterInput) {
+            dataFilterInput.placeholder = t('filterByKeyPath', 'Filter by key/path…');
+        }
+        
+        // Update button texts
+        const importBtn = document.getElementById('import-btn');
+        if (importBtn) importBtn.textContent = t('import', 'Import');
+        
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) exportBtn.textContent = t('export', 'Export');
+        
+        const restoreBtn = document.getElementById('restore-btn');
+        if (restoreBtn) restoreBtn.textContent = t('restoreSamples', 'Restore Samples');
+        
+        const addNewBtn = document.getElementById('add-new-item-btn');
+        if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
+        
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
+        
+        // Update table headers
+        const headers = document.querySelectorAll('table.list-table th');
+        if (headers.length >= 8) {
+            headers[1].textContent = t('icon', 'Icon');
+            headers[2].textContent = t('labelTooltip', 'Label & Tooltip');
+            headers[3].innerHTML = t('running', 'Running') + '<span id="running-count" class="badge" title="Running scripts">0</span>';
+            headers[4].textContent = t('visible', 'Visible');
+            headers[5].textContent = t('runAtStartup', 'Run at Startup');
+            headers[6].textContent = t('cmdId', 'CmdId');
+            headers[7].textContent = t('actions', 'Actions');
+        }
+        
+        // Update dropdown options
+        const typeFilterSelect = document.getElementById('data-type-filter');
+        if (typeFilterSelect) {
+            const options = typeFilterSelect.querySelectorAll('option');
+            if (options.length >= 8) {
+                options[0].textContent = t('filterAll', 'All');
+                options[1].textContent = t('filterGlobalStorage', 'Global Storage');
+                options[2].textContent = t('filterWorkspaceStorage', 'Workspace Storage');
+                options[3].textContent = t('filterGlobalFiles', 'Global Files');
+                options[4].textContent = t('filterWorkspaceFiles', 'Workspace Files');
+                options[5].textContent = t('filterTextFiles', 'Text Files');
+                options[6].textContent = t('filterJsonFiles', 'JSON Files');
+                options[7].textContent = t('filterBinaryFiles', 'Binary Files');
+            }
+        }
+        
+        const dataHeaders = document.querySelectorAll('table.data-table th');
+        if (dataHeaders.length >= 4) {
+            dataHeaders[0].textContent = t('type', 'Type');
+            dataHeaders[1].textContent = t('keyPath', 'Key / Path');
+            dataHeaders[2].textContent = t('size', 'Size');
+            dataHeaders[3].textContent = t('actions', 'Actions');
+        }
+    }
+
     let items = [], currentEditor = null, typeDefs = null;
-    let storedRows = [], dataFilterText = '';
+    let storedRows = [], dataFilterText = '', dataTypeFilter = 'all';
     let filterText = '';
     let dataRefreshInterval = null;
     let runningHost = new Set();
@@ -695,11 +801,20 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       });
 
       if (!filteredItems.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; opacity:.7">${q ? 'No matching items' : 'No items to display'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
         return;
       }
 
       const runningSet = getRunningSet();
+
+      // 將執行中的項目排在最前面
+      filteredItems.sort((a, b) => {
+        const aRunning = runningSet.has(a.command);
+        const bRunning = runningSet.has(b.command);
+        if (aRunning && !bRunning) return -1;
+        if (!aRunning && bRunning) return 1;
+        return 0;
+      });
 
       filteredItems.forEach(item => {
         const originalIndex = items.indexOf(item);
@@ -712,7 +827,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         row.className = 'item-row';
         if (item.hidden) row.classList.add('is-hidden');
         row.dataset.index = originalIndex;
-        row.setAttribute('draggable', 'true');
+        
+        // 只對未執行的項目設置拖拉功能
+        if (!isRunning) {
+          row.setAttribute('draggable', 'true');
+        }
 
         row.innerHTML = `
           <td class="drag-handle" title="Drag to reorder"><div class="td-content-wrapper"><i class="codicon codicon-grabber"></i></div></td>
@@ -725,7 +844,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               </div>
             </div>
           </td>
-          <td><div class="td-content-wrapper justify-center">${isRunning ? `<span class="running-dot">Running</span>` : `<span style="opacity:.5">—</span>`}</div></td>
+          <td><div class="td-content-wrapper justify-center">${isRunning ? `<span class="running-dot">${t('running', 'Running')}</span>` : `<span style="opacity:.5">—</span>`}</div></td>
           <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${originalIndex}" ${item.hidden ? '' : 'checked'}><span class="slider"></span></label></div></td>
           <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="run-on-enable-toggle" data-index="${originalIndex}" ${item.enableOnInit ? 'checked' : ''}><span class="slider"></span></label></div></td>
           <td>
@@ -736,28 +855,53 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           </td>
           <td class="item-actions">
             <div class="td-content-wrapper justify-end">
-              <button class="run-now-item" data-index="${originalIndex}" type="button">Run</button>
-              <button class="stop-item" data-index="${originalIndex}" type="button">Stop</button>
-              <button class="edit-item" data-index="${originalIndex}" type="button">Edit</button>
-              <button class="delete-item" data-index="${originalIndex}" type="button">Delete</button>
+              <button class="run-now-item" data-index="${originalIndex}" type="button">${t('run', 'Run')}</button>
+              <button class="stop-item" data-index="${originalIndex}" type="button">${t('stop', 'Stop')}</button>
+              <button class="edit-item" data-index="${originalIndex}" type="button">${t('edit', 'Edit')}</button>
+              <button class="delete-item" data-index="${originalIndex}" type="button">${t('delete', 'Delete')}</button>
             </div>
           </td>
         `;
 
-        row.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', originalIndex); e.dataTransfer.effectAllowed = 'move'; });
-        row.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-        row.addEventListener('drop', e => {
-          e.preventDefault();
-          const fromIndex = +e.dataTransfer.getData('text/plain');
-          const toEl = e.target.closest('tr.item-row');
-          if (!toEl || Number.isNaN(fromIndex)) return;
-          const toIndex = +toEl.dataset.index;
-          if (fromIndex === toIndex) return;
-          const movedItem = items.splice(fromIndex, 1)[0];
-          items.splice(toIndex, 0, movedItem);
-          saveAndPostSettings();
-          renderListView();
-        });
+        // 只對未執行的項目添加拖拉事件
+        if (!isRunning) {
+          row.addEventListener('dragstart', e => { 
+            e.dataTransfer.setData('text/plain', originalIndex); 
+            e.dataTransfer.effectAllowed = 'move'; 
+          });
+          
+          row.addEventListener('dragover', e => { 
+            // 只允許拖拉到未執行的項目上
+            const targetItem = items[parseInt(e.currentTarget.dataset.index)];
+            if (targetItem && !runningSet.has(targetItem.command)) {
+              e.preventDefault(); 
+              e.dataTransfer.dropEffect = 'move'; 
+            }
+          });
+          
+          row.addEventListener('drop', e => {
+            e.preventDefault();
+            const fromIndex = +e.dataTransfer.getData('text/plain');
+            const toEl = e.target.closest('tr.item-row');
+            if (!toEl || Number.isNaN(fromIndex)) return;
+            
+            const toIndex = +toEl.dataset.index;
+            if (fromIndex === toIndex) return;
+            
+            // 檢查來源和目標項目都不是執行中的
+            const fromItem = items[fromIndex];
+            const toItem = items[toIndex];
+            if (runningSet.has(fromItem.command) || runningSet.has(toItem.command)) {
+              return; // 禁止拖拉執行中的項目
+            }
+            
+            const movedItem = items.splice(fromIndex, 1)[0];
+            items.splice(toIndex, 0, movedItem);
+            saveAndPostSettings();
+            renderListView();
+          });
+        }
+
         tbody.appendChild(row);
       });
       updateRunningBadge();
@@ -770,10 +914,31 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const tbody = document.querySelector('#data-table-body');
       tbody.innerHTML = '';
       const q = dataFilterText.trim().toLowerCase();
-      const filteredRows = q ? storedRows.filter(r => r.keyPath.toLowerCase().includes(q)) : storedRows;
+      
+      // 先按文字過濾
+      let filteredRows = q ? storedRows.filter(r => r.keyPath.toLowerCase().includes(q)) : storedRows;
+      
+      // 再按類型過濾
+      if (dataTypeFilter !== 'all') {
+        filteredRows = filteredRows.filter(r => {
+          switch (dataTypeFilter) {
+            case 'global-storage': return r.kind === 'kv' && r.scope === 'global';
+            case 'workspace-storage': return r.kind === 'kv' && r.scope === 'workspace';
+            case 'global-files': return r.kind === 'file' && r.scope === 'global';
+            case 'workspace-files': return r.kind === 'file' && r.scope === 'workspace';
+            case 'text-files': return r.kind === 'file' && r.ext === 'text';
+            case 'json-files': return r.kind === 'file' && r.ext === 'json';
+            case 'binary-files': return r.kind === 'file' && r.ext === 'bytes';
+            default: return true;
+          }
+        });
+      }
+
+      // 按照大小從大到小排序
+      filteredRows = filteredRows.slice().sort((a, b) => b.size - a.size);
 
       if (!filteredRows.length) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; opacity:.7">${q ? 'No matching data' : 'No data'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; opacity:.7">${q || dataTypeFilter !== 'all' ? t('noMatchingData', 'No matching data') : t('noData', 'No data')}</td></tr>`;
         return;
       }
 
@@ -784,7 +949,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           <td class="type-cell"><span class="type-badge"><i class="codicon codicon-${typeIcon(r)}"></i></span><span>${r.kind==='kv'?`${r.scope} storage`:`${r.scope} ${r.ext}`}</span></td>
           <td class="mono">${r.keyPath}</td>
           <td>${formatBytes(r.size)}</td>
-          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}">Delete</button></td>
+          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}">${t('delete', 'Delete')}</button></td>
         `;
         tbody.appendChild(tr);
       });
@@ -826,10 +991,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             <div class="field label-field"><label for="edit-label">Label</label><input type="text" id="edit-label"></div>
             <div class="field tooltip-field"><label for="edit-tooltip">Tooltip</label><input type="text" id="edit-tooltip"></div>
             <div class="actions">
-              <button type="button" id="run-btn" title="Smart Run (auto-detect)">Run</button>
-              <button type="button" id="stop-btn">Stop</button>
-              <button type="button" id="save-item-btn">Save</button>
-              <button type="button" id="cancel-edit-btn">Cancel</button>
+              <button type="button" id="run-btn" title="Smart Run (auto-detect)">${t('run', 'Run')}</button>
+              <button type="button" id="stop-btn">${t('stop', 'Stop')}</button>
+              <button type="button" id="save-item-btn">${t('save', 'Save')}</button>
+              <button type="button" id="cancel-edit-btn">${t('cancel', 'Cancel')}</button>
             </div>
           </div>
 
@@ -990,7 +1155,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           };
           const discardAndBack = () => { clearDraftIfMatch(item.command); clearEditing(); showListView(); };
           if (hasUnsaved()) { 
-              if (await showChoiceDialog('Discard changes?', 'You have unsaved changes. Are you sure you want to discard them?', ['Discard', 'Cancel']) === 'Discard') {
+              if (await showChoiceDialog(t('discardChanges', 'Discard changes?'), t('discardMessage', 'You have unsaved changes. Are you sure you want to discard them?'), [t('discard', 'Discard'), t('cancel', 'Cancel')]) === t('discard', 'Discard')) {
                 discardAndBack();
               }
           } else { 
@@ -1036,6 +1201,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       e.target.timer = setTimeout(() => { dataFilterText = e.target.value; renderStoredData(storedRows); }, 80);
     });
 
+    document.getElementById('data-type-filter').addEventListener('change', e => {
+      dataTypeFilter = e.target.value;
+      renderStoredData(storedRows);
+    });
+
     document.getElementById('list-view').addEventListener('click', async e => {
       const target = e.target.closest('button, input');
       if (!target) return;
@@ -1061,8 +1231,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         const row = target.closest('tr');
         const labelEl = row.querySelector('.item-label');
         const label = labelEl ? labelEl.textContent : '';
-        const choice = await showChoiceDialog('Delete Item', `Are you sure you want to delete the item "${label}"?`, ['Delete', 'Cancel']);
-        if (choice === 'Delete') {
+        const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Item'), t('deleteMessage', `Are you sure you want to delete the item "${label}"?`), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
+        if (choice === t('delete', 'Delete')) {
             items.splice(index, 1);
             saveAndPostSettings();
             renderListView();
@@ -1093,8 +1263,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const row = target.closest('tr');
       const keyPathEl = row.querySelector('.mono');
       const keyPath = keyPathEl ? keyPathEl.textContent : '';
-      const choice = await showChoiceDialog('Delete Data', `Are you sure you want to delete the data at "${keyPath}"?`, ['Delete', 'Cancel']);
-      if (choice === 'Delete') {
+      const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Data'), t('deleteMessage', `Are you sure you want to delete the data at "${keyPath}"?`), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
+      if (choice === t('delete', 'Delete')) {
         vscode.postMessage({ command: 'data:delete', row: storedRows[index] });
       }
     });
@@ -1109,13 +1279,18 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
     document.getElementById('export-btn').onclick = () => vscode.postMessage({ command:'exportSettings', items });
     document.getElementById('import-btn').onclick = () => vscode.postMessage({ command:'importSettings' });
     document.getElementById('restore-btn').onclick = async () => {
-        const choice = await showChoiceDialog('Restore Samples', 'This will restore the default sample items. How would you like to proceed?', ['Replace All', 'Append', 'Cancel']);
-        if (choice === 'Replace All' || choice === 'Append') {
+        const choice = await showChoiceDialog(t('restoreTitle', 'Restore Samples'), t('restoreMessage', 'This will restore the default sample items. How would you like to proceed?'), [t('replaceAll', 'Replace All'), t('append', 'Append'), t('cancel', 'Cancel')]);
+        
+        // 支援中英文按鈕文字比較
+        const replaceAllText = t('replaceAll', 'Replace All');
+        const appendText = t('append', 'Append');
+        
+        if (choice === replaceAllText || choice === appendText) {
             vscode.postMessage({ command: 'restoreDefaults', choice: choice });
         }
     };
     document.getElementById('clear-all-btn').onclick = async () => {
-        if (await showChoiceDialog('Clear All Data', 'Are you sure you want to clear all stored data? This cannot be undone.', ['Clear All', 'Cancel']) === 'Clear All') {
+        if (await showChoiceDialog(t('clearAllConfirm', 'Clear All Data'), t('clearAllMessage', 'Are you sure you want to clear all stored data? This cannot be undone.'), [t('clearAll', 'Clear All'), t('cancel', 'Cancel')]) === t('clearAll', 'Clear All')) {
             vscode.postMessage({ command: 'data:clearAll' });
         }
     };
@@ -1126,6 +1301,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         case 'loadState':
           items = msg.items || [];
           typeDefs = msg.typeDefs;
+          
+          // Load translations
+          if (msg.translations) {
+            nls = msg.translations;
+            updateUITexts();
+          }
+          
           if (msg.activeView === 'edit' && msg.editingItem) {
             const idx = items.findIndex(i => i.command === msg.editingItem.command);
             showEditView(idx < 0 ? null : idx, msg.editingItem);

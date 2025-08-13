@@ -1,8 +1,8 @@
 {
   "name": "status-bar-helper",
-  "displayName": "Status Bar Helper",
-  "description": "在 VS Code 狀態列建立自訂按鈕，支援 VS Code 與 Node.js API，並內建 Log、Git、Board 等可擴充範例腳本與可視化設定面板。",
-  "version": "1.3.0",
+  "displayName": "%ext.displayName%",
+  "description": "%ext.description%",
+  "version": "1.4.0",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -12,9 +12,24 @@
     "vscode": "^1.101.0"
   },
   "icon": "media/icon.png",
-  "categories": ["Other"],
-  "tags": ["productivity", "status bar", "scripts", "automation"],
-  "keywords": ["status bar", "script", "automation", "git", "webview", "node", "vscode api"],
+  "categories": [
+    "Other"
+  ],
+  "tags": [
+    "productivity",
+    "status bar",
+    "scripts",
+    "automation"
+  ],
+  "keywords": [
+    "status bar",
+    "script",
+    "automation",
+    "git",
+    "webview",
+    "node",
+    "vscode api"
+  ],
   "galleryBanner": {
     "color": "#1f1f1f",
     "theme": "dark"
@@ -33,33 +48,25 @@
     "onCommand:statusBarHelper.showSettings"
   ],
   "main": "./out/extension.js",
-  "files": [
-    "out/**",
-    "media/**",
-    "package.json",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE.txt"
-  ],
   "contributes": {
     "commands": [
       {
         "command": "statusBarHelper.showSettings",
-        "title": "Status Bar Helper: Settings"
+        "title": "%cmd.settings.title%"
       }
     ],
     "configuration": {
-      "title": "Status Bar Helper",
+      "title": "%cfg.title%",
       "properties": {
         "statusBarHelper.showGearOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "啟動時在右下角顯示設定齒輪快捷。"
+          "description": "%cfg.showGearOnStartup.desc%"
         },
         "statusBarHelper.items": {
           "type": "array",
           "default": [],
-          "description": "要顯示在狀態列的項目列表（由設定面板管理）。"
+          "description": "%cfg.items.desc%"
         }
       }
     }
@@ -67,7 +74,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "npm run copy-files && tsc -p ./",
-    "copy-files": "cpx \"node_modules/@types/{node,vscode}/**/*\" out/typedefs",
+    "copy-files": "cpx \"node_modules/@types/{node,vscode}/**/*\" out/typedefs && cpx \"package.nls*.json\" out",
     "watch": "tsc -watch -p ./",
     "build": "vsce package",
     "publish:patch": "vsce publish patch",
@@ -89,5 +96,17 @@
   "dependencies": {
     "@vscode/codicons": "^0.0.39",
     "monaco-editor": "^0.52.2"
-  }
+  },
+  "files": [
+    "out/**",
+    "media/**",
+    "typedefs/**",
+    "package.json",
+    "package.nls.json",
+    "package.nls.zh-tw.json",
+    "package.nls.zh-hant.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.txt"
+  ]
 }

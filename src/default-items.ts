@@ -541,6 +541,7 @@ const { vm } = statusBarHelper.v1;
     if (S.item) { S.item.dispose(); S.item = undefined; }
     if (S.disposable) { S.disposable.dispose(); S.disposable = null; }
     S.cmdId = undefined;
+    vm.stop();
   };
 
   const clearTimer = () => {

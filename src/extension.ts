@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
+import { localize } from './nls';
 import {
   DEFAULT_MINIMAL_LOG_SCRIPT,
   DEFAULT_GIT_ADD_SCRIPT,
@@ -30,11 +31,11 @@ let _runOnceExecutedCommands: Set<string> = new Set();
 // ─────────────────────────────────────────────────────────────
 const fsp = fs.promises;
 const KV_PREFIX = 'sbh.kv.';
-const STORAGE_KEY_LIMIT   =  512 * 1024;      // 512KB
-const STORAGE_TOTAL_LIMIT = 50 * 1024 * 1024; // 50MB
-const JSON_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
-const TEXT_SIZE_LIMIT     =  5 * 1024 * 1024; // 5MB
-const FILE_SIZE_LIMIT     = 20 * 1024 * 1024; // 20MB
+const STORAGE_KEY_LIMIT   =  2 * 1024 * 1024;  // 2MB
+const STORAGE_TOTAL_LIMIT = 200 * 1024 * 1024; // 200MB
+const JSON_SIZE_LIMIT     =  10 * 1024 * 1024; // 10MB
+const TEXT_SIZE_LIMIT     =  10 * 1024 * 1024; // 10MB
+const FILE_SIZE_LIMIT     = 50 * 1024 * 1024; // 50MB
 
 const utf8Bytes = (v: any): number => {
   try {
@@ -49,14 +50,14 @@ const toBridgeError = (e: unknown) =>
 const scopeBase = (scope: 'global'|'workspace', ctx: vscode.ExtensionContext) => {
   if (scope === 'global') { return ctx.globalStorageUri.fsPath; }
   const ws = ctx.storageUri?.fsPath;
-  if (!ws) { throw new Error('workspace storage not available'); }
+  if (!ws) { throw new Error(localize('err.workspaceStorageUnavailable', 'workspace storage not available')); }
   return ws;
 };
 
 const inside = (base: string, rel = '') => {
   if (!rel) { return base; }
-  if (path.isAbsolute(rel)) { throw new Error('absolute path not allowed'); }
-  if (rel.includes('..')) { throw new Error('path escape rejected'); }
+  if (path.isAbsolute(rel)) { throw new Error(localize('err.absPathNotAllowed', 'absolute path not allowed')); }
+  if (rel.includes('..')) { throw new Error(localize('err.pathEscapeRejected', 'path escape rejected')); }
   return path.join(base, rel);
 };
 
@@ -102,7 +103,7 @@ async function migrateFromSettingsIfNeeded(context: vscode.ExtensionContext): Pr
     
     // 有新項目需要遷移
     if (isMigrated) {
-      console.log(`Found ${newItems.length} new items to migrate from settings.json (sync scenario)`);
+      console.log(localize('log.migrate.foundNew', 'Found {0} new items to migrate from settings.json (sync scenario)', String(newItems.length)));
     }
     
     // 備份舊設定（可選，失敗不阻斷）
@@ -114,7 +115,7 @@ async function migrateFromSettingsIfNeeded(context: vscode.ExtensionContext): Pr
         items: oldItems 
       }, null, 2));
     } catch (backupError) {
-      console.warn('Failed to backup settings:', backupError);
+      console.warn(localize('log.migrate.backupFailed', 'Failed to backup settings:'), backupError);
     }
     
     // 載入現有 globalState 資料
@@ -139,7 +140,7 @@ async function migrateFromSettingsIfNeeded(context: vscode.ExtensionContext): Pr
       const existingIndex = manifest.items.findIndex((i: any) => i.command === command);
       const meta = {
         command,
-        text: oldItem.text || '$(question) Unknown',
+  text: oldItem.text || '$(question) ' + localize('label.unknown', 'Unknown'),
         tooltip: oldItem.tooltip,
         hidden: Boolean(oldItem.hidden),
         enableOnInit: Boolean(oldItem.enableOnInit)
@@ -166,22 +167,20 @@ async function migrateFromSettingsIfNeeded(context: vscode.ExtensionContext): Pr
     await context.globalState.update(MIGRATION_FLAG_KEY, true);
     
     if (itemsToMigrate.length > 0) {
-      const messagePrefix = isMigrated ? 'imported' : 'migrated';
-      vscode.window.showInformationMessage(
-        `✅ Status Bar Helper: Successfully ${messagePrefix} ${itemsToMigrate.length} items to the new storage format`
-      );
+      const msg = isMigrated
+        ? localize('msg.migrate.successImported', '✅ Status Bar Helper: Successfully imported {0} items to the new storage format', String(itemsToMigrate.length))
+        : localize('msg.migrate.successMigrated', '✅ Status Bar Helper: Successfully migrated {0} items to the new storage format', String(itemsToMigrate.length));
+      vscode.window.showInformationMessage(msg);
     }
     
     return true;
     
   } catch (error) {
-    console.error('Migration failed:', error);
-    vscode.window.showWarningMessage(
-      `⚠️ Status Bar Helper: Migration failed, old settings will be preserved. See Output panel for details.`
-    );
+  console.error(localize('log.migrate.failed', 'Migration failed:'), error);
+  vscode.window.showWarningMessage(localize('msg.migrate.failed', '⚠️ Status Bar Helper: Migration failed, old settings will be preserved. See Output panel for details.'));
     
     // 輸出詳細錯誤到 Output
-    const output = vscode.window.createOutputChannel('Status Bar Helper');
+  const output = vscode.window.createOutputChannel(localize('ext.outputChannel', 'Status Bar Helper'));
     output.appendLine(`Migration Error: ${error}`);
     output.show(true);
     
@@ -349,7 +348,7 @@ function runScriptInVm(
   const makeDeepVscodeProxy = (root: any) => {
     const cache = new WeakMap<object, any>();
     const wrapFn = (fn: Function, thisArg: any) => (...args: any[]) => {
-  if (signal.aborted) { throw new Error('Execution stopped'); }
+  if (signal.aborted) { throw new Error(localize('err.execStopped', 'Execution stopped')); }
       const ret = Reflect.apply(fn, thisArg, args);
       if (ret && typeof ret === 'object' && typeof (ret as any).dispose === 'function') {
         try { disposables.add(ret as vscode.Disposable); } catch {}
@@ -381,7 +380,7 @@ function runScriptInVm(
     require: (m: string) => {
   if (m === 'vscode') { return sandbox.vscode; }
   if (require.resolve(m) === m) { return require(m); } // 只允許 Node 內建模組
-      throw new Error(`Only built-in modules are allowed: ${m}`);
+      throw new Error(localize('err.onlyBuiltinAllowed', 'Only built-in modules are allowed: {0}', String(m)));
     }
   };
   sandbox.Buffer = require('buffer').Buffer;
@@ -416,7 +415,7 @@ function runScriptInVm(
       return registerMessageHandler(command, handler);
     },
     open: async (cmdId: string, payload?: any) => {
-      if (!cmdId || typeof cmdId !== 'string') { throw new Error('vm.open: invalid cmdId'); }
+      if (!cmdId || typeof cmdId !== 'string') { throw new Error(localize('err.vmOpenInvalidCmd', 'vm.open: invalid cmdId')); }
       // 已在跑 → 直接送 payload
       if (RUNTIMES.has(cmdId)) {
         if (arguments.length >= 2) { dispatchMessage(cmdId, command, payload); }
@@ -425,11 +424,11 @@ function runScriptInVm(
       // 從 globalState 載入腳本
       const items = loadFromGlobal(context);
       const targetItem = items.find(i => i && i.command === cmdId);
-      if (!targetItem || !targetItem.script) { throw new Error(`vm.open: command not found or empty script: ${cmdId}`); }
+  if (!targetItem || !targetItem.script) { throw new Error(localize('err.vmOpenCmdNotFound', 'vm.open: command not found or empty script: {0}', String(cmdId))); }
       try {
         runScriptInVm(context, cmdId, targetItem.script, 'statusbar');
       } catch (e) {
-        throw new Error(`vm.open: failed to start target: ${(e as any)?.message || e}`);
+        throw new Error(localize('err.vmOpenStartFailed', 'vm.open: failed to start target: {0}', (e as any)?.message || String(e)));
       }
       // 等待下一輪 tick 讓目標 VM 有機會註冊 onMessage 再送 payload（若有）
       if (arguments.length >= 2) {
@@ -518,7 +517,7 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
       try {
         runScriptInVm(context, command, script, 'statusbar');
       } catch (e: any) {
-        vscode.window.showErrorMessage(`❌ Script error: ${e?.message || String(e)}`);
+        vscode.window.showErrorMessage(localize('err.script', '❌ Script error: {0}', e?.message || String(e)));
         console.error(e);
       }
     });
@@ -536,7 +535,7 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
         runScriptInVm(context, command, script, 'autorun');
         _runOnceExecutedCommands.add(command);
       } catch (e: any) {
-        vscode.window.showErrorMessage(`❌ Script error (Run Once): ${e?.message || String(e)}`);
+        vscode.window.showErrorMessage(localize('err.scriptRunOnce', '❌ Script error (Run Once): {0}', e?.message || String(e)));
         console.error(e);
       }
     }
@@ -552,7 +551,7 @@ function refreshGearButton() {
 
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   item.text = '$(gear)';
-  item.tooltip = 'Status Bar Helper Settings';
+  item.tooltip = localize('tooltip.settings', 'Status Bar Helper Settings');
   item.command = 'statusBarHelper.showSettings';
   item.show();
   gearItem = item;
@@ -580,64 +579,64 @@ async function ensureDefaultItems(context: vscode.ExtensionContext) {
 function getDefaultItems(): SbhItem[] {
   return [
     {
-      text: '$(output) Log',
-      tooltip: 'VS Code + Node. Output + bottom log',
+  text: localize('item.log.text', '$(output) Log'),
+  tooltip: localize('item.log.tooltip', 'VS Code + Node. Output + bottom log'),
       command: 'sbh.demo.logMinimalPlus',
       script: DEFAULT_MINIMAL_LOG_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(diff-added) Git Add',
-      tooltip: 'Stage all changes in the first workspace folder',
+  text: localize('item.gitAdd.text', '$(diff-added) Git Add'),
+  tooltip: localize('item.gitAdd.tooltip', 'Stage all changes in the first workspace folder'),
       command: 'sbh.demo.gitAdd',
       script: DEFAULT_GIT_ADD_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(database) Storage',
-      tooltip: 'how to use the custom statusBarHelper API',
+  text: localize('item.storage.text', '$(database) Storage'),
+  tooltip: localize('item.storage.tooltip', 'How to use the custom statusBarHelper API'),
       command: 'sbh.demo.storage',
       script: DEFAULT_SBH_STORAGE_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(color-mode)',
-      tooltip: 'Toggle between light and dark theme',
+  text: localize('item.toggleTheme.text', '$(color-mode)'),
+  tooltip: localize('item.toggleTheme.tooltip', 'Toggle between light and dark theme'),
       command: 'sbh.demo.toggleTheme',
       script: DEFAULT_TOGGLE_THEME_SCRIPT,
       enableOnInit: false,
       hidden: false
     },
     {
-      text: '$(paintcan) Board',
-      tooltip: 'Board',
+  text: localize('item.board.text', '$(paintcan) Board'),
+  tooltip: localize('item.board.tooltip', 'Board'),
       command: 'sbh.demo.whiteboard',
       script: DEFAULT_WHITEBOARD_SCRIPT,
       enableOnInit: false,
       hidden: false
     },
     {
-      text: '🍅 Pomodoro',
-      tooltip: 'Open Pomodoro Timer',
+  text: localize('item.pomodoro.text', '🍅 Pomodoro'),
+  tooltip: localize('item.pomodoro.tooltip', 'Open Pomodoro Timer'),
       command: 'sbh.demo.pomodoro',
       script: DEFAULT_POMODORO_SCRIPT,
       enableOnInit: true,
       hidden: true
     },
     {
-      text: '$(comment) Chat A',
-      tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+  text: localize('item.chatA.text', '$(comment) Chat A'),
+  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
       command: 'sbh.demo.vmChatA',
       script: DEFAULT_VM_CHAT_A_SCRIPT,
       enableOnInit: false,
       hidden: true
     },
     {
-      text: '$(comment-discussion) Chat B',
-      tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage',
+  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
+  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'),
       command: 'sbh.demo.vmChatB',
       script: DEFAULT_VM_CHAT_B_SCRIPT,
       enableOnInit: false,
@@ -666,8 +665,8 @@ async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
   };
   
   await ensure('sbh.demo.vmChatA', DEFAULT_VM_CHAT_A_SCRIPT, {
-    text: '$(comment) Chat A',
-    tooltip: 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage',
+  text: localize('item.chatA.text', '$(comment) Chat A'),
+  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
     command: 'sbh.demo.vmChatA',
     script: DEFAULT_VM_CHAT_A_SCRIPT,
     enableOnInit: false,
@@ -675,8 +674,8 @@ async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
   });
   
   await ensure('sbh.demo.vmChatB', DEFAULT_VM_CHAT_B_SCRIPT, {
-    text: '$(comment-discussion) Chat B',
-    tooltip: 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage', 
+  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
+  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'), 
     command: 'sbh.demo.vmChatB',
     script: DEFAULT_VM_CHAT_B_SCRIPT,
     enableOnInit: false,
@@ -983,6 +982,11 @@ function registerBridge(context: vscode.ExtensionContext) {
 
 // ─────────────────────────────────────────────────────────────
 export async function activate(context: vscode.ExtensionContext) {
+  console.log('🚀 Status Bar Helper: 開始啟動');
+  const outputChannel = vscode.window.createOutputChannel(localize('ext.outputChannel', 'Status Bar Helper'));
+  outputChannel.appendLine('Status Bar Helper 正在啟動...');
+  
+  try {
   console.log('✅ Status Bar Helper Activated');
 
   // 1) 初始化 globalState 同步設定
@@ -1052,6 +1056,14 @@ export async function activate(context: vscode.ExtensionContext) {
       updateStatusBarItems(context, false);
     })
   );
+  
+  outputChannel.appendLine('✅ Status Bar Helper 啟動完成');
+  console.log('✅ Status Bar Helper: 啟動完成');
+  } catch (error) {
+    outputChannel.appendLine(`❌ Status Bar Helper 啟動失敗: ${error}`);
+    console.error('❌ Status Bar Helper 啟動失敗:', error);
+    throw error;
+  }
 }
 
 export function deactivate() {

@@ -1,5 +1,7 @@
 # Status Bar Helper
 
+[English](README.en.md) | [繁體中文](README.md)
+
 這是一款能讓你在 VS Code 狀態列上新增自訂按鈕的擴充套件。
 你可以撰寫 JavaScript 腳本，或結合 VS Code API，打造各種獨特且實用的功能。
 
