@@ -73,60 +73,67 @@
   3) 若新增自訂「Force Sync」按鈕：透過 `_bridge` 呼叫新 hostRun 方法，內部直接呼叫 `backgroundPollOnce(context, true)`。
   4) 變更 signature 準則時務必同步更新 computeItemsSignature 以免漏偵測。
 - 當我請你**優化響應式排版**時：
-## Script Store（新）
-目標：取代舊「Restore Samples」，提供遠端/本地 catalog 瀏覽、選擇性安裝或更新腳本。
+## Script Store（現況 & Roadmap）
+目標：取代舊「Restore Samples」，提供（遠端優先 + 本地 fallback）catalog 瀏覽、增量更新、差異檢視與批次安裝。
 
-### 範圍 Phase 1
-1. Catalog 來源：先使用內建 `media/script-store.defaults.<locale>.json` 當本地 catalog；後續可加 remote fetch。
-2. UI：設定面板按鈕「Script Store」開啟 overlay/modal（新 DOM 區塊）；顯示表格：Icon、Label、Tags、狀態（Installed / Update / New）、操作（Install / Update / View）。
-3. 安裝 / 更新：
-  - 安裝：將選擇項目寫入 globalState（若 command 已存在 → 標記 Update 模式，覆蓋 script/text/tooltip/tags；保留 hidden/enableOnInit 原值除非 catalog 指定 force）。
-  - 更新判斷：比對 (command, scriptHash, text, tooltip, tags) 任一不同則顯示 Update。
-4. Lazy Script：catalog 中若 script 太大可用 `scriptInline` 或 `scriptUrl` 欄位；Phase1 只用 `script` 直接內嵌。
-5. 安全：忽略超過大小限制的 script；拒絕含 `eval(`、`new Function`、`process.env` 大量 dump pattern（基本字串掃描）。
+### 現行實作（Phase 1 + 1.5）
+1. Catalog 來源：遠端 `https://raw.githubusercontent.com/.../media/script-store.defaults.<locale>.json`（3s timeout、256KB JSON 大小上限、失敗則本地 packaged JSON）。
+2. Locale：`vscode.env.language` → `zh-tw`（含 zh-hant）優先，其餘 fallback `en`；遠端 / 本地皆使用同一判斷邏輯，避免 tooltip 語系錯配。
+3. Cache：記憶體 5 分鐘 TTL（面板重開 / 多次請求不重複下載）。
+4. UI：面板「Script Store」 overlay 表格欄位：Icon、Label、Tags、Status（Installed / Update / New）、Action（Install / Update / View）。
+5. Status 判斷：hash = sha256(script|text|tooltip|tags JSON)；與現有項目 hash 相同 → Installed；存在差異 → Update；不存在 → New。
+6. 安裝 / 更新：覆蓋 script/text/tooltip/tags；保留 hidden / enableOnInit。
+7. 安全：
+  - 單 script 安全大小限制（目前 32KB；超過拒絕）。
+  - Pattern 掃描拒絕：`eval(`、`new Function`、大量 `process.env.` (>5 次)。
+  - JSON parse 失敗或格式非陣列 → 忽略該來源並 fallback。
+8. Diff 視窗：簡易 line-based（>400 行可摺疊）；顯示 catalog vs installed 差異。
+9. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
 
-### 範圍 Phase 2（預留）
-1. Remote fetch：bridge `scriptStore.fetchCatalog()` 下載 JSON（ETag/If-None-Match 快取）。
-2. 分段載入：單條目 scriptUrl 延後取得。
-3. 差異預覽：顯示本地 vs catalog diff（行數 > 400 需摺疊）。
-4. 搜尋 / Tag 過濾 / 多選批次安裝。
+### 待辦（Phase 2）
+1. ETag / If-None-Match → 精準網路快取（減少 5 分鐘 TTL 期間的重複資料）。
+2. `scriptUrl` 延後載入（Lazy 大型腳本）+ 逐條目 hash 驗證。
+3. Token / 行內 diff 高亮（目前僅 line diff）。
+4. 搜尋 / Tag 過濾 / 多選批次操作強化（快速多選 + 快捷鍵）。
+5. Source Indicator（顯示 remote / local fallback 狀態）。
 
-### Bridge Namespace（預計）
+### Bridge Namespace（現況）
 `ns: 'scriptStore'` 函式：
-| fn | 描述 |
-| --- | --- |
-| `catalog` | 回傳 catalog 內容 + hash（本地 + remote 合併） |
-| `install` | 安裝或更新單一 command（參數：payload item） |
-| `bulkInstall` | 批次安裝/更新（陣列） |
+| fn | 描述 | 備註 |
+| --- | --- | --- |
+| `catalog` | 取得（cache 後）catalog 陣列 + 計算後 status/hash | 遠端優先 + fallback + 5min TTL |
+| `install` | 安裝 / 更新單一 command | 維持 hidden/enableOnInit |
+| `bulkInstall` | 批次安裝/更新 | 原子回滾 |
 
-### 型別（草案）
+### 型別（現況）
 ```ts
 interface ScriptStoreEntryMeta {
   command: string;
   text: string;
   tooltip?: string;
   tags?: string[];
-  script?: string;   // 直接內嵌（Phase1）
-  scriptUrl?: string;// 延後載入（Phase2）
-  hash?: string;     // script/content hash（SHA256 base64）
+  script?: string;      // Phase1 直接內嵌
+  scriptUrl?: string;   // Phase2 預留（lazy fetch）
+  hash?: string;        // 計算後附加（sha256 base64）
+  status?: 'installed' | 'update' | 'new';
 }
 ```
 
 ### 安裝邏輯摘要
-1. 取得現有 items Map。
+1. 建索引：現有 items → Map(command → item)。
 2. 對每個 entry：
-  - 若不存在：新增（hidden 預設 false，enableOnInit false）。
-  - 若存在：覆蓋 text/tooltip/script/tags；保留 hidden/enableOnInit。
-3. 儲存後呼叫 `_refreshStatusBar`。
+  - 不存在：新增（hidden=false, enableOnInit=false）。
+  - 已存在：覆蓋 text/tooltip/script/tags；保留 hidden/enableOnInit。
+3. 寫回 globalState → 觸發 `_refreshStatusBar`。
 
-### 遇到選擇（歧義）時策略
-1. 同 command 更新：保留使用者控制屬性（hidden, enableOnInit）。
-2. Tag 覆蓋：catalog 為單一真實來源 → 直接覆蓋。
-3. script 缺失：若 catalog entry 無 script（且無 scriptUrl） → 跳過並標示 warning。
-4. 大小超限：跳過並回傳 error summary（不 partial 寫入損壞）。
+### 邊界 / 選擇策略
+1. 缺 script（亦無 scriptUrl）→ 跳過（回傳 warning）。
+2. script 超限 → 跳過並報錯，不部分寫入。
+3. Tag 覆蓋：catalog 為權威來源直接覆蓋。
+4. 安裝過程中任一失敗 → 還原快照並回覆 `{ ok:false }`。
 
 ### 風險控管 & 回滾
-安裝前快照（clone items array）；若任一步驟拋錯，恢復快照並回傳錯誤（bridge 回覆 ok:false）。
+預先 clone items 陣列；逐項驗證 & 構建新陣列 → 成功後一次性寫入；失敗則放棄並回傳錯誤碼（不殘留部分狀態）。
 
   1) 主要邏輯：`settings.html` 內的 `COMPACT_BREAKPOINT` 與 CSS `.compact` class。
   2) 如需逐欄隱藏（CmdId / RunAtStartup），請以 `@media` 或額外 class 控制，避免在 JS 動態插刪 DOM。 
