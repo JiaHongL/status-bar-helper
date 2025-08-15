@@ -12,6 +12,7 @@ A VS Code extension that allows you to add custom buttons to the status bar. You
 - **Data Access API**: Access Storage and File system through extension API for convenient data management.
 - **Independent VM Execution**: Each script runs in an independent Node.js VM environment without interference, using only native Node modules.
 - **Security & Isolation**: Scripts execute in a controlled environment, avoiding impact on VS Code stability and security.
+- **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, and detect updates via hash signature.
 
 ## 📖 Usage Guide
 
@@ -53,6 +54,22 @@ On this page, you can write and test status bar item scripts in real-time:
 ---
 
 ## 🎯 Built-in Examples
+
+### Script Store
+
+The Script Store aggregates curated examples defined in `script-store.defaults.<locale>.json` (currently `en` & `zh-tw`).
+
+Features:
+
+- Remote-first with GitHub raw fetch (3s timeout / 256KB limit) → fallback to packaged JSON
+- Locale resolution via `vscode.env.language` (only `zh-tw` / `zh-hant` → Traditional Chinese; others → English)
+- Status badges: NEW / INSTALLED / UPDATE (hash of script + text + tooltip + tags)
+- Per-item or bulk install (bulk is atomic: any failure rolls back all)
+- Inline diff viewer (field changes + simple line diff; large scripts folded >400 lines)
+- Safety filters: reject scripts containing `eval(`, `new Function`, or excessive `process.env` access
+- 5‑minute in-memory catalog cache (future: ETag planned)
+
+Planned (Phase 2): remote catalog ETag cache, `scriptUrl` lazy loading, richer token diff, user locale override.
 
 This extension comes with several practical examples to help you get started quickly:
 

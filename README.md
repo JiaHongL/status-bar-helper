@@ -13,6 +13,7 @@
 - 資料存取 API：可透過擴充 API 操作 Storage 與 File 系統，方便管理資料。
 - 獨立 VM 執行：每個腳本皆在獨立 Node.js VM 中運行，互不干擾，並僅使用原生 Node 模組。
 - 安全性與隔離性：腳本在受控環境中執行，避免影響 VS Code 及其他腳本的穩定性與安全性。
+- Script Store（第一階段 + 遠端預覽）：集中瀏覽範例腳本（本地 + 遠端優先），檢視差異並單筆或批次安裝（原子回滾）、更新偵測（hash）。
 
 ## 📖 使用說明
 
@@ -42,6 +43,48 @@
 
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-2.png)
 
+### 匯入/匯出功能
+
+Status Bar Helper 支援完整的資料匯入匯出功能，讓你輕鬆備份、分享或遷移狀態列項目設定：
+
+#### 📤 匯出功能
+
+- **選擇匯出**：可選擇特定項目進行匯出
+- **JSON 格式**：標準 JSON 陣列格式，便於編輯與版本控制
+- **完整資料**：包含按鈕文字、提示、腳本、顯示/隱藏狀態等完整設定
+
+#### 📥 匯入功能
+
+- **格式驗證**：嚴格檢查 JSON 格式與必要欄位
+- **合併策略**：
+  - **Replace（取代）**：清除現有項目，僅保留匯入項目
+  - **Append（附加）**：保留現有項目，新增匯入項目
+- **衝突處理**：
+  - **Skip（略過）**：遇到重複 command ID 時略過該項目
+  - **New ID（新 ID）**：自動產生新的 command ID 避免衝突
+- **預覽模式**：匯入前可預覽變更內容與衝突狀況
+
+#### 📋 JSON 格式範例
+
+```json
+[
+  {
+    "command": "myext.customButton",
+    "text": "$(gear) 我的按鈕",
+    "tooltip": "自訂功能按鈕",
+    "script": "console.log('Hello World!');",
+    "hidden": false,
+    "enableOnInit": false
+  }
+]
+```
+
+#### 🔒 安全性與限制
+
+- 檔案大小限制：JSON 檔案最大 10MB
+- 欄位保留：完整保留原始欄位順序與未知欄位
+- 路徑安全：所有檔案操作均經過路徑驗證，防止越界存取
+
 ---
 
 ## 🔧 指令與捷徑
@@ -54,6 +97,22 @@
 ---
 
 ## 內建範例
+
+### Script Store
+
+集中式腳本目錄來源：`script-store.defaults.<locale>.json`（目前提供 `en` 與 `zh-tw`）。
+
+功能：
+
+- 遠端優先（GitHub raw，3 秒 timeout / 256KB 上限）→ 失敗 fallback 本地檔
+- 語系判斷：`vscode.env.language`（僅 zh-tw / zh-hant 走繁體，其餘英文）
+- 狀態徽章：NEW / INSTALLED / UPDATE（script + text + tooltip + tags hash）
+- 單項 / 批次安裝（批次為原子：任一失敗即回滾）
+- Diff 檢視（欄位變更 + 行級簡易差異；>400 行預設摺疊）
+- 安全快篩：拒絕含 `eval(`、`new Function`、大量 `process.env` 取用的腳本
+- 5 分鐘記憶體快取（後續規劃 ETag）
+
+規劃中（Phase 2）：ETag 快取、`scriptUrl` 延遲載入、token 細粒度 diff、使用者強制語系覆寫。
 
 - Log：示範如何將輸出同時顯示在面板 Output 區塊與 VS Code 的 Output Channel。
 - Git Add：示範如何在擴充套件中執行全域 Git 指令（例如 git add）。

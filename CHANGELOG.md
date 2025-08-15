@@ -1,3 +1,122 @@
 # Change Log
 
-[Click here for the latest release notes ](https://github.com/JiaHongL/status-bar-helper/releases)
+[Click here for the latest release notes](https://github.com/JiaHongL/status-bar-helper/releases)
+
+## [Unreleased]
+
+### Added (Remote Catalog & Locale Refactor)
+
+- Remote + Cached Script Store catalog：優先 GitHub raw，3s timeout / 256KB 上限，失敗 fallback 本地；結果 5 分鐘快取。
+- 統一語系判斷使用 `vscode.env.language`（僅 zh-tw / zh-hant → zh-tw；其餘英文）；解決英文 VS Code 載入繁中 tooltip。
+- 移除舊 `i18n()` fallback，集中 `updateScriptStoreTexts()` 採 `t()` 實作。
+- 修正英文本地 `script-store.defaults.en.json` 第一筆 script 欄位格式錯誤導致 parse 失敗。
+
+### Changed (Script Store Loading)
+
+- 同步 `loadLocalCatalog` → 異步 `loadCatalog`（遠端 + 快取 + 本地備援）。
+- Bulk install / diff 共用統一 catalog 來源避免 race。
+
+### Fixed (Catalog)
+
+- 英文環境顯示繁中 Tooltip。
+- 遠端逾時導致空白 Script Store（新增降級與快取）。
+- 本地英文 catalog parse error 導致整體中斷。
+
+### Technical (Networking & Caching)
+
+- 使用 Node `https` + AbortController (3s timeout)；記錄 size limit / timeout / parse fail 警告。
+- 簡易 in-memory cache（5 分鐘 TTL）後續可擴充 ETag。
+
+### Security
+
+- 遠端腳本仍套用既有安全快篩：阻擋 eval/new Function/大量 process.env。
+
+### Next (Planned – Remote Phase 2)
+
+- ETag / If-None-Match 快取
+- `scriptUrl` lazy loading
+- token-level richer diff
+- 使用者設定覆寫 catalog 語系
+
+### Added (Script Store & Diff)
+
+- **進階匯入/匯出功能** - 完整的狀態列項目匯入匯出支援
+  - 新增「Advanced I/E」按鈕開啟進階匯入匯出介面
+  - **匯入功能**：
+    - 支援貼上 JSON 或載入檔案
+    - Replace/Append 合併策略選擇
+    - Skip/NewId 衝突處理機制
+    - 預覽表格顯示項目狀態 (新增/已存在/衝突/跳過)
+    - 可選擇性套用匯入項目
+  - **匯出功能**：
+    - 可選擇特定項目匯出
+    - 即時產生 JSON 預覽
+    - 支援複製到剪貼簿或儲存檔案
+    - 顯示項目大小資訊
+  - **技術特色**：
+    - 嚴格欄位順序與未知欄位保留
+    - 完整的錯誤處理與驗證
+    - 響應式設計支援深淺色主題
+    - 多語系支援 (繁體中文/英文)
+  - 新增 `src/utils/importExport.ts` 核心邏輯
+  - 新增 `importExport` 橋接命名空間：`importPreview`、`exportPreview`、`applyImport`
+  - 新增檔案載入與儲存橋接：`loadImportFile`、`saveExportToFile`
+
+  ## [1.6.0] - 2025-08-15
+
+  ### Added
+
+  - **Script Store Phase 1**：取代舊範例還原流程，提供集中式腳本目錄
+    - 本地 catalog：`script-store.defaults.<locale>.json`（含 tags）
+    - 狀態判斷：Installed / Update / New（依 command + scriptHash + 文字/tooltip/tags）
+    - 單筆安裝、批次安裝（原子性：任一失敗自動回滾）
+    - Diff 後端：`scriptStore.diff` 提供 before/after 欄位與 script
+    - 新增橋接命名空間：`scriptStore.catalog`、`install`、`bulkInstall`、`diff`
+    - Tags 支援：於項目列表、匯入/匯出、Script Store 顯示與過濾
+  - **Diff Viewer (Webview)**：
+    - 右側面板顯示欄位差異（Text / Tooltip / Tags）
+    - Script side-by-side 行級簡易差異（>400 行預設摺疊可展開）
+    - 變動欄位高亮、快速切換 View
+  - **UI/UX**：
+    - 安裝/批次安裝 loading spinner、按鈕停用狀態
+    - 批次安裝結果摘要（成功/失敗統計）
+    - View 按鈕快速預覽差異
+
+  ### Changed
+
+  - 移除舊「Restore Samples」流程，改用 Script Store
+  - Bulk install 從逐項覆蓋改為 snapshot + rollback 策略
+
+  ### Technical
+
+  - 重構橋接內部：抽離 hash 計算 / 狀態建構 / 安裝套用 / 回滾流程
+  - 加入 tags 至同步/更新判斷 signature
+
+  ### Security (Phase 1)
+
+  - 安裝前腳本快篩：阻擋 `eval(`、`new Function`、可疑 `process.env` 大量讀取 pattern
+  - 保持既有限制（大小、原生模組）— 後續擴充 remote 時再加強
+
+  ### Docs (Phase 1)
+
+  - 更新 `IMPLEMENTATION_SUMMARY.md` 與 Copilot 指令，說明 Script Store 架構與後續規劃
+
+  ### Next (Planned)
+
+  - Remote catalog fetch (ETag)
+  - `scriptUrl` Lazy 載入
+  - Rich diff (LCS/token highlight)
+  - Remote/本地合併策略與快取
+
+### Technical (Refactor & Signature)
+
+- 新增 Import/Export 相關型別定義：`MergeStrategy`、`ConflictPolicy`、`ParseResult` 等
+- 完善錯誤處理與安全驗證機制
+- 更新開發文件與 Copilot 指令
+- 加強測試覆蓋率
+
+### Security (Script Validation)
+
+- 檔案大小限制：JSON 檔案最大 10MB
+- 路徑安全驗證，防止越界存取
+- 完整的輸入驗證與錯誤過濾
