@@ -2,16 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import { 
-  DEFAULT_MINIMAL_LOG_SCRIPT, 
-  DEFAULT_GIT_ADD_SCRIPT, 
-  DEFAULT_SBH_STORAGE_SCRIPT, 
-  DEFAULT_TOGGLE_THEME_SCRIPT,
-  DEFAULT_WHITEBOARD_SCRIPT, 
-  DEFAULT_POMODORO_SCRIPT,
-  DEFAULT_VM_CHAT_A_SCRIPT,
-  DEFAULT_VM_CHAT_B_SCRIPT
-} from './default-items';
+// Removed legacy default-items import (deprecated restore defaults flow)
 import {
   loadFromGlobal,
   saveAllToGlobal,
@@ -118,12 +109,13 @@ export class SettingsPanel {
                 const uri = uris[0];
                 const content = fs.readFileSync(uri.fsPath, 'utf8');
                 try {
-                  const items = JSON.parse(content);
-                  if (Array.isArray(items) && SettingsPanel.extensionContext) {
-                    await saveAllToGlobal(SettingsPanel.extensionContext, items);
-                    this._sendStateToWebview();
-                    this._panel.webview.postMessage({ command: 'importDone', items });
-                    vscode.window.showInformationMessage(localize('import.success', 'Settings imported successfully.'));
+                  const importItems = JSON.parse(content);
+                  if (Array.isArray(importItems)) {
+                    // Send to webview for preview instead of direct import
+                    this._panel.webview.postMessage({ 
+                      command: 'importPreviewData', 
+                      items: importItems 
+                    });
                   } else {
                     vscode.window.showErrorMessage(localize('err.import.invalidFormat', 'Invalid file format.'));
                   }
@@ -134,38 +126,49 @@ export class SettingsPanel {
             });
             return;
           }
-
-          // === Restore defaults ===
-          case 'restoreDefaults': {
-            const pick = message.choice; // 'Replace All' or 'Append'
-            if (!pick || !SettingsPanel.extensionContext) {
-              return;
+          
+          case 'applyImportSettings': {
+            // Apply selected items from import preview
+            const importItems = message.items;
+            const mergeStrategy: 'replace' | 'append' = message.mergeStrategy === 'append' ? 'append' : 'replace';
+            const conflictPolicy: 'skip' | 'newId' = message.conflictPolicy === 'newId' ? 'newId' : 'skip';
+            if (Array.isArray(importItems) && SettingsPanel.extensionContext) {
+              const current = loadFromGlobal(SettingsPanel.extensionContext);
+              let next: SbhItem[] = [];
+              if (mergeStrategy === 'replace') {
+                // Overwrite same command, keep non-selected existing items
+                const byCmd = new Map<string, SbhItem>();
+                current.forEach(i => byCmd.set(i.command, i));
+                importItems.forEach(i => byCmd.set(i.command, i));
+                next = Array.from(byCmd.values());
+              } else { // append
+                const existing = new Map(current.map(i => [i.command, i] as const));
+                const appended: SbhItem[] = [];
+                importItems.forEach(i => {
+                  if (!existing.has(i.command)) {
+                    appended.push(i);
+                  } else {
+                    if (conflictPolicy === 'newId') {
+                      const ts = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0,14);
+                      let newCmd = `${i.command}-${ts}`;
+                      // ensure uniqueness
+                      let c = 1;
+                      while (existing.has(newCmd)) { newCmd = `${i.command}-${ts}-${c++}`; }
+                      appended.push({ ...i, command: newCmd });
+                    } // skip does nothing
+                  }
+                });
+                next = current.concat(appended);
+              }
+              await saveAllToGlobal(SettingsPanel.extensionContext, next);
+              this._sendStateToWebview();
+              this._panel.webview.postMessage({ command: 'importDone', items: next });
+              vscode.window.showInformationMessage(localize('import.success', 'Settings imported successfully.'));
             }
-            const items = loadFromGlobal(SettingsPanel.extensionContext);
-            const defaults = buildDefaultItems();
-            let next: SbhItem[] = [];
-            
-            // 支援中英文按鈕文字比較
-            const isReplaceAll = pick === 'Replace All' || pick === '取代全部';
-            const isAppend = pick === 'Append' || pick === '附加';
-            
-            if (isReplaceAll) {
-              next = defaults;
-            } else if (isAppend) {
-              const exists = new Set(items.map(i => i.command));
-              const toAdd = defaults.filter(d => !exists.has(d.command));
-              next = items.concat(toAdd);
-            }
-
-            await saveAllToGlobal(SettingsPanel.extensionContext, next);
-            this._activeView = 'list';
-            this._editingItem = null;
-            this._sendStateToWebview();
-            vscode.window.showInformationMessage(
-              isReplaceAll ? localize('restore.replaceDone', 'Replaced with sample items.') : localize('restore.appendDone', 'Appended sample items (no duplicates).')
-            );
             return;
           }
+
+          // (restoreDefaults removed – superseded by Script Store)
 
           // === Smart Run ===
           case 'runScript': {
@@ -213,6 +216,7 @@ export class SettingsPanel {
             return;
           }
 
+
           // === Stored Data（Webview → 主進程 RPC）===
           case 'data:refresh': {
             const rows = await this._collectStoredRows();
@@ -248,6 +252,7 @@ export class SettingsPanel {
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
+
         }
       },
       null,
@@ -345,13 +350,34 @@ export class SettingsPanel {
     // Load translations
     const translations = this._loadTranslations();
 
+    let lastSyncAt: number | null = null;
+    try {
+      vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'hostRun', fn: 'lastSyncInfo', args: [] })
+        .then((r:any) => {
+          if (r && r.ok) { lastSyncAt = r.data?.lastSyncAt ?? null; }
+          this._panel.webview.postMessage({
+            command: 'loadState',
+            items,
+            activeView: this._activeView,
+            editingItem: this._editingItem,
+            typeDefs,
+            translations,
+            lastSyncAt
+          });
+          this._sendRunningToWebview();
+        });
+      return; // 早退，避免重複 sendRunning
+    } catch {
+      // fallback: 沒拿到 lastSyncAt 仍送出
+    }
     this._panel.webview.postMessage({
       command: 'loadState',
       items,
       activeView: this._activeView,
       editingItem: this._editingItem,
       typeDefs,
-      translations
+      translations,
+      lastSyncAt
     });
     this._sendRunningToWebview();
   }
@@ -523,72 +549,4 @@ export class SettingsPanel {
   }
 }
 
-/* ---------- Restore defaults helpers (same as extension.ts) ---------- */
-function buildDefaultItems(): SbhItem[] {
-  return [
-    {
-  text: localize('item.log.text', '$(output) Log'),
-  tooltip: localize('item.log.tooltip', 'VS Code + Node. Output + bottom log'),
-      command: 'sbh.demo.logMinimalPlus',
-      script: DEFAULT_MINIMAL_LOG_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.gitAdd.text', '$(diff-added) Git Add'),
-  tooltip: localize('item.gitAdd.tooltip', 'Stage all changes in the first workspace folder'),
-      command: 'sbh.demo.gitAdd',
-      script: DEFAULT_GIT_ADD_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.storage.text', '$(database) Storage'),
-  tooltip: localize('item.storage.tooltip', 'How to use the custom statusBarHelper API'),
-      command: 'sbh.demo.storage',
-      script: DEFAULT_SBH_STORAGE_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.toggleTheme.text', '$(color-mode)'),
-  tooltip: localize('item.toggleTheme.tooltip', 'Toggle between light and dark theme'),
-      command: 'sbh.demo.toggleTheme',
-      script: DEFAULT_TOGGLE_THEME_SCRIPT,
-      enableOnInit: false,
-      hidden: false
-    },
-    {
-  text: localize('item.board.text', '$(paintcan) Board'),
-  tooltip: localize('item.board.tooltip', 'Board'),
-      command: 'sbh.demo.whiteboard',
-      script: DEFAULT_WHITEBOARD_SCRIPT,
-      enableOnInit: false,
-      hidden: false
-    },
-    {
-  text: localize('item.pomodoro.text', '🍅 Pomodoro'),
-  tooltip: localize('item.pomodoro.tooltip', 'Open Pomodoro Timer'),
-      command: 'sbh.demo.pomodoro',
-      script: DEFAULT_POMODORO_SCRIPT,
-      enableOnInit: true,
-      hidden: true
-    },
-    {
-  text: localize('item.chatA.text', '$(comment) Chat A'),
-  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
-      command: 'sbh.demo.vmChatA',
-      script: DEFAULT_VM_CHAT_A_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
-  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'),
-      command: 'sbh.demo.vmChatB',
-      script: DEFAULT_VM_CHAT_B_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    }
-  ];
-}
+// (buildDefaultItems removed – defaults now provided only via JSON + future Script Store)

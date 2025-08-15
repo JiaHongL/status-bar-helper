@@ -365,12 +365,12 @@
                             Export
                         </button>
                         <button
-                            id="restore-btn"
-                            type="button"
-                            title="Restore sample items"
-                        >
-                            Restore Samples
-                        </button>
+              id="script-store-btn"
+              type="button"
+              title="Open Script Store"
+            >
+              Script Store
+            </button>
                         <button
                             id="add-new-item-btn"
                             type="button"
@@ -1621,20 +1621,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         initializeSimpleImportExport();
         initImportOptionsCollapsible();
         
-        // Initialize restore samples button
-        const restoreBtn = document.getElementById('restore-btn');
-        if (restoreBtn) {
-            restoreBtn.onclick = async () => {
-                const choice = await showChoiceDialog(t('restoreTitle', 'Restore Samples'), t('restoreMessage', 'This will restore the default sample items. How would you like to proceed?'), [t('replaceAll', 'Replace All'), t('append', 'Append'), t('cancel', 'Cancel')]);
-                
-                // 支援中英文按鈕文字比較
-                const replaceAllText = t('replaceAll', 'Replace All');
-                const appendText = t('append', 'Append');
-                
-                if (choice === replaceAllText || choice === appendText) {
-                    vscode.postMessage({ command: 'restoreDefaults', choice: choice });
-                }
-            };
+        // Initialize Script Store button (placeholder – future implementation will open modal / side panel)
+        const storeBtn = document.getElementById('script-store-btn');
+        if (storeBtn) {
+          storeBtn.onclick = () => {
+            // Placeholder: send a message (can later open dedicated modal)
+            vscode.postMessage({ command: 'showError', message: 'Script Store is under development.' });
+          };
         }
         
         // Initialize clear all button
