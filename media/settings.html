@@ -68,6 +68,21 @@
     .actions button, .data-actions button { height:28px; padding:0 10px; }
     .data-actions button { height: 26px; }
 
+    /* Last sync indicator */
+  .last-sync { display:flex; align-items:center; gap:4px; font-size:11px; opacity:.7; margin-left:10px; padding:2px 6px; border-radius:4px; line-height:1; white-space:nowrap; background:var(--vscode-editorGroup-border); }
+    .last-sync .codicon { font-size:14px; opacity:.8; }
+    .last-sync.fresh { opacity:.95; }
+    .last-sync.stale { opacity:.5; }
+    @media (max-width: 1100px){
+      .last-sync .last-sync-text{ display:none; }
+    }
+
+  /* Compact mode (narrow width) */
+  body.compact .list-title > span { display:none; }
+  body.compact .item-tooltip { display:none; }
+  body.compact .list-title { gap:6px; }
+  body.compact tr.item-row { height:30px; }
+
     .list-table-container, .data-table-container { flex-grow:1; overflow-y:auto; }
 
     table.list-table, table.data-table { width:100%; border-collapse:collapse; }
@@ -110,6 +125,11 @@
     tr.is-hidden .item-label, tr.is-hidden .item-tooltip { opacity:.55; }
 
     .item-actions{ display:flex; gap:6px; align-items:center; white-space:nowrap; height: 34px; }
+  /* Tags */
+  .tags-cell{ max-width:180px; }
+  .tags{ display:flex; gap:4px; flex-wrap:wrap; }
+  .tag-badge{ background:var(--vscode-editorGroup-border); color:var(--vscode-foreground); padding:2px 6px; border-radius:10px; font-size:10px; line-height:1; white-space:nowrap; }
+  body.compact .tags-cell{ display:none; }
     .btn-ghost{ background:transparent; border:1px solid transparent; color:var(--vscode-textLink-foreground); padding:2px 8px; height:24px; border-radius:4px; font-size:.85em; cursor:pointer; }
     .btn-ghost:hover{ text-decoration:underline; background:transparent; }
 
@@ -315,6 +335,10 @@
                     <div class="list-title">
                       <i class="codicon codicon-list-selection"></i>
                       <span>Status Bar Items</span>
+                      <div id="last-sync-indicator" class="last-sync" style="display:none;" title="">
+                        <i class="codicon codicon-clock"></i>
+                        <span class="last-sync-text"></span>
+                      </div>
                     </div>
                     <div
                         class="search-wrap"
@@ -366,6 +390,7 @@
                                 <th style="width: 50px; text-align:center;">Visible</th>
                                 <th style="width: 100px; text-align:center;">Run at Startup</th>
                                 <th style="width: 50px; text-align:center;">CmdId</th>
+                                <th style="width: 150px; text-align:left;">Tags</th>
                                 <th style="width: 120px; text-align:right;">Actions</th>
                             </tr>
                         </thead>
@@ -485,6 +510,64 @@
         
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
+
+        const advancedIEBtn = document.getElementById('advanced-import-export-btn');
+        if (advancedIEBtn) advancedIEBtn.textContent = t('advancedImportExport', 'Advanced I/E');
+
+        // Update modal elements
+        const modalTitle = document.getElementById('modal-title');
+        if (modalTitle) modalTitle.textContent = t('advancedImportExport', 'Advanced Import/Export');
+
+        const importTabBtn = document.getElementById('import-tab-btn');
+        if (importTabBtn) importTabBtn.textContent = t('importTab', 'Import');
+
+        const exportTabBtn = document.getElementById('export-tab-btn');
+        if (exportTabBtn) exportTabBtn.textContent = t('exportTab', 'Export');
+
+        const loadFileBtn = document.getElementById('load-file-btn');
+        if (loadFileBtn) loadFileBtn.textContent = t('loadFile', 'Load File');
+
+        const importJsonTextarea = document.getElementById('import-json');
+        if (importJsonTextarea) importJsonTextarea.placeholder = t('pasteJsonHere', 'Paste JSON data here or load from file...');
+
+        const mergeStrategySelect = document.getElementById('merge-strategy');
+        if (mergeStrategySelect) {
+            const options = mergeStrategySelect.querySelectorAll('option');
+            if (options.length >= 2) {
+                options[0].textContent = t('mergeStrategyReplace', 'Replace All (clear all items then import)');
+                options[1].textContent = t('mergeStrategyAppend', 'Append (add to existing items)');
+            }
+        }
+
+        const conflictPolicySelect = document.getElementById('conflict-policy');
+        if (conflictPolicySelect) {
+            const options = conflictPolicySelect.querySelectorAll('option');
+            if (options.length >= 2) {
+                options[0].textContent = t('conflictPolicySkip', 'Skip (skip conflicting items)');
+                options[1].textContent = t('conflictPolicyNewId', 'New ID (generate new command IDs)');
+            }
+        }
+
+        const previewImportBtn = document.getElementById('preview-import-btn');
+        if (previewImportBtn) previewImportBtn.textContent = t('previewChanges', 'Preview Changes');
+
+        const applyImportBtn = document.getElementById('apply-import-btn');
+        if (applyImportBtn) applyImportBtn.textContent = t('applyImport', 'Apply Import');
+
+        const selectAllExportBtn = document.getElementById('select-all-export-btn');
+        if (selectAllExportBtn) selectAllExportBtn.textContent = t('selectAll', 'Select All');
+
+        const deselectAllExportBtn = document.getElementById('deselect-all-export-btn');
+        if (deselectAllExportBtn) deselectAllExportBtn.textContent = t('deselectAll', 'Deselect All');
+
+        const previewExportBtn = document.getElementById('preview-export-btn');
+        if (previewExportBtn) previewExportBtn.textContent = t('generateJson', 'Generate JSON');
+
+        const saveExportBtn = document.getElementById('save-export-btn');
+        if (saveExportBtn) saveExportBtn.textContent = t('saveToFile', 'Save to File');
+
+        const copyExportBtn = document.getElementById('copy-export-btn');
+        if (copyExportBtn) copyExportBtn.textContent = t('copyToClipboard', 'Copy to Clipboard');
         
         // Update table headers
         const headers = document.querySelectorAll('table.list-table th');
@@ -533,6 +616,20 @@
 
     const listViewWrapper = document.getElementById('list-view-wrapper');
     const editView = document.getElementById('edit-view');
+
+    /* ---------- Responsive Compact Mode ---------- */
+    const COMPACT_BREAKPOINT = 860; // px
+    let lastCompact = null;
+    function evaluateCompact(){
+      const w = window.innerWidth;
+      const should = w < COMPACT_BREAKPOINT;
+      if (should !== lastCompact){
+        document.body.classList.toggle('compact', should);
+        lastCompact = should;
+      }
+    }
+    window.addEventListener('resize', () => requestAnimationFrame(evaluateCompact));
+    evaluateCompact();
 
     /* ---------- Draft & State Helpers ---------- */
     const getState   = () => (vscode.getState && vscode.getState()) || {};
@@ -595,6 +692,16 @@
     /* ---------- Formatters ---------- */
     function formatBytes(n){ if (!Number.isFinite(n)) return '0 B'; const u = ['B','KB','MB','GB']; let i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; } return `${Math.round(n*10)/10} ${u[i]}`; }
     const typeIcon = (row) => { if (row.kind === 'kv') return 'database'; if (row.ext === 'text') return 'file-text'; if (row.ext === 'json') return 'file-code'; return 'file-binary'; };
+    // Global HTML escaper used by list + preview dialogs
+    function escapeHtml(str = '') {
+      return str.replace(/[&<>'"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[ch] || ch);
+    }
 
     /* ---------- Monaco Editor Setup ---------- */
     require.config({ paths: { 'vs': '{{monacoUri}}' } });
@@ -778,6 +885,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       if (dataRefreshInterval) clearInterval(dataRefreshInterval);
       dataRefreshInterval = setInterval(refreshStoredData, 1500);
       vscode.postMessage({ command: 'vm:refresh' });
+  updateLastSyncDisplay();
     }
 
     function showEditView(index, item) {
@@ -793,15 +901,16 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const tbody = document.getElementById('items-list-body');
       tbody.innerHTML = '';
       const q = filterText.trim().toLowerCase();
-      const escapeHtml = (s='') => s.replace(/[&<>'"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+  // escapeHtml 已提升為全域函式（見上方定義）
 
       const filteredItems = items.filter(item => {
         const label = item.text.replace(/^\$\(([^)]+)\) /, '');
-        return !q || label.toLowerCase().includes(q) || (item.tooltip||'').toLowerCase().includes(q) || (item.command||'').toLowerCase().includes(q);
+  const tagMatch = Array.isArray(item.tags) && item.tags.some(t => t.toLowerCase().includes(q));
+  return !q || label.toLowerCase().includes(q) || (item.tooltip||'').toLowerCase().includes(q) || (item.command||'').toLowerCase().includes(q) || tagMatch;
       });
 
       if (!filteredItems.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
         return;
       }
 
@@ -833,6 +942,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           row.setAttribute('draggable', 'true');
         }
 
+        const tagsHtml = (Array.isArray(item.tags) ? item.tags : []).slice(0,8).map(t=>`<span class="tag-badge" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
         row.innerHTML = `
           <td class="drag-handle" title="Drag to reorder"><div class="td-content-wrapper"><i class="codicon codicon-grabber"></i></div></td>
           <td class="item-icon"><div class="td-content-wrapper justify-center"><i class="codicon codicon-${icon || 'ellipsis'}"></i></div></td>
@@ -853,6 +963,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             </div>
             <input hidden style="width:0px" type="text" readonly class="command-input" value="${escapeHtml(item.command || '')}" />
           </td>
+          <td class="tags-cell"><div class="td-content-wrapper"><div class="tags">${tagsHtml || '<span style=\"opacity:.4\">—</span>'}</div></div></td>
           <td class="item-actions">
             <div class="td-content-wrapper justify-end">
               <button class="run-now-item" data-index="${originalIndex}" type="button">${t('run', 'Run')}</button>
@@ -980,7 +1091,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         if (curDraft.script != null) item.script = curDraft.script;
       }
 
-      editView.innerHTML = `
+  const tagsValue = Array.isArray(item.tags) ? item.tags.join(', ') : '';
+  editView.innerHTML = `
         <div class="edit-item-container">
           <div class="controls-row">
             <div class="field icon-field">
@@ -990,6 +1102,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             </div>
             <div class="field label-field"><label for="edit-label">Label</label><input type="text" id="edit-label"></div>
             <div class="field tooltip-field"><label for="edit-tooltip">Tooltip</label><input type="text" id="edit-tooltip"></div>
+    <div class="field tags-field"><label for="edit-tags">Tags</label><input type="text" id="edit-tags" placeholder="comma or space separated"></div>
             <div class="actions">
               <button type="button" id="run-btn" title="Smart Run (auto-detect)">${t('run', 'Run')}</button>
               <button type="button" id="stop-btn">${t('stop', 'Stop')}</button>
@@ -1014,6 +1127,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
       document.getElementById('edit-label').value = initLabel;
       document.getElementById('edit-tooltip').value = item.tooltip || '';
+  document.getElementById('edit-tags').value = tagsValue;
       setupMonaco(item);
 
       /* --- Editor/Output resizer & collapse-aware layout --- */
@@ -1112,6 +1226,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       // Edit inputs
       document.getElementById('edit-label').addEventListener('input', e => { saveDraft({ command: item.command, label: e.target.value }); });
       document.getElementById('edit-tooltip').addEventListener('input', e => { saveDraft({ command: item.command, tooltip: e.target.value }); });
+  document.getElementById('edit-tags').addEventListener('input', e => { saveDraft({ command: item.command, tags: e.target.value }); });
 
       // Output collapse toggle
       document.getElementById('output-toggle').onclick = () => {
@@ -1139,7 +1254,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         if (btn.id === 'save-item-btn') {
           const lbl = document.getElementById('edit-label').value.trim();
           let txt = lbl; if(selectedIcon) txt = `\$(${selectedIcon}) ${lbl}`;
-          const upd = { ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
+          const rawTags = document.getElementById('edit-tags').value.trim();
+          const parsedTags = rawTags ? rawTags.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean) : [];
+          const dedupedTags = Array.from(new Set(parsedTags)).slice(0,12);
+          const upd = { ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue(), tags: dedupedTags };
           if(isNew) items.push(upd); else items[index]=upd;
           saveAndPostSettings();
           clearDraftIfMatch(item.command);
@@ -1148,7 +1266,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         }
         else if (btn.id === 'cancel-edit-btn') {
           const hasUnsaved = () => {
-            const current = { icon: selectedIcon, label: document.getElementById('edit-label').value, tooltip: document.getElementById('edit-tooltip').value, script: currentEditor ? currentEditor.getValue() : (item.script || '') };
+            const current = { icon: selectedIcon, label: document.getElementById('edit-label').value, tooltip: document.getElementById('edit-tooltip').value, script: currentEditor ? currentEditor.getValue() : (item.script || ''), tags: document.getElementById('edit-tags').value };
             const ed = getEditing();
             const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify(original);
             return JSON.stringify(current) !== pristineJson;
@@ -1272,28 +1390,266 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
     document.getElementById('add-new-item-btn').onclick = () => {
       const newCommand = 'cmd.' + Math.random().toString(36).slice(2,7) + Math.random().toString(36).slice(2,7);
       showEditView(null, { 
-        text:'New Item', tooltip:'', command:newCommand, script: defaultScript, enableOnInit: false, hidden: false
+        text:'New Item', tooltip:'', command:newCommand, script: defaultScript, enableOnInit: false, hidden: false, tags: []
       });
     }
     
-    document.getElementById('export-btn').onclick = () => vscode.postMessage({ command:'exportSettings', items });
+    document.getElementById('export-btn').onclick = () => showExportPreview();
     document.getElementById('import-btn').onclick = () => vscode.postMessage({ command:'importSettings' });
-    document.getElementById('restore-btn').onclick = async () => {
-        const choice = await showChoiceDialog(t('restoreTitle', 'Restore Samples'), t('restoreMessage', 'This will restore the default sample items. How would you like to proceed?'), [t('replaceAll', 'Replace All'), t('append', 'Append'), t('cancel', 'Cancel')]);
-        
-        // 支援中英文按鈕文字比較
-        const replaceAllText = t('replaceAll', 'Replace All');
-        const appendText = t('append', 'Append');
-        
-        if (choice === replaceAllText || choice === appendText) {
-            vscode.postMessage({ command: 'restoreDefaults', choice: choice });
+    
+    // === Simple Import/Export Functions ===
+    let currentPreviewData = null;
+    let currentPreviewType = null; // 'import' or 'export'
+
+    function initializeSimpleImportExport() {
+        const overlay = document.getElementById('preview-dialog-overlay');
+        const closeBtn = document.getElementById('preview-close');
+        const confirmBtn = document.getElementById('preview-confirm');
+        const cancelBtn = document.getElementById('preview-cancel');
+        const selectAllBtn = document.getElementById('select-all-preview');
+        const deselectAllBtn = document.getElementById('deselect-all-preview');
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+
+        if (!overlay || !closeBtn || !confirmBtn || !cancelBtn) {
+            console.error('Preview dialog elements not found');
+            return;
         }
-    };
-    document.getElementById('clear-all-btn').onclick = async () => {
-        if (await showChoiceDialog(t('clearAllConfirm', 'Clear All Data'), t('clearAllMessage', 'Are you sure you want to clear all stored data? This cannot be undone.'), [t('clearAll', 'Clear All'), t('cancel', 'Cancel')]) === t('clearAll', 'Clear All')) {
-            vscode.postMessage({ command: 'data:clearAll' });
+
+        // Close dialog
+        const closeDialog = () => {
+            overlay.classList.add('hidden');
+            currentPreviewData = null;
+            currentPreviewType = null;
+        };
+
+        closeBtn.onclick = closeDialog;
+        cancelBtn.onclick = closeDialog;
+        
+        // Close when clicking outside
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                closeDialog();
+            }
+        };
+
+        // Select/Deselect all
+        if (selectAllBtn) {
+            selectAllBtn.onclick = () => {
+                const checkboxes = document.querySelectorAll('#preview-tbody input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = true);
+                if (selectAllCheckbox) selectAllCheckbox.checked = true;
+            };
         }
-    };
+
+        if (deselectAllBtn) {
+            deselectAllBtn.onclick = () => {
+                const checkboxes = document.querySelectorAll('#preview-tbody input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+                if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            };
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.onchange = (e) => {
+                const checkboxes = document.querySelectorAll('#preview-tbody input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = e.target.checked);
+            };
+        }
+
+        // Confirm action
+        confirmBtn.onclick = () => {
+            const checkboxes = document.querySelectorAll('#preview-tbody input[type="checkbox"]:checked');
+            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+
+            if (selectedIndices.length === 0) {
+                alert('請至少選擇一個項目');
+                return;
+            }
+
+      if (currentPreviewType === 'export') {
+                // Export selected items
+                const selectedItems = selectedIndices.map(index => currentPreviewData[index]);
+                vscode.postMessage({ 
+                    command: 'exportSettings', 
+                    items: selectedItems 
+                });
+            } else if (currentPreviewType === 'import') {
+        // Apply import with selected items + strategy/conflict
+        const selectedItems = selectedIndices.map(index => currentPreviewData[index]);
+        const mergeStrategy = (document.querySelector('input[name="merge-strategy"]:checked') || {}).value || 'replace';
+        const conflictPolicy = (document.querySelector('input[name="conflict-policy"]:checked') || {}).value || 'skip';
+        vscode.postMessage({ 
+          command: 'applyImportSettings', 
+          items: selectedItems,
+          mergeStrategy,
+          conflictPolicy
+        });
+            }
+
+            closeDialog();
+        };
+    }
+
+    function showExportPreview() {
+        if (items.length === 0) {
+            alert('沒有項目可以匯出');
+            return;
+        }
+
+        currentPreviewData = items;
+        currentPreviewType = 'export';
+        showPreviewDialog('選擇要匯出的項目', items);
+    }
+
+    function showImportPreview(importItems) {
+        if (!importItems || importItems.length === 0) {
+            alert('沒有項目可以匯入');
+            return;
+        }
+
+        currentPreviewData = importItems;
+        currentPreviewType = 'import';
+        showPreviewDialog('選擇要匯入的項目', importItems);
+    }
+
+  function showPreviewDialog(title, itemsToShow) {
+    const overlay = document.getElementById('preview-dialog-overlay');
+    const titleEl = document.getElementById('preview-title');
+    const tbody = document.getElementById('preview-tbody');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const importOptions = document.getElementById('import-options-section');
+    const conflictWrapper = document.getElementById('conflict-policy-wrapper');
+    const mergeAppendRadio = document.getElementById('mergeAppend');
+    const mergeReplaceRadio = document.getElementById('mergeReplace');
+    const summaryEl = document.getElementById('import-options-summary');
+
+        if (!overlay || !titleEl || !tbody) {
+            console.error('Preview dialog elements not found');
+            return;
+        }
+
+        titleEl.textContent = title;
+        tbody.innerHTML = '';
+
+    itemsToShow.forEach((item, index) => {
+            const row = document.createElement('tr');
+      const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
+      row.innerHTML = `
+        <td><input type="checkbox" data-index="${index}" checked></td>
+        <td>${escapeHtml(item.text || '')}</td>
+        <td><code>${escapeHtml(item.command || '')}</code></td>
+        <td>${escapeHtml(item.tooltip || '')}</td>
+        <td>${escapeHtml(tags)}</td>
+      `;
+            tbody.appendChild(row);
+        });
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = true;
+        }
+
+    // Show/hide import options
+    if (importOptions) {
+      if (currentPreviewType === 'import') {
+        importOptions.classList.remove('hidden');
+      } else {
+        importOptions.classList.add('hidden');
+      }
+    }
+
+    // Conflict policy visibility + summary
+    if (mergeAppendRadio && mergeReplaceRadio && conflictWrapper) {
+      const syncConflictVisibility = () => {
+        const mergeVal = (document.querySelector('input[name="merge-strategy"]:checked') || {}).value;
+        if (mergeVal === 'append') {
+          conflictWrapper.classList.remove('hidden');
+        } else {
+          conflictWrapper.classList.add('hidden');
+        }
+        updateImportSummary();
+      };
+      mergeAppendRadio.onchange = syncConflictVisibility;
+      mergeReplaceRadio.onchange = syncConflictVisibility;
+      syncConflictVisibility();
+    }
+
+    if (currentPreviewType === 'import' && summaryEl) {
+      // Reset summary collapsed state each open
+      summaryEl.classList.add('hidden');
+      updateImportSummary();
+    }
+
+        overlay.classList.remove('hidden');
+    }
+    
+    // Initialize UI elements after DOM is ready
+    function updateImportSummary() {
+      const summaryEl = document.getElementById('import-options-summary');
+      if (!summaryEl) return;
+      const merge = (document.querySelector('input[name="merge-strategy"]:checked') || {}).value;
+      let txt = '';
+      if (merge === 'replace') txt = '取代模式';
+      else if (merge === 'append') {
+        const conflict = (document.querySelector('input[name="conflict-policy"]:checked') || {}).value;
+        txt = '新增 / ' + (conflict === 'newId' ? '重名改名' : '重名略過');
+      }
+      summaryEl.textContent = txt;
+    }
+
+    function initImportOptionsCollapsible() {
+      const toggleBtn = document.getElementById('toggle-import-options');
+      const body = document.getElementById('import-options-body');
+      const summary = document.getElementById('import-options-summary');
+      if (!toggleBtn || !body || !summary) return;
+      let collapsed = false;
+      toggleBtn.addEventListener('click', () => {
+        collapsed = !collapsed;
+        if (collapsed) {
+          body.style.display = 'none';
+          toggleBtn.textContent = '▼';
+          summary.classList.remove('hidden');
+        } else {
+          body.style.display = '';
+          toggleBtn.textContent = '▲';
+          summary.classList.add('hidden');
+        }
+      });
+    }
+
+    function initializeUI() {
+        // Initialize simple import/export preview
+        initializeSimpleImportExport();
+        initImportOptionsCollapsible();
+        
+        // Initialize restore samples button
+        const restoreBtn = document.getElementById('restore-btn');
+        if (restoreBtn) {
+            restoreBtn.onclick = async () => {
+                const choice = await showChoiceDialog(t('restoreTitle', 'Restore Samples'), t('restoreMessage', 'This will restore the default sample items. How would you like to proceed?'), [t('replaceAll', 'Replace All'), t('append', 'Append'), t('cancel', 'Cancel')]);
+                
+                // 支援中英文按鈕文字比較
+                const replaceAllText = t('replaceAll', 'Replace All');
+                const appendText = t('append', 'Append');
+                
+                if (choice === replaceAllText || choice === appendText) {
+                    vscode.postMessage({ command: 'restoreDefaults', choice: choice });
+                }
+            };
+        }
+        
+        // Initialize clear all button
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        if (clearAllBtn) {
+            clearAllBtn.onclick = async () => {
+                if (await showChoiceDialog(t('clearAllConfirm', 'Clear All Data'), t('clearAllMessage', 'Are you sure you want to clear all stored data? This cannot be undone.'), [t('clearAll', 'Clear All'), t('cancel', 'Cancel')]) === t('clearAll', 'Clear All')) {
+                    vscode.postMessage({ command: 'data:clearAll' });
+                }
+            };
+        }
+    }
+
+    // Initialize after DOM is ready
+    setTimeout(initializeUI, 100);
 
     window.addEventListener('message', e => {
       const msg = e.data;
@@ -1301,6 +1657,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         case 'loadState':
           items = msg.items || [];
           typeDefs = msg.typeDefs;
+          window.__lastSyncAt = msg.lastSyncAt || null;
           
           // Load translations
           if (msg.translations) {
@@ -1318,6 +1675,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         case 'importDone':
           items = msg.items || [];
           showListView();
+          break;
+        case 'importPreviewData':
+          // Show import preview dialog with the imported data
+          showImportPreview(msg.items || []);
           break;
         case 'runLog': {
           const out = document.getElementById('run-output');
@@ -1344,10 +1705,265 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           renderListView();
           break;
         }
+        case 'sync:refreshTime': {
+          window.__lastSyncAt = msg.lastSyncAt || null;
+          updateLastSyncDisplay();
+          break;
+        }
       }
     });
 
+    function formatRelative(ts) {
+      if (!ts) return '';
+      const diffMs = Date.now() - ts;
+      if (diffMs < 0) return '';
+      const sec = Math.floor(diffMs / 1000);
+      if (sec < 5) return 'just now';
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec/60);
+      if (min < 60) return `${min}m ago`;
+      const hr = Math.floor(min/60);
+      return `${hr}h ago`;
+    }
+    function updateLastSyncDisplay() {
+      const el = document.getElementById('last-sync-indicator');
+      if (!el) return;
+  if (!window.__lastSyncAt) { el.style.display='none'; el.removeAttribute('data-stale'); return; }
+  el.style.display='flex';
+  const rel = formatRelative(window.__lastSyncAt);
+  const textEl = el.querySelector('.last-sync-text');
+  if (textEl) textEl.textContent = `Last sync: ${rel}`;
+  const ageSec = (Date.now() - window.__lastSyncAt)/1000;
+  el.classList.toggle('fresh', ageSec < 180);
+  el.classList.toggle('stale', ageSec >= 180);
+  const abs = new Date(window.__lastSyncAt).toLocaleString();
+  el.title = `Last sync at ${abs}`;
+    }
+    setInterval(updateLastSyncDisplay, 15000);
+
     vscode.postMessage({ command: 'getSettings' });
         </script>
+
+        <!-- Simple Import/Export Preview Dialog -->
+        <div id="preview-dialog-overlay" class="hidden">
+            <div id="preview-dialog">
+                <div class="preview-header">
+                    <h3 id="preview-title">Preview</h3>
+                    <button id="preview-close" class="close-btn" title="Close">&times;</button>
+                </div>
+        <div class="preview-body">
+          <div id="import-options-section" class="import-options hidden">
+            <div class="options-header">
+              <span class="options-title">匯入選項</span>
+              <div class="options-actions">
+                <span id="import-options-summary" class="summary hidden"></span>
+                <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
+              </div>
+            </div>
+            <div id="import-options-body" class="options-body">
+              <div class="grid-two">
+                <div class="group">
+                  <div class="group-title">合併策略</div>
+                  <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong>Replace（取代）</strong></label>
+                  <div class="radio-desc" data-for="mergeReplace">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
+                  <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong>Append（新增）</strong></label>
+                  <div class="radio-desc" data-for="mergeAppend">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
+                </div>
+                <div id="conflict-policy-wrapper" class="group hidden">
+                  <div class="group-title">衝突處理</div>
+                  <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong>Skip（略過）</strong></label>
+                  <div class="radio-desc" data-for="conflictSkip">忽略重複 command。</div>
+                  <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong>newId（重新命名）</strong></label>
+                  <div class="radio-desc" data-for="conflictNewId">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
+                </div>
+              </div>
+            </div>
+            <hr class="thin-sep" />
+          </div>
+                    <div class="selection-controls">
+                        <button id="select-all-preview" type="button">全選</button>
+                        <button id="deselect-all-preview" type="button">全部取消選擇</button>
+                    </div>
+                    <div class="preview-table-container">
+                        <table id="preview-table" class="preview-table">
+                            <thead>
+                <tr>
+                  <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
+                  <th>Text</th>
+                  <th>Command</th>
+                  <th>Tooltip</th>
+                  <th>Tags</th>
+                </tr>
+                            </thead>
+                            <tbody id="preview-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="preview-actions">
+                        <button id="preview-confirm" type="button">確認</button>
+                        <button id="preview-cancel" type="button">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            /* Simple Preview Dialog Styles */
+            #preview-dialog-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #preview-dialog-overlay.hidden {
+                display: none;
+            }
+
+            #preview-dialog {
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 8px;
+                width: 90%;
+                max-width: 1100px;
+                max-height: 85%;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+            }
+
+            .preview-header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--vscode-panel-border); background:var(--vscode-sideBar-background); }
+            .preview-header h3 { font-size:14px; font-weight:600; }
+
+            .preview-header h3 {
+                margin: 0;
+                color: var(--vscode-foreground);
+            }
+
+            .close-btn {
+                background: none;
+                border: none;
+                font-size: 1.5em;
+                color: var(--vscode-icon-foreground);
+                cursor: pointer;
+                padding: 0;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .close-btn:hover {
+                background: var(--vscode-toolbar-hoverBackground);
+                border-radius: 4px;
+            }
+
+            .preview-body { flex:1; overflow:hidden; padding:12px 18px 10px 18px; display:flex; flex-direction:column; }
+            .import-options { margin-bottom:8px; }
+            .import-options.hidden { display:none; }
+            .options-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+            .options-title { font-weight:600; font-size:12px; letter-spacing:.5px; opacity:.9; }
+            .options-actions { display:flex; align-items:center; gap:8px; }
+            .mini-btn { padding:2px 6px; font-size:11px; line-height:1; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border); border-radius:3px; cursor:pointer; }
+            .mini-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
+            #import-options-summary { font-size:11px; opacity:.75; }
+            .summary.hidden { display:none; }
+            .options-body { transition:height .18s ease; }
+            .grid-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px 32px; }
+            .group { margin:0; }
+            .group-title { font-weight:600; margin:0 0 2px; font-size:12px; }
+            .radio-line { display:block; cursor:pointer; font-size:12px; line-height:1.3; }
+            .radio-desc { font-size:11px; line-height:1.35; margin:0 0 6px 22px; opacity:.72; }
+            .radio-desc .hint { opacity:.65; }
+            #conflict-policy-wrapper.hidden { display:none; }
+            .thin-sep { border:none; border-top:1px solid var(--vscode-panel-border); margin:4px 0 8px; }
+
+            .selection-controls {
+                margin-bottom: 10px;
+            }
+
+            .selection-controls button {
+                margin-right: 10px;
+                padding: 6px 12px;
+                background: var(--vscode-button-secondaryBackground);
+                color: var(--vscode-button-secondaryForeground);
+                border: 1px solid var(--vscode-button-border);
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+
+            .selection-controls button:hover {
+                background: var(--vscode-button-secondaryHoverBackground);
+            }
+
+            .preview-table-container { flex:1; min-height:220px; overflow:auto; border:1px solid var(--vscode-panel-border); border-radius:4px; margin-bottom:12px; }
+
+            .preview-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .preview-table th,
+            .preview-table td {
+                padding: 8px 10px;
+                text-align: left;
+                border-bottom: 1px solid var(--vscode-panel-border);
+                font-size: 0.9em;
+            }
+
+            .preview-table th {
+                background: var(--vscode-sideBar-background);
+                color: var(--vscode-descriptionForeground);
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            }
+
+            .preview-table tr:hover {
+                background: var(--vscode-list-hoverBackground);
+            }
+
+            .preview-table input[type="checkbox"] {
+                margin: 0;
+            }
+
+            .preview-actions { display:flex; gap:10px; justify-content:flex-end; padding:8px 4px 0 4px; position:sticky; bottom:0; background:var(--vscode-editor-background); border-top:1px solid var(--vscode-panel-border); margin-top:auto; }
+
+            .preview-actions button {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+
+            #preview-confirm {
+                background: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+            }
+
+            #preview-confirm:hover {
+                background: var(--vscode-button-hoverBackground);
+            }
+
+            #preview-cancel {
+                background: var(--vscode-button-secondaryBackground);
+                color: var(--vscode-button-secondaryForeground);
+                border: 1px solid var(--vscode-button-border);
+            }
+
+            #preview-cancel:hover {
+                background: var(--vscode-button-secondaryHoverBackground);
+            }
+        </style>
+
     </body>
 </html>

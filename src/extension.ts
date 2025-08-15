@@ -3,17 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
 import { localize } from './nls';
-import {
-  DEFAULT_MINIMAL_LOG_SCRIPT,
-  DEFAULT_GIT_ADD_SCRIPT,
-  DEFAULT_SBH_STORAGE_SCRIPT,
-  DEFAULT_TOGGLE_THEME_SCRIPT,
-  DEFAULT_WHITEBOARD_SCRIPT,
-  DEFAULT_POMODORO_SCRIPT,
-  DEFAULT_VM_CHAT_A_SCRIPT,
-  DEFAULT_VM_CHAT_B_SCRIPT
-} from './default-items';
 import { SettingsPanel } from './SettingsPanel';
+import {
+  parseAndValidate,
+  estimateSize,
+  diff,
+  applyImport,
+  exportSelection,
+  MergeStrategy,
+  ConflictPolicy
+} from './utils/importExport';
 import {
   initGlobalSyncKeys,
   loadFromGlobal,
@@ -25,6 +24,34 @@ import {
 } from './globalStateManager';
 
 let _runOnceExecutedCommands: Set<string> = new Set();
+let _itemsSignature = '';
+let _pollTimer: NodeJS.Timeout | null = null;
+// 自適應輪詢狀態
+let _pollStableCount = 0;         // 連續未變更次數
+let _pollCurrentInterval = 20000; // 目前使用的間隔（ms）
+let _lastSyncApplied: number | null = null; // 最近一次偵測到遠端同步變更並套用的時間戳 (ms)
+// 進階自適應階梯：20s → 45s → 90s → 180s (3m) → 300s (5m) → 600s (10m)
+const POLL_INTERVAL_STEPS = [20000, 45000, 90000, 180000, 300000, 600000];
+// 升級門檻：>=3 → idx1, >=6 → idx2, >=10 → idx3, >=15 → idx4, >=25 → idx5
+function _calcAdaptiveInterval(isPanelOpen: boolean, stable: number): number {
+  let idx = 0;
+  if (stable >= 25) {
+    idx = 5;
+  } else if (stable >= 15) {
+    idx = 4;
+  } else if (stable >= 10) {
+    idx = 3;
+  } else if (stable >= 6) {
+    idx = 2;
+  } else if (stable >= 3) {
+    idx = 1;
+  } else {
+    idx = 0;
+  }
+  // 若面板開啟，避免過慢（最高到 index 2 = 90s）
+  if (isPanelOpen && idx > 2) { idx = 2; }
+  return POLL_INTERVAL_STEPS[idx];
+}
 
 // ─────────────────────────────────────────────────────────────
 // 常數與小工具
@@ -540,6 +567,12 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
       }
     }
   });
+  // 更新簽章（用於遠端同步差異偵測）
+  try { _itemsSignature = computeItemsSignature(items); } catch {}
+  // 若是首次啟動尚未有同步紀錄，初始化基準時間（方便 UI 顯示）
+  if (firstActivation && _lastSyncApplied === null) {
+    _lastSyncApplied = Date.now();
+  }
 }
 
 function refreshGearButton() {
@@ -557,130 +590,138 @@ function refreshGearButton() {
   gearItem = item;
 }
 
+function computeItemsSignature(items: ReturnType<typeof loadFromGlobal>): string {
+  const hash = (s: string) => {
+    let h = 5381; for (let i = 0; i < s.length; i++) { h = (h * 33) ^ s.charCodeAt(i); }
+    return (h >>> 0).toString(36);
+  };
+  return items
+    .map(i => `${i.command}|${hash(i.script||'')}|${i.text||''}|${i.tooltip||''}|${i.hidden?'1':'0'}|${i.enableOnInit?'1':'0'}`)
+    .sort()
+    .join('~');
+}
+
+function startBackgroundPolling(context: vscode.ExtensionContext) {
+  if (_pollTimer) { clearTimeout(_pollTimer); }
+  _pollStableCount = 0;
+  _pollCurrentInterval = POLL_INTERVAL_STEPS[0];
+  const loop = () => {
+    try { backgroundPollOnce(context); } catch {}
+    _pollTimer = setTimeout(loop, _pollCurrentInterval);
+  };
+  _pollTimer = setTimeout(loop, _pollCurrentInterval);
+}
+
+// 單次背景輪詢；若偵測到變更回傳 true。若未變更且 noAdapt=true，則不增加穩定次數（避免面板剛開造成過度升級）。
+function backgroundPollOnce(context: vscode.ExtensionContext, noAdapt = false): boolean {
+  const items = loadFromGlobal(context);
+  const sig = computeItemsSignature(items);
+  if (sig !== _itemsSignature) {
+    _itemsSignature = sig;
+    updateStatusBarItems(context, false);
+    if (SettingsPanel.currentPanel) {
+      try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+    }
+    _pollStableCount = 0;
+    _pollCurrentInterval = POLL_INTERVAL_STEPS[0];
+  _lastSyncApplied = Date.now();
+    return true;
+  }
+  if (!noAdapt) {
+    _pollStableCount++;
+    _pollCurrentInterval = _calcAdaptiveInterval(!!SettingsPanel.currentPanel, _pollStableCount);
+  }
+  return false;
+}
+
+// 在需要時（例如開啟設定面板）強制立即做一次快掃：
+// 規則：若目前 interval 已經 <= 90s（index 0/1/2）就不做，避免太頻繁；
+//       若 > 90s 則立即掃描，未變更時不推進自適應（保持節能節奏），有變更則重置為最快。
+function forceImmediatePoll(context: vscode.ExtensionContext, respectShortInterval = true) {
+  const SHORT_CAP = 90000; // 90s
+  if (respectShortInterval && _pollCurrentInterval <= SHORT_CAP) { return; }
+  if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+  try { backgroundPollOnce(context, true); } catch {}
+  // 重新排下一輪（使用當前 _pollCurrentInterval，若有變更已被重置）
+  const loop = () => {
+    try { backgroundPollOnce(context); } catch {}
+    _pollTimer = setTimeout(loop, _pollCurrentInterval);
+  };
+  _pollTimer = setTimeout(loop, _pollCurrentInterval);
+}
+
 // ─────────────────────────────────────────────────────────────
-// 預設樣本（第一次安裝/空清單時植入）
+// 預設樣本載入（轉型：改由 JSON 作為單一來源）
+// Step 1: 先支援 JSON 載入 + TS 常數 fallback；後續可移除 TS 常數。
 // ─────────────────────────────────────────────────────────────
 async function ensureDefaultItems(context: vscode.ExtensionContext) {
-  const seededKey = 'sbh.seededDefaults.v2';
+  const seededKey = 'sbh.seededDefaults.v3'; // bump key to重新植入新格式（僅在空清單時）
   const already = context.globalState.get<boolean>(seededKey);
-  const items = loadFromGlobal(context);
-  
-  if (already || items.length > 0) { return; }
-  
-  // 植入預設項目到 globalState
-  const defaultItems = getDefaultItems();
-  for (const item of defaultItems) {
-    await saveOneToGlobal(context, item);
+  const existing = loadFromGlobal(context);
+  if (already || existing.length > 0) { return; }
+
+  let defaults: SbhItem[] = [];
+  try {
+    defaults = await loadDefaultsFromJson(context);
+  } catch (e) {
+    console.warn('[sbh] loadDefaultsFromJson failed, fallback to TS constants:', (e as any)?.message || e);
+    // 已無 TS 常數；若 JSON 失敗，提供最小 fallback 2 個腳本
+    defaults = [
+      { command: 'sbh.demo.logMinimalPlus', text: '$(output) Log', tooltip: 'Log demo (fallback)', script: "console.log('fallback log'); const { vm }=statusBarHelper.v1; vm.stop();", enableOnInit: false, hidden: true },
+      { command: 'sbh.demo.toggleTheme', text: '$(color-mode)', tooltip: 'Toggle theme (fallback)', script: "const vscode=require('vscode'); const { vm }=statusBarHelper.v1; vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes').finally(()=>vm.stop());", enableOnInit: false, hidden: false }
+    ];
   }
-  
+  for (const item of defaults) {
+    try { await saveOneToGlobal(context, item); } catch {}
+  }
   await context.globalState.update(seededKey, true);
 }
 
-function getDefaultItems(): SbhItem[] {
-  return [
-    {
-  text: localize('item.log.text', '$(output) Log'),
-  tooltip: localize('item.log.tooltip', 'VS Code + Node. Output + bottom log'),
-      command: 'sbh.demo.logMinimalPlus',
-      script: DEFAULT_MINIMAL_LOG_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.gitAdd.text', '$(diff-added) Git Add'),
-  tooltip: localize('item.gitAdd.tooltip', 'Stage all changes in the first workspace folder'),
-      command: 'sbh.demo.gitAdd',
-      script: DEFAULT_GIT_ADD_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.storage.text', '$(database) Storage'),
-  tooltip: localize('item.storage.tooltip', 'How to use the custom statusBarHelper API'),
-      command: 'sbh.demo.storage',
-      script: DEFAULT_SBH_STORAGE_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.toggleTheme.text', '$(color-mode)'),
-  tooltip: localize('item.toggleTheme.tooltip', 'Toggle between light and dark theme'),
-      command: 'sbh.demo.toggleTheme',
-      script: DEFAULT_TOGGLE_THEME_SCRIPT,
-      enableOnInit: false,
-      hidden: false
-    },
-    {
-  text: localize('item.board.text', '$(paintcan) Board'),
-  tooltip: localize('item.board.tooltip', 'Board'),
-      command: 'sbh.demo.whiteboard',
-      script: DEFAULT_WHITEBOARD_SCRIPT,
-      enableOnInit: false,
-      hidden: false
-    },
-    {
-  text: localize('item.pomodoro.text', '🍅 Pomodoro'),
-  tooltip: localize('item.pomodoro.tooltip', 'Open Pomodoro Timer'),
-      command: 'sbh.demo.pomodoro',
-      script: DEFAULT_POMODORO_SCRIPT,
-      enableOnInit: true,
-      hidden: true
-    },
-    {
-  text: localize('item.chatA.text', '$(comment) Chat A'),
-  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
-      command: 'sbh.demo.vmChatA',
-      script: DEFAULT_VM_CHAT_A_SCRIPT,
-      enableOnInit: false,
-      hidden: true
-    },
-    {
-  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
-  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'),
-      command: 'sbh.demo.vmChatB',
-      script: DEFAULT_VM_CHAT_B_SCRIPT,
-      enableOnInit: false,
-      hidden: true
+async function loadDefaultsFromJson(context: vscode.ExtensionContext): Promise<SbhItem[]> {
+  // 依語系挑選：先嘗試 zh-tw / zh-hant / en，其它 fallback en
+  const guess = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
+  const localeCandidates: string[] = [];
+  if (guess.includes('zh') && (guess.includes('tw') || guess.includes('hant'))) {
+    localeCandidates.push('zh-tw');
+  }
+  localeCandidates.push('en');
+
+  const mediaRoot = context.asAbsolutePath('media');
+  const tried: string[] = [];
+  for (const loc of localeCandidates) {
+    const file = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
+    tried.push(file);
+    if (fs.existsSync(file)) {
+      const raw = await fsp.readFile(file, 'utf8');
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) { throw new Error('defaults json not an array'); }
+      return arr.map(normalizeDefaultJsonItem).filter(Boolean) as SbhItem[];
     }
-  ];
+  }
+  throw new Error('no defaults json found: ' + tried.join(', '));
 }
+
+function normalizeDefaultJsonItem(x: any): SbhItem | null {
+  if (!x || typeof x !== 'object') { return null; }
+  if (typeof x.command !== 'string' || !x.command) { return null; }
+  // script 欄位在第一階段可為空字串（之後 Script Store 將遠端補全）
+  const script = typeof x.script === 'string' ? x.script : '';
+  return {
+    command: x.command,
+    text: typeof x.text === 'string' ? x.text : x.command,
+    tooltip: typeof x.tooltip === 'string' ? x.tooltip : x.command,
+    script,
+    enableOnInit: !!x.enableOnInit,
+  hidden: !!x.hidden,
+  tags: Array.isArray(x.tags) ? x.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0, 12) : undefined
+  };
+}
+
+// Deprecated: 後續將移除，僅作為 JSON 載入失敗 fallback
 
 // 若使用者在加入 Chat A/B 之前已安裝，globalState 中可能沒有這兩個項目或 script 為空字串。
 async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
-  const items = loadFromGlobal(context);
-  let changed = false;
-  
-  const ensure = async (cmd: string, scriptConst: string, defaultItem: SbhItem) => {
-    const existing = items.find(i => i.command === cmd);
-    if (!existing) {
-      // 不自動插入全新項目（避免驚嚇）；若需要可 Restore Defaults。
-      return;
-    }
-    
-    if (!existing.script || existing.script.trim().length < 50) {
-      existing.script = scriptConst;
-      await saveOneToGlobal(context, existing);
-      changed = true;
-    }
-  };
-  
-  await ensure('sbh.demo.vmChatA', DEFAULT_VM_CHAT_A_SCRIPT, {
-  text: localize('item.chatA.text', '$(comment) Chat A'),
-  tooltip: localize('item.chatA.tooltip', 'VM messaging demo (A) — uses vm.open/sendMessage/onMessage'),
-    command: 'sbh.demo.vmChatA',
-    script: DEFAULT_VM_CHAT_A_SCRIPT,
-    enableOnInit: false,
-    hidden: true
-  });
-  
-  await ensure('sbh.demo.vmChatB', DEFAULT_VM_CHAT_B_SCRIPT, {
-  text: localize('item.chatB.text', '$(comment-discussion) Chat B'),
-  tooltip: localize('item.chatB.tooltip', 'VM messaging demo (B) — uses vm.open/sendMessage/onMessage'), 
-    command: 'sbh.demo.vmChatB',
-    script: DEFAULT_VM_CHAT_B_SCRIPT,
-    enableOnInit: false,
-    hidden: true
-  });
+  // 轉型後：Chat A/B 預設腳本已內嵌於 JSON，不做舊版補寫。
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -692,6 +733,83 @@ function registerBridge(context: vscode.ExtensionContext) {
   if (!payload || typeof payload !== 'object') { throw new Error('invalid payload'); }
       const { ns, fn, args = [] } = payload as { ns: string; fn: string; args: any[] };
 
+      // ---------- Import/Export (dry-run) ----------
+      if (ns === 'importExport') {
+        switch (fn) {
+          case 'importPreview': {
+            const [json, strategy, conflictPolicy] = args as [string, MergeStrategy, ConflictPolicy];
+            const parse = parseAndValidate(json);
+            if (!parse.valid) { return { ok: false, error: parse.error }; }
+            const current = loadFromGlobal(context);
+            const diffResult = diff(current, parse.items);
+            
+            // 建立預覽資料
+            const previewItems = parse.items.map((item, index) => {
+              const exists = current.find(c => c.command === item.command);
+              let status: string;
+              let reason: string;
+              
+              if (!exists) {
+                status = 'new';
+                reason = 'Will be added as new item';
+              } else if (JSON.stringify(exists) !== JSON.stringify(item)) {
+                status = 'conflict';
+                reason = strategy === 'replace' ? 'Will replace existing' : 
+                        conflictPolicy === 'skip' ? 'Will be skipped' : 'Will get new ID';
+              } else {
+                status = 'exists';
+                reason = 'Identical to existing item';
+              }
+              
+              return { item, status, reason };
+            });
+            
+            return { ok: true, data: { items: previewItems, total: parse.items.length } };
+          }
+          case 'exportPreview': {
+            const [selected] = args as [number[]];
+            const current = loadFromGlobal(context);
+            const selectedCommands = selected.map(index => current[index]?.command).filter(Boolean);
+            const exp = exportSelection(current, selectedCommands);
+            return { ok: true, data: { ...exp, count: exp.items.length } };
+          }
+          case 'applyImport': {
+            const [json, strategy, conflictPolicy] = args as [string, MergeStrategy, ConflictPolicy];
+            const parse = parseAndValidate(json);
+            if (!parse.valid) { return { ok: false, error: parse.error }; }
+            const current = loadFromGlobal(context);
+            const applyResult = applyImport(current, parse.items, strategy, conflictPolicy);
+            
+            // 實際更新 globalState
+            const manifest = context.globalState.get<any>(GLOBAL_MANIFEST_KEY, { version: 1, items: [] });
+            const itemsMap = context.globalState.get<any>(GLOBAL_ITEMS_KEY, {});
+            
+            // 清空並重新建立
+            manifest.items = [];
+            for (const key of Object.keys(itemsMap)) {
+              delete itemsMap[key];
+            }
+            
+            // 套用新資料
+            for (const item of applyResult.result) {
+              manifest.items.push({
+                command: item.command,
+                text: item.text,
+                tooltip: item.tooltip,
+                hidden: Boolean(item.hidden),
+                enableOnInit: Boolean(item.enableOnInit),
+                ...(Array.isArray(item.tags) && item.tags.length ? { tags: item.tags.slice(0,12) } : {})
+              });
+              itemsMap[item.command] = item.script || '';
+            }
+            
+            await context.globalState.update(GLOBAL_MANIFEST_KEY, manifest);
+            await context.globalState.update(GLOBAL_ITEMS_KEY, itemsMap);
+            
+            return { ok: true, data: applyResult };
+          }
+        }
+      }
       // ---------- storage ----------
       if (ns === 'storage') {
         const mapKey = (k: string) => KV_PREFIX + String(k ?? '');
@@ -969,6 +1087,9 @@ function registerBridge(context: vscode.ExtensionContext) {
             runScriptInVm(context, cmd, code, 'settingsPanel');
             return { ok: true, data: true };
           }
+          case 'lastSyncInfo': {
+            return { ok: true, data: { lastSyncAt: _lastSyncApplied } };
+          }
         }
       }
 
@@ -1003,11 +1124,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // 5) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
   updateStatusBarItems(context, true);
+  // 啟動背景輪詢偵測同步變更
+  startBackgroundPolling(context);
 
   // 6) 註冊 Settings（lazy import）
   const showSettings = vscode.commands.registerCommand('statusBarHelper.showSettings', async () => {
     const { SettingsPanel } = await import('./SettingsPanel.js');
     SettingsPanel.createOrShow(context.extensionUri, context);
+  // 面板開啟時若當前輪詢間隔已放寬到 >90s，觸發一次立即快掃以降低等待同步的體感時間
+  forceImmediatePoll(context, true);
   });
   context.subscriptions.push(showSettings);
 
@@ -1071,4 +1196,5 @@ export function deactivate() {
   itemDisposables.forEach(d => d.dispose());
   // 安全收掉所有仍在跑的 VM
   for (const [cmd] of RUNTIMES) { abortByCommand(cmd, { type: 'deactivate', at: Date.now() }); }
+  if (_pollTimer) { try { clearTimeout(_pollTimer); } catch {}; _pollTimer = null; }
 }
