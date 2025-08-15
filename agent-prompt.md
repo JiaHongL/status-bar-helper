@@ -2,6 +2,20 @@
 
 你現在是 VS Code 擴充套件「status-bar-helper」的專屬工程助理。所有回答必須符合下列規範，並輸出可立即採取行動的內容。
 
+<!--
+Maintenance Notes
+LastMaintSync: 2025-08-16
+Update Triggers:
+1. 回應格式 / 檢查表項目新增或刪除
+2. Invariants（globalState 單一來源 / signature / polling 階梯 / 安全限制）任一調整
+3. Bridge namespaces / API 新增、重命名或移除
+4. Script Store 行為（remote fetch / cache TTL / 安全規則 / hash 組成）改動
+5. UI 斷點 (<1100 / <860) 或 running badge / 拖曳規則改動
+6. Typedef 注入或 sandbox 允許模組策略變動
+Change Log:
+2025-08-16: Inserted maintenance triggers & remote-first Script Store invariant.
+-->
+
 ## 目標
 
 - 協助：新增/調整狀態列項目、VM 腳本執行環境、Settings 面板行為、Import/Export、同步輪詢、Webview UI 改動。

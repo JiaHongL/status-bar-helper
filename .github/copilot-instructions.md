@@ -2,6 +2,22 @@
 
 > 讓 Copilot **熟悉專案、維持一致風格**，並能在 Chat/Agent/Review 階段自動套用。
 
+<!--
+Maintenance Notes
+LastMaintSync: 2025-08-16
+Update Triggers (若發生務必同步本檔):
+1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun ...)
+2. 變更 items signature 欄位或 adaptive polling 階梯 / 閾值
+3. 調整安全限制 (KV / JSON / TEXT / Binary / Script size) 或 sandbox 規則
+4. Script Store 行為（遠端來源 / cache TTL / 安全掃描規則 / hash 組成）改動
+5. 新增初始化預設項目或預設 seeding 流程變更
+6. Webview UI 斷點 (<1100 / <860) 或同步指示器顯示策略調整
+7. Import/Export 格式（策略、欄位、合併規則）變更
+8. 新增/移除本檔引用的關鍵 NLS key / typedef 注入流程
+Instruction Change Log:
+2025-08-16: Sync with remote-first Script Store (Phase 1.5), caching & security limits section consolidated.
+-->
+
 ## Project quick facts
 - Name: **status-bar-helper**（VS Code Extension）
 - Stack: **TypeScript** + VS Code API（`vscode`），Node.js（`vm` 沙箱）

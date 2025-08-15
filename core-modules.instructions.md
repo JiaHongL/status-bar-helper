@@ -11,6 +11,21 @@ meta:
 
 > 精準約束三大核心：Extension Host Runtime、Settings Panel（Webview Host + TS）、Webview UI（HTML/JS）。修改其一必核對本文件清單，避免破壞橋接協定、同步/輪詢與 VM 隔離安全。此檔聚焦『不可破壞的不變量』與『擴充時的操作步驟』，不重複 `.github/copilot-instructions.md` 全域內容。
 
+<!--
+Maintenance Notes
+LastMaintSync: 2025-08-16
+Update Triggers:
+1. Runtime VM 建立 / 中止流程或追蹤結構 (RUNTIMES / MESSAGE_*) 改動
+2. Bridge namespace / 函式簽章 / 回傳格式有新增或修改
+3. computeItemsSignature 欄位或 polling 階梯 / 閾值調整
+4. Script Store cache TTL / 遠端 fetch 條件 / 安全 pattern 規則變更
+5. Webview message 指令或事件新增 / 改名
+6. 安全與大小限制修改 (KV / JSON / TEXT / Binary / Script)
+7. Typedef 注入機制或內容版本化策略調整
+Change Log:
+2025-08-16: Added scriptStore namespace description & update triggers block.
+-->
+
 ## 1. Runtime & VM Lifecycle (extension.ts)
 - 每個腳本以 `runScriptInVm(context, command, code, origin)` 啟動，對應一個 `RuntimeCtx { abort, timers, disposables }` 存於 `RUNTIMES`。
 - 任何重新啟動：先 `abortByCommand(cmd, { type:'replaced', ... })`，再建立新 VM。
