@@ -1,3 +1,9 @@
+// ─────────────────────────────────────────────────────────────
+// DEPRECATED: default-items.ts
+// 此檔案僅保留以利參考與回溯；預設腳本已全面改為從 JSON
+// (media/script-store.defaults.<locale>.json) 載入。
+// 後續版本將移除本檔案，請勿再引用或修改其中常數。
+// ─────────────────────────────────────────────────────────────
 // src/defaultItems.ts
 
 export const DEFAULT_MINIMAL_LOG_SCRIPT = `

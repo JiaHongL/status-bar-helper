@@ -92,4 +92,22 @@
   "importFailed": "Import Failed",
   "exportFailed": "Export Failed",
   "loadFileFailed": "Load File Failed"
+  ,"scriptStoreEntriesSuffix": "entries"
+  ,"scriptStoreNoEntries": "No entries"
+  ,"remove": "Remove"
+  ,"reinstall": "Reinstall"
+  ,"install": "Install"
+  ,"update": "Update"
+  ,"view": "View"
+  ,"filterScripts": "Filter scripts…"
+  ,"tagFilterSingle": "Tag filter (single)"
+  ,"removeConfirm": "Remove this script?"
+  ,"removeConfirmYes": "Remove"
+  ,"diffTitle": "Diff"
+  ,"tags": "Tags"
+  ,"installed": "Installed"
+  ,"refresh": "Refresh"
+  ,"installSelected": "Install Selected"
+  ,"removeScriptStore": "Remove"
+  ,"label": "Label"
 }

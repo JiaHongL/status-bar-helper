@@ -92,4 +92,22 @@
   "importFailed": "匯入失敗",
   "exportFailed": "匯出失敗",
   "loadFileFailed": "載入檔案失敗"
+  ,"scriptStoreEntriesSuffix": "個項目"
+  ,"scriptStoreNoEntries": "無項目"
+  ,"remove": "移除"
+  ,"reinstall": "重新安裝"
+  ,"install": "安裝"
+  ,"update": "可更新"
+  ,"view": "檢視"
+  ,"filterScripts": "搜尋腳本…"
+  ,"tagFilterSingle": "標籤過濾 (單一)"
+  ,"removeConfirm": "確定移除此腳本？"
+  ,"removeConfirmYes": "移除"
+  ,"diffTitle": "差異"
+  ,"tags": "標籤"
+  ,"installed": "已安裝"
+  ,"refresh": "重新整理"
+  ,"installSelected": "安裝選取"
+  ,"removeScriptStore": "解除"
+  ,"label": "標籤"
 }

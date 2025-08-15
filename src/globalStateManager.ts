@@ -15,6 +15,7 @@ export interface SbhManifest {
     tooltip?: string;
     hidden?: boolean;
     enableOnInit?: boolean;
+  tags?: string[]; // v2: optional tags classification
   }>;
 }
 
@@ -29,6 +30,7 @@ export interface SbhItem {
   hidden?: boolean;
   enableOnInit?: boolean;
   script: string;
+  tags?: string[]; // v2 optional
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -48,13 +50,20 @@ export function loadFromGlobal(context: vscode.ExtensionContext): SbhItem[] {
   }
   
   return manifest.items.map(meta => ({
-    ...meta,
+    command: meta.command,
+    text: meta.text,
+    tooltip: meta.tooltip,
+    hidden: meta.hidden,
+    enableOnInit: meta.enableOnInit,
+    tags: Array.isArray((meta as any).tags)
+      ? (meta as any).tags.slice(0, 12).filter((t: unknown): t is string => typeof t === 'string' && !!t.trim())
+      : undefined,
     script: itemsMap[meta.command] || ''
   }));
 }
 
 export async function saveOneToGlobal(context: vscode.ExtensionContext, item: SbhItem): Promise<void> {
-  const manifest = context.globalState.get<SbhManifest>(GLOBAL_MANIFEST_KEY, { version: 1, items: [] });
+  const manifest = context.globalState.get<SbhManifest>(GLOBAL_MANIFEST_KEY, { version: 2, items: [] });
   const itemsMap = context.globalState.get<SbhItemsMap>(GLOBAL_ITEMS_KEY, {});
   
   // 更新 manifest 中的 metadata
@@ -64,7 +73,8 @@ export async function saveOneToGlobal(context: vscode.ExtensionContext, item: Sb
     text: item.text,
     tooltip: item.tooltip,
     hidden: item.hidden,
-    enableOnInit: item.enableOnInit
+    enableOnInit: item.enableOnInit,
+    ...(item.tags && item.tags.length ? { tags: item.tags.slice(0, 12) } : {})
   };
   
   if (existingIndex >= 0) {
@@ -82,7 +92,7 @@ export async function saveOneToGlobal(context: vscode.ExtensionContext, item: Sb
 }
 
 export async function saveAllToGlobal(context: vscode.ExtensionContext, items: SbhItem[]): Promise<void> {
-  const manifest: SbhManifest = { version: 1, items: [] };
+  const manifest: SbhManifest = { version: 2, items: [] };
   const itemsMap: SbhItemsMap = {};
   
   for (const item of items) {
@@ -91,7 +101,8 @@ export async function saveAllToGlobal(context: vscode.ExtensionContext, items: S
       text: item.text,
       tooltip: item.tooltip,
       hidden: item.hidden,
-      enableOnInit: item.enableOnInit
+      enableOnInit: item.enableOnInit,
+      ...(item.tags && item.tags.length ? { tags: item.tags.slice(0, 12) } : {})
     });
     itemsMap[item.command] = item.script;
   }
