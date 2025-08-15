@@ -733,6 +733,108 @@ function registerBridge(context: vscode.ExtensionContext) {
   if (!payload || typeof payload !== 'object') { throw new Error('invalid payload'); }
       const { ns, fn, args = [] } = payload as { ns: string; fn: string; args: any[] };
 
+      // ---------- Script Store (Phase 1: local catalog only) ----------
+      if (ns === 'scriptStore') {
+        interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
+        const computeHash = (content: string) => {
+          try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; }
+        };
+        const loadLocalCatalog = (): CatalogEntry[] => {
+          try {
+            const mediaRoot = context.asAbsolutePath('media');
+            // reuse locale resolution from loadDefaultsFromJson (simple: prefer zh-tw then en)
+            const guess = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
+            const candidates: string[] = [];
+            if (guess.includes('zh') && (guess.includes('tw') || guess.includes('hant'))) { candidates.push('zh-tw'); }
+            candidates.push('en');
+            for (const loc of candidates) {
+              const f = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
+              if (fs.existsSync(f)) {
+                const raw = fs.readFileSync(f, 'utf8');
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                  return arr.map(o => ({
+                    command: String(o.command || ''),
+                    text: typeof o.text === 'string' ? o.text : String(o.command || ''),
+                    tooltip: typeof o.tooltip === 'string' ? o.tooltip : undefined,
+                    tags: Array.isArray(o.tags) ? o.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0,12) : undefined,
+                    script: typeof o.script === 'string' ? o.script : undefined
+                  })).filter(e => e.command);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[sbh] scriptStore loadLocalCatalog failed:', (e as any)?.message || e);
+          }
+          return [];
+        };
+        const currentItems = loadFromGlobal(context);
+        const itemsIndex = new Map(currentItems.map(i => [i.command, i] as const));
+
+        switch (fn) {
+          case 'catalog': {
+            const local = loadLocalCatalog();
+            const enriched = local.map(entry => {
+              const installed = itemsIndex.get(entry.command);
+              const scriptContent = entry.script || '';
+              const catalogHash = computeHash(scriptContent + '|' + entry.text + '|' + (entry.tooltip||'') + '|' + JSON.stringify(entry.tags||[]));
+              let status: 'installed' | 'update' | 'new' = 'new';
+              if (installed) {
+                const installedHash = computeHash((installed.script||'') + '|' + installed.text + '|' + (installed.tooltip||'') + '|' + JSON.stringify(installed.tags||[]));
+                status = installedHash === catalogHash ? 'installed' : 'update';
+              }
+              return { ...entry, hash: catalogHash, status };
+            });
+            return { ok: true, data: { entries: enriched, count: enriched.length } };
+          }
+          case 'install': {
+            const [payload] = args as [CatalogEntry];
+            if (!payload || typeof payload !== 'object') { return { ok: false, error: 'invalidPayload' }; }
+            const { command, text, tooltip, tags, script } = payload;
+            if (typeof command !== 'string' || !command.trim()) { return { ok:false, error:'invalidCommand' }; }
+            const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
+            const scriptStr = typeof script === 'string' ? script : '';
+            if (Buffer.byteLength(scriptStr, 'utf8') > SAFE_LIMIT) { return { ok:false, error:'scriptTooLarge' }; }
+            // naive unsafe pattern scan
+            const lower = scriptStr.toLowerCase();
+            if (/eval\s*\(/.test(lower) || /new\s+function/.test(lower)) { return { ok:false, error:'forbiddenEval' }; }
+            if (/process\.env\./.test(scriptStr) && (scriptStr.match(/process\.env\./g)||[]).length > 5) { return { ok:false, error:'suspiciousEnvAccess' }; }
+            const existing = itemsIndex.get(command);
+            const updated: SbhItem = {
+              command,
+              text: typeof text === 'string' && text.trim() ? text : command,
+              tooltip: typeof tooltip === 'string' ? tooltip : undefined,
+              script: scriptStr,
+              hidden: existing ? existing.hidden : false,
+              enableOnInit: existing ? existing.enableOnInit : false,
+              tags: Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim()).slice(0,12) : undefined
+            };
+            try {
+              await saveOneToGlobal(context, updated);
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              return { ok:true, data:{ updated:true, command } };
+            } catch (e:any) {
+              return { ok:false, error:'saveFailed', message:e?.message || String(e) };
+            }
+          }
+          case 'bulkInstall': {
+            const [entries] = args as [CatalogEntry[]];
+            if (!Array.isArray(entries)) { return { ok:false, error:'invalidPayload' }; }
+            const snapshot = loadFromGlobal(context);
+            const results: Array<{command:string; ok:boolean; error?:string}> = [];
+            for (const entry of entries) {
+              const r = await (async () => await (registerBridge as any)); // dummy to satisfy linter (no-op)
+              void r; // silence
+              const one = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'install', args:[entry] }) as any;
+              results.push({ command: entry?.command, ok: !!(one && one.ok), error: one && !one.ok ? one.error : undefined });
+            }
+            // simple summary
+            return { ok:true, data:{ results } };
+          }
+        }
+        return { ok:false, error:'unknownFn' };
+      }
+
       // ---------- Import/Export (dry-run) ----------
       if (ns === 'importExport') {
         switch (fn) {

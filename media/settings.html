@@ -130,6 +130,30 @@
   .tags{ display:flex; gap:4px; flex-wrap:wrap; }
   .tag-badge{ background:var(--vscode-editorGroup-border); color:var(--vscode-foreground); padding:2px 6px; border-radius:10px; font-size:10px; line-height:1; white-space:nowrap; }
   body.compact .tags-cell{ display:none; }
+  /* Script Store Modal */
+  #script-store-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:2000; }
+  #script-store-modal{ width:880px; max-width:96%; max-height:86vh; background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); border-radius:8px; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,.4); }
+  #ss-header{ padding:10px 14px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--vscode-editorGroup-border); }
+  #ss-header h3{ margin:0; font-size:14px; font-weight:600; }
+  #ss-close{ margin-left:auto; background:transparent; border:1px solid transparent; color:var(--vscode-foreground); cursor:pointer; }
+  #ss-body{ padding:12px 14px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+  #ss-filters{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #ss-filters input{ height:26px; padding:2px 6px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
+  #ss-filters select{ height:26px; padding:2px 6px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
+  #ss-table-wrap{ flex:1; overflow:auto; border:1px solid var(--vscode-editorGroup-border); }
+  table#ss-table{ width:100%; border-collapse:collapse; }
+  table#ss-table th, table#ss-table td{ padding:6px 8px; border-bottom:1px dotted var(--vscode-editorGroup-border); font-size:12px; vertical-align:middle; }
+  table#ss-table th{ position:sticky; top:0; background:var(--vscode-sideBar-background); text-align:left; }
+  .ss-status-badge{ padding:2px 6px; border-radius:10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; background:var(--vscode-editorGroup-border); opacity:.85; }
+  .ss-status-update{ background:var(--vscode-editorWarning-background, #946200); color:var(--vscode-editorWarning-foreground,#fff); }
+  .ss-status-installed{ background:var(--vscode-editorInfo-background,#005a9c); color:var(--vscode-editorInfo-foreground,#fff); }
+  .ss-status-new{ background:var(--vscode-editorSuccess-background,#2d7); color:var(--vscode-editorSuccess-foreground,#003300); }
+  .ss-actions button{ height:24px; padding:0 8px; font-size:11px; }
+  #ss-footer{ padding:8px 14px; border-top:1px solid var(--vscode-editorGroup-border); display:flex; gap:8px; align-items:center; }
+  #ss-footer .spacer{ flex:1; }
+  #ss-empty{ text-align:center; padding:40px 0; opacity:.6; }
+  .ss-tag-badge{ background:var(--vscode-editorGroup-border); padding:2px 5px; border-radius:6px; margin:0 4px 4px 0; font-size:10px; display:inline-block; }
+  #ss-error{ color:var(--vscode-errorForeground); font-size:12px; }
     .btn-ghost{ background:transparent; border:1px solid transparent; color:var(--vscode-textLink-foreground); padding:2px 8px; height:24px; border-radius:4px; font-size:.85em; cursor:pointer; }
     .btn-ghost:hover{ text-decoration:underline; background:transparent; }
 
@@ -1624,10 +1648,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         // Initialize Script Store button (placeholder – future implementation will open modal / side panel)
         const storeBtn = document.getElementById('script-store-btn');
         if (storeBtn) {
-          storeBtn.onclick = () => {
-            // Placeholder: send a message (can later open dedicated modal)
-            vscode.postMessage({ command: 'showError', message: 'Script Store is under development.' });
-          };
+          storeBtn.onclick = () => { openScriptStore(); };
         }
         
         // Initialize clear all button
@@ -1735,6 +1756,142 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
     setInterval(updateLastSyncDisplay, 15000);
 
     vscode.postMessage({ command: 'getSettings' });
+        </script>
+
+        <!-- Script Store Overlay -->
+        <div id="script-store-overlay">
+          <div id="script-store-modal">
+            <div id="ss-header">
+              <h3>Script Store</h3>
+              <div id="ss-header-status" style="font-size:11px; opacity:.7;"></div>
+              <button id="ss-close" title="Close" class="codicon codicon-close"></button>
+            </div>
+            <div id="ss-body">
+              <div id="ss-filters">
+                <input type="text" id="ss-search" placeholder="Filter scripts…" />
+                <select id="ss-status-filter">
+                  <option value="all">All</option>
+                  <option value="new">New</option>
+                  <option value="update">Update</option>
+                  <option value="installed">Installed</option>
+                </select>
+                <input type="text" id="ss-tag-filter" placeholder="Tag filter (single)" />
+                <button id="ss-refresh" type="button">Refresh</button>
+              </div>
+              <div id="ss-table-wrap">
+                <table id="ss-table">
+                  <thead>
+                    <tr>
+                      <th style="width:26px;"></th>
+                      <th style="width:120px;">Label</th>
+                      <th>Command</th>
+                      <th style="width:160px;">Tags</th>
+                      <th style="width:80px;">Status</th>
+                      <th style="width:120px;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ss-tbody"></tbody>
+                </table>
+                <div id="ss-empty" style="display:none;">No entries</div>
+              </div>
+            </div>
+            <div id="ss-footer">
+              <div id="ss-error"></div>
+              <div class="spacer"></div>
+              <button id="ss-bulk-install" type="button" disabled>Install Selected</button>
+            </div>
+          </div>
+        </div>
+        <script>
+          (function(){
+            let ssCatalog = [];
+            let ssLoaded = false;
+            let ssLoading = false;
+            const overlay = document.getElementById('script-store-overlay');
+            const tbody = document.getElementById('ss-tbody');
+            const errorEl = document.getElementById('ss-error');
+            const bulkBtn = document.getElementById('ss-bulk-install');
+            const searchEl = document.getElementById('ss-search');
+            const statusEl = document.getElementById('ss-status-filter');
+            const tagEl = document.getElementById('ss-tag-filter');
+            const headerStatus = document.getElementById('ss-header-status');
+
+            function badge(status){
+              const cls = status === 'update' ? 'ss-status-badge ss-status-update' : status === 'installed' ? 'ss-status-badge ss-status-installed' : 'ss-status-badge ss-status-new';
+              return `<span class="${cls}">${status}</span>`;
+            }
+            function render(){
+              const q = (searchEl.value||'').toLowerCase();
+              const st = statusEl.value;
+              const tag = tagEl.value.trim().toLowerCase();
+              let list = ssCatalog.slice();
+              if (q) list = list.filter(e => e.text.toLowerCase().includes(q) || e.command.toLowerCase().includes(q) || (e.tooltip||'').toLowerCase().includes(q));
+              if (st !== 'all') list = list.filter(e => e.status === st);
+              if (tag) list = list.filter(e => Array.isArray(e.tags) && e.tags.some(t => t.toLowerCase() === tag));
+              tbody.innerHTML='';
+              if (!list.length){
+                document.getElementById('ss-empty').style.display='block';
+                bulkBtn.disabled = true;
+                return;
+              }
+              document.getElementById('ss-empty').style.display='none';
+              list.forEach((e,i)=>{
+                const tr=document.createElement('tr');
+                tr.innerHTML=`<td><input type="checkbox" class="ss-sel" data-cmd="${e.command}" ${e.status==='installed'?'':'checked'}></td>
+                  <td title="${escapeHtml(e.text)}">${escapeHtml(e.text)}</td>
+                  <td><code>${escapeHtml(e.command)}</code></td>
+                  <td>${(e.tags||[]).map(t=>`<span class='ss-tag-badge'>${escapeHtml(t)}</span>`).join('')||'<span style="opacity:.4">—</span>'}</td>
+                  <td>${badge(e.status)}</td>
+                  <td class="ss-actions">
+                    <button data-action="install" data-cmd="${e.command}" ${e.status==='installed'?'':'class="primary"'}>${e.status==='update'?'Update':(e.status==='installed'?'Reinstall':'Install')}</button>
+                  </td>`;
+                tbody.appendChild(tr);
+              });
+              syncBulkButton();
+            }
+            function syncBulkButton(){
+              const any = tbody.querySelectorAll('input.ss-sel:checked').length>0;
+              bulkBtn.disabled = !any;
+            }
+            async function fetchCatalog(){
+              if (ssLoading) return; ssLoading=true; headerStatus.textContent='Loading…'; errorEl.textContent='';
+              try {
+                const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'catalog', args:[] });
+                if (r && r.ok){ ssCatalog = r.data.entries || []; ssLoaded=true; }
+                else { throw new Error(r?.error||'loadFailed'); }
+                headerStatus.textContent = `${ssCatalog.length} entries`;
+              } catch(e){
+                errorEl.textContent = 'Load failed: ' + (e?.message||e);
+                headerStatus.textContent='Error';
+              } finally { ssLoading=false; render(); }
+            }
+            async function installOne(cmd){
+              try {
+                const entry = ssCatalog.find(e=>e.command===cmd); if(!entry) return;
+                const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'install', args:[entry] });
+                if (!r || !r.ok){ errorEl.textContent = `Install failed: ${r?.error||'unknown'}`; }
+                await fetchCatalog();
+              } catch(e){ errorEl.textContent = 'Install error: ' + (e?.message||e); }
+            }
+            async function bulkInstall(){
+              const selected = Array.from(tbody.querySelectorAll('input.ss-sel:checked')).map(cb=>cb.dataset.cmd);
+              const payload = ssCatalog.filter(e => selected.includes(e.command) && e.status!=='installed');
+              for (const p of payload){ await installOne(p.command); }
+            }
+            function openScriptStore(){ overlay.style.display='flex'; if(!ssLoaded) fetchCatalog(); else render(); }
+            function closeScriptStore(){ overlay.style.display='none'; }
+            window.openScriptStore = openScriptStore;
+            document.getElementById('ss-close').onclick = closeScriptStore;
+            overlay.addEventListener('click', e=>{ if(e.target===overlay) closeScriptStore(); });
+            tbody.addEventListener('change', e=>{ if(e.target.classList.contains('ss-sel')) syncBulkButton(); });
+            tbody.addEventListener('click', e=>{ const btn=e.target.closest('button[data-action="install"]'); if(btn){ installOne(btn.dataset.cmd); }});
+            bulkBtn.addEventListener('click', bulkInstall);
+            searchEl.addEventListener('input', ()=>{ render(); });
+            statusEl.addEventListener('change', ()=>{ render(); });
+            tagEl.addEventListener('input', ()=>{ render(); });
+            document.getElementById('ss-refresh').addEventListener('click', ()=>fetchCatalog());
+            // expose open function used by main button
+          })();
         </script>
 
         <!-- Simple Import/Export Preview Dialog -->
