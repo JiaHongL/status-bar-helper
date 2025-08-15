@@ -511,9 +511,11 @@
         </div>
 
         <script src="{{monacoUri}}/loader.js"></script>
-        <script src="{{monacoUri}}/vscode-icons.js"></script>
-        <script>
-            const vscode = acquireVsCodeApi();
+    <script src="{{monacoUri}}/vscode-icons.js"></script>
+    <script>
+      const vscode = acquireVsCodeApi();
+      // expose globally for later overlay scripts to reuse instead of reacquiring
+      if (!window.vscode) { window.vscode = vscode; }
     
     /* ---------- Internationalization ---------- */
     let nls = {};
@@ -555,8 +557,10 @@
         const restoreBtn = document.getElementById('restore-btn');
         if (restoreBtn) restoreBtn.textContent = t('restoreSamples', 'Restore Samples');
         
-        const addNewBtn = document.getElementById('add-new-item-btn');
-        if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
+  const addNewBtn = document.getElementById('add-new-item-btn');
+  if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
+  const scriptStoreBtn = document.getElementById('script-store-btn');
+  if (scriptStoreBtn) { scriptStoreBtn.textContent = t('scriptStore', 'Script Store'); scriptStoreBtn.title = t('scriptStore', 'Script Store'); }
         
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
@@ -1841,12 +1845,17 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         </div>
         <script>
           (function(){
-            // Safe vscode API (this overlay script runs after earlier acquire, but guard anyway)
-            let vscodeRef; try { vscodeRef = acquireVsCodeApi(); } catch { vscodeRef = null; }
-            if(!vscodeRef && window.parent && typeof window.parent.acquireVsCodeApi==='function'){
-              try { vscodeRef = window.parent.acquireVsCodeApi(); } catch {}
+            // Reuse the earlier acquired global vscode API if present; add diagnostics
+            // TODO: remove debug logs after diagnosing API unavailability issue
+            let vscodeRef = (window.vscode && window.vscode.commands) ? window.vscode : null;
+            if (vscodeRef) { console.log('[SS] using global vscode instance'); }
+            if(!vscodeRef){
+              try { vscodeRef = acquireVsCodeApi(); console.log('[SS] acquired vscode via acquireVsCodeApi (late)'); } catch(e){ console.log('[SS] acquireVsCodeApi late failed', e); }
             }
-            if(!vscodeRef){ vscodeRef = { commands:{ executeCommand: ()=>Promise.reject(new Error('vscode API unavailable')) } }; }
+            if(!vscodeRef && window.parent && typeof window.parent.acquireVsCodeApi==='function'){
+              try { vscodeRef = window.parent.acquireVsCodeApi(); console.log('[SS] acquired vscode via parent'); } catch(e){ console.log('[SS] parent acquire failed', e); }
+            }
+            if(!vscodeRef){ console.warn('[SS] vscode API unavailable, using shim'); vscodeRef = { commands:{ executeCommand: ()=>Promise.reject(new Error('vscode API unavailable')) } }; }
             let ssCatalog = [];
             let ssLoaded = false;
             let ssLoading = false;
@@ -1903,26 +1912,31 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       async function fetchCatalog(){
               if (ssLoading) return; setLoading(true); headerStatus.innerHTML='<span class="mini-spinner"></span>'; errorEl.textContent='';
               try {
+        console.log('[SS] fetchCatalog start, vscodeRef.hasCommands=', !!(vscodeRef && vscodeRef.commands));
         const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'catalog', args:[] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] fetchCatalog response', r);
                 if (r && r.ok){ ssCatalog = r.data.entries || []; ssLoaded=true; }
                 else { throw new Error(r?.error||'loadFailed'); }
                 headerStatus.textContent = `${ssCatalog.length} entries`;
               } catch(e){
                 errorEl.textContent = 'Load failed: ' + (e?.message||e);
                 headerStatus.textContent='Error';
+                console.error('[SS] fetchCatalog error', e);
               } finally { setLoading(false); render(); if(currentDiffCommand) showDiff(currentDiffCommand); }
             }
-            async function installOne(cmd){
+      async function installOne(cmd){
               try {
                 const entry = ssCatalog.find(e=>e.command===cmd); if(!entry) return;
                 ssInstalling = true; render();
-                const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'install', args:[entry] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] installOne', cmd);
+        const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'install', args:[entry] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] installOne result', r);
                 if (!r || !r.ok){ errorEl.textContent = `Install failed: ${r?.error||'unknown'}`; }
                 await fetchCatalog();
               } catch(e){ errorEl.textContent = 'Install error: ' + (e?.message||e); }
               finally { ssInstalling=false; render(); }
             }
-            async function bulkInstall(){
+      async function bulkInstall(){
               const selected = Array.from(tbody.querySelectorAll('input.ss-sel:checked')).map(cb=>cb.dataset.cmd);
               const payload = ssCatalog.filter(e => selected.includes(e.command) && e.status!=='installed');
               if (!payload.length) { return; }
@@ -1932,7 +1946,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 const preview = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'diff', args:[diffCmds] })||Promise.reject(new Error('executeCommand missing')));
                 console.debug('bulk diff preview', preview);
                 ssInstalling=true; render();
-                const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'bulkInstall', args:[payload] })||Promise.reject(new Error('executeCommand missing')));
+        const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'bulkInstall', args:[payload] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] bulkInstall result', r);
                 if (!r || !r.ok){ errorEl.textContent = 'Bulk install failed: ' + (r?.error||'unknown'); }
                 else {
                   const res = r.data?.results||[];
@@ -1975,14 +1990,16 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 <div class="split-pre" data-collapse="${collapse?1:0}"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
               </div>`;
             }
-            async function showDiff(cmd){
+      async function showDiff(cmd){
               currentDiffCommand = cmd;
               const diffPane = document.getElementById('ss-right');
               const body = document.getElementById('ss-diff-body');
               diffPane.style.display='flex';
               body.innerHTML = '<div style="padding:8px; opacity:.7;">Loading diff…</div>';
               try {
-                const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'diff', args:[[cmd]] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] showDiff', cmd);
+        const r = await (vscodeRef.commands?.executeCommand?.('statusBarHelper._bridge', { ns:'scriptStore', fn:'diff', args:[[cmd]] })||Promise.reject(new Error('executeCommand missing')));
+        console.log('[SS] showDiff result', r);
                 const d = r && r.ok && r.data && r.data.diffs ? r.data.diffs[0] : null;
                 if(!d){ body.innerHTML='<div style="padding:8px; color:var(--vscode-errorForeground);">Diff not available.</div>'; return; }
                 const before = d.before || {}; const after = d.after || { text: ssCatalog.find(e=>e.command===cmd)?.text };
@@ -2023,7 +2040,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             // Simple i18n detection (reuse earlier locale in localStorage if set)
             const locale = (localStorage.getItem('sbh.locale')||navigator.language||'en').toLowerCase();
             function i18n(labelEn, labelZh){ return locale.startsWith('zh') ? (labelZh||labelEn) : labelEn; }
-            document.querySelector('#ss-header h3').textContent = i18n('Script Store','腳本商店');
+            document.querySelector('#ss-header h3').textContent = t('scriptStore', i18n('Script Store','腳本商店'));
             document.getElementById('ss-search').placeholder = i18n('Filter scripts…','搜尋腳本…');
             document.getElementById('ss-tag-filter').placeholder = i18n('Tag filter (single)','標籤過濾 (單一)');
             document.getElementById('ss-refresh').textContent = i18n('Refresh','重新整理');
