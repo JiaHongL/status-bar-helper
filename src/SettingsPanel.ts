@@ -41,6 +41,19 @@ export class SettingsPanel {
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
+          case 'scriptStore:req': {
+            // Webview Script Store RPC → 直接調用 bridge namespace scriptStore
+            const { reqId, fn, args } = message;
+            let result: any;
+            try {
+              const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn, args: Array.isArray(args)?args:[] });
+              result = r;
+            } catch (e:any) {
+              result = { ok:false, error: e?.message || String(e) };
+            }
+            this._panel.webview.postMessage({ command:'scriptStore:resp', reqId, result });
+            return;
+          }
           
           case 'updateSettings': {
             if (SettingsPanel.extensionContext) {
