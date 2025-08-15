@@ -17,6 +17,7 @@ import {
   initGlobalSyncKeys,
   loadFromGlobal,
   saveOneToGlobal,
+  saveAllToGlobal,
   SbhItem,
   MIGRATION_FLAG_KEY,
   GLOBAL_MANIFEST_KEY,
@@ -736,13 +737,11 @@ function registerBridge(context: vscode.ExtensionContext) {
       // ---------- Script Store (Phase 1: local catalog only) ----------
       if (ns === 'scriptStore') {
         interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
-        const computeHash = (content: string) => {
-          try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; }
-        };
+        const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
+        const computeHash = (content: string) => { try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; } };
         const loadLocalCatalog = (): CatalogEntry[] => {
           try {
             const mediaRoot = context.asAbsolutePath('media');
-            // reuse locale resolution from loadDefaultsFromJson (simple: prefer zh-tw then en)
             const guess = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
             const candidates: string[] = [];
             if (guess.includes('zh') && (guess.includes('tw') || guess.includes('hant'))) { candidates.push('zh-tw'); }
@@ -763,72 +762,103 @@ function registerBridge(context: vscode.ExtensionContext) {
                 }
               }
             }
-          } catch (e) {
-            console.warn('[sbh] scriptStore loadLocalCatalog failed:', (e as any)?.message || e);
-          }
+          } catch (e) { console.warn('[sbh] scriptStore loadLocalCatalog failed:', (e as any)?.message || e); }
           return [];
         };
-        const currentItems = loadFromGlobal(context);
-        const itemsIndex = new Map(currentItems.map(i => [i.command, i] as const));
-
+        const currentItems = () => loadFromGlobal(context);
+        const indexItems = () => new Map(currentItems().map(i => [i.command, i] as const));
+        const unsafeScript = (scriptStr: string) => {
+          const lower = scriptStr.toLowerCase();
+            if (/eval\s*\(/.test(lower) || /new\s+function/.test(lower)) { return 'forbiddenEval'; }
+            if (/process\.env\./.test(scriptStr) && (scriptStr.match(/process\.env\./g)||[]).length > 5) { return 'suspiciousEnvAccess'; }
+            return '';
+        };
+        const buildStatusView = (catalog: CatalogEntry[]) => {
+          const idx = indexItems();
+          return catalog.map(entry => {
+            const installed = idx.get(entry.command);
+            const scriptContent = entry.script || '';
+            const catalogHash = computeHash(scriptContent + '|' + entry.text + '|' + (entry.tooltip||'') + '|' + JSON.stringify(entry.tags||[]));
+            let status: 'installed' | 'update' | 'new' = 'new';
+            if (installed) {
+              const installedHash = computeHash((installed.script||'') + '|' + installed.text + '|' + (installed.tooltip||'') + '|' + JSON.stringify(installed.tags||[]));
+              status = installedHash === catalogHash ? 'installed' : 'update';
+            }
+            return { ...entry, hash: catalogHash, status };
+          });
+        };
+        const applyInstall = async (payload: CatalogEntry) => {
+          if (!payload || typeof payload !== 'object') { return { ok:false, error:'invalidPayload' }; }
+          const { command, text, tooltip, tags, script } = payload;
+          if (typeof command !== 'string' || !command.trim()) { return { ok:false, error:'invalidCommand' }; }
+          const scriptStr = typeof script === 'string' ? script : '';
+          if (Buffer.byteLength(scriptStr, 'utf8') > SAFE_LIMIT) { return { ok:false, error:'scriptTooLarge' }; }
+          const unsafe = unsafeScript(scriptStr); if (unsafe) { return { ok:false, error:unsafe }; }
+          const existing = indexItems().get(command);
+          const updated: SbhItem = {
+            command,
+            text: typeof text === 'string' && text.trim() ? text : command,
+            tooltip: typeof tooltip === 'string' ? tooltip : undefined,
+            script: scriptStr,
+            hidden: existing ? existing.hidden : false,
+            enableOnInit: existing ? existing.enableOnInit : false,
+            tags: Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim()).slice(0,12) : undefined
+          };
+          try {
+            await saveOneToGlobal(context, updated);
+            return { ok:true, data:{ command } };
+          } catch (e:any) {
+            return { ok:false, error:'saveFailed', message:e?.message || String(e) };
+          }
+        };
         switch (fn) {
           case 'catalog': {
-            const local = loadLocalCatalog();
-            const enriched = local.map(entry => {
-              const installed = itemsIndex.get(entry.command);
-              const scriptContent = entry.script || '';
-              const catalogHash = computeHash(scriptContent + '|' + entry.text + '|' + (entry.tooltip||'') + '|' + JSON.stringify(entry.tags||[]));
-              let status: 'installed' | 'update' | 'new' = 'new';
-              if (installed) {
-                const installedHash = computeHash((installed.script||'') + '|' + installed.text + '|' + (installed.tooltip||'') + '|' + JSON.stringify(installed.tags||[]));
-                status = installedHash === catalogHash ? 'installed' : 'update';
-              }
-              return { ...entry, hash: catalogHash, status };
-            });
+            const enriched = buildStatusView(loadLocalCatalog());
             return { ok: true, data: { entries: enriched, count: enriched.length } };
+          }
+          case 'diff': { // preview local vs catalog for specific command list
+            const [commands] = args as [string[]];
+            const cat = buildStatusView(loadLocalCatalog());
+            const subset = Array.isArray(commands) && commands.length ? cat.filter(c => commands.includes(c.command)) : cat;
+            const diffs = subset.map(entry => {
+              const installed = indexItems().get(entry.command);
+              if (!installed) { return { command: entry.command, status: 'new' }; }
+              return {
+                command: entry.command,
+                status: entry.status,
+                changed: entry.status === 'update',
+                before: entry.status === 'update' ? {
+                  text: installed.text, tooltip: installed.tooltip, tags: installed.tags, script: installed.script
+                } : undefined,
+                after: entry.status === 'update' ? {
+                  text: entry.text, tooltip: entry.tooltip, tags: entry.tags, script: entry.script
+                } : undefined
+              };
+            });
+            return { ok:true, data:{ diffs } };
           }
           case 'install': {
             const [payload] = args as [CatalogEntry];
-            if (!payload || typeof payload !== 'object') { return { ok: false, error: 'invalidPayload' }; }
-            const { command, text, tooltip, tags, script } = payload;
-            if (typeof command !== 'string' || !command.trim()) { return { ok:false, error:'invalidCommand' }; }
-            const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
-            const scriptStr = typeof script === 'string' ? script : '';
-            if (Buffer.byteLength(scriptStr, 'utf8') > SAFE_LIMIT) { return { ok:false, error:'scriptTooLarge' }; }
-            // naive unsafe pattern scan
-            const lower = scriptStr.toLowerCase();
-            if (/eval\s*\(/.test(lower) || /new\s+function/.test(lower)) { return { ok:false, error:'forbiddenEval' }; }
-            if (/process\.env\./.test(scriptStr) && (scriptStr.match(/process\.env\./g)||[]).length > 5) { return { ok:false, error:'suspiciousEnvAccess' }; }
-            const existing = itemsIndex.get(command);
-            const updated: SbhItem = {
-              command,
-              text: typeof text === 'string' && text.trim() ? text : command,
-              tooltip: typeof tooltip === 'string' ? tooltip : undefined,
-              script: scriptStr,
-              hidden: existing ? existing.hidden : false,
-              enableOnInit: existing ? existing.enableOnInit : false,
-              tags: Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim()).slice(0,12) : undefined
-            };
-            try {
-              await saveOneToGlobal(context, updated);
-              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
-              return { ok:true, data:{ updated:true, command } };
-            } catch (e:any) {
-              return { ok:false, error:'saveFailed', message:e?.message || String(e) };
-            }
+            const r = await applyInstall(payload);
+            if (r.ok) { await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar'); }
+            return r;
           }
           case 'bulkInstall': {
             const [entries] = args as [CatalogEntry[]];
             if (!Array.isArray(entries)) { return { ok:false, error:'invalidPayload' }; }
-            const snapshot = loadFromGlobal(context);
+            // snapshot for rollback
+            const snapshot = currentItems();
             const results: Array<{command:string; ok:boolean; error?:string}> = [];
             for (const entry of entries) {
-              const r = await (async () => await (registerBridge as any)); // dummy to satisfy linter (no-op)
-              void r; // silence
-              const one = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'install', args:[entry] }) as any;
-              results.push({ command: entry?.command, ok: !!(one && one.ok), error: one && !one.ok ? one.error : undefined });
+              const r = await applyInstall(entry);
+              results.push({ command: entry?.command, ok: !!r.ok, error: r.ok ? undefined : r.error });
+              if (!r.ok) { // rollback
+                try { await saveAllToGlobal(context, snapshot); } catch {}
+                await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+                return { ok:false, error:'partialFailureRolledBack', data:{ results } };
+              }
             }
-            // simple summary
+            await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
             return { ok:true, data:{ results } };
           }
         }

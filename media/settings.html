@@ -1876,7 +1876,15 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             async function bulkInstall(){
               const selected = Array.from(tbody.querySelectorAll('input.ss-sel:checked')).map(cb=>cb.dataset.cmd);
               const payload = ssCatalog.filter(e => selected.includes(e.command) && e.status!=='installed');
-              for (const p of payload){ await installOne(p.command); }
+              if (!payload.length) { return; }
+              try {
+                // Use diff for preview (future UI: could open a diff modal)
+                const diffCmds = payload.map(p=>p.command);
+                await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'diff', args:[diffCmds] });
+                const r = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns:'scriptStore', fn:'bulkInstall', args:[payload] });
+                if (!r || !r.ok){ errorEl.textContent = 'Bulk install failed: ' + (r?.error||'unknown'); }
+                await fetchCatalog();
+              } catch(e){ errorEl.textContent = 'Bulk install error: ' + (e?.message||e); }
             }
             function openScriptStore(){ overlay.style.display='flex'; if(!ssLoaded) fetchCatalog(); else render(); }
             function closeScriptStore(){ overlay.style.display='none'; }
