@@ -679,27 +679,70 @@ async function ensureDefaultItems(context: vscode.ExtensionContext) {
 }
 
 async function loadDefaultsFromJson(context: vscode.ExtensionContext): Promise<SbhItem[]> {
-  // 依語系挑選：先嘗試 zh-tw / zh-hant / en，其它 fallback en
-  const guess = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
+  // 使用 VS Code 目前顯示語言（更精準）
+  const guess = vscode.env.language.toLowerCase();
   const localeCandidates: string[] = [];
-  if (guess.includes('zh') && (guess.includes('tw') || guess.includes('hant'))) {
-    localeCandidates.push('zh-tw');
-  }
+  if (['zh-tw', 'zh-hant'].some(tag => guess.startsWith(tag))) { localeCandidates.push('zh-tw'); }
+  // 其它一律 fallback 英文
   localeCandidates.push('en');
 
+  // 先嘗試遠端（GitHub raw）→ 失敗再 fallback 本地 packaged 檔案
+  // 風險控管：
+  //  - Timeout 3s 避免 activation 卡住
+  //  - 限制大小 256KB
+  //  - 僅允許陣列 JSON，否則視為失敗
+  const RAW_BASE = 'https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/media';
+  const SIZE_LIMIT = 256 * 1024;
+
+  const tryFetchRemote = async (loc: string): Promise<SbhItem[] | null> => {
+    const url = `${RAW_BASE}/script-store.defaults.${loc}.json`;
+    try {
+      const text = await new Promise<string>((resolve, reject) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, 3000);
+        // 使用 https 模組，避免對 fetch lib 依賴
+        const https = require('https') as typeof import('https');
+        https.get(url, { signal: (controller as any).signal, headers: { 'User-Agent': 'status-bar-helper' } }, (res: any) => {
+          if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return reject(new Error('http ' + res.statusCode)); }
+          let size = 0; let chunks: Buffer[] = [];
+          res.on('data', (d: Buffer) => { size += d.length; if (size > SIZE_LIMIT) { res.destroy(new Error('size limit')); return; } chunks.push(d); });
+          res.on('end', () => { clearTimeout(timer); try { resolve(Buffer.concat(chunks).toString('utf8')); } catch (e) { reject(e); } });
+          res.on('error', (e: any) => { clearTimeout(timer); reject(e); });
+        }).on('error', (e: any) => { clearTimeout(timer); reject(e); });
+      });
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) { return null; }
+      return arr.map(normalizeDefaultJsonItem).filter(Boolean) as SbhItem[];
+    } catch (e) {
+      // 靜默失敗：回到本地 fallback
+      console.warn('[sbh] remote defaults fetch failed', loc, (e as any)?.message || e);
+      return null;
+    }
+  };
+
+  for (const loc of localeCandidates) {
+    const remote = await tryFetchRemote(loc);
+    if (remote && remote.length) { return remote; }
+  }
+
+  // 遠端都失敗 → 本地 packaged fallback
   const mediaRoot = context.asAbsolutePath('media');
-  const tried: string[] = [];
+  const triedLocal: string[] = [];
   for (const loc of localeCandidates) {
     const file = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
-    tried.push(file);
+    triedLocal.push(file);
     if (fs.existsSync(file)) {
-      const raw = await fsp.readFile(file, 'utf8');
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) { throw new Error('defaults json not an array'); }
-      return arr.map(normalizeDefaultJsonItem).filter(Boolean) as SbhItem[];
+      try {
+        const raw = await fsp.readFile(file, 'utf8');
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) { continue; }
+        return arr.map(normalizeDefaultJsonItem).filter(Boolean) as SbhItem[];
+      } catch (e) {
+        console.warn('[sbh] local defaults parse failed', file, (e as any)?.message || e);
+      }
     }
   }
-  throw new Error('no defaults json found: ' + tried.join(', '));
+  throw new Error('no defaults json found (remote & local)');
 }
 
 function normalizeDefaultJsonItem(x: any): SbhItem | null {
@@ -739,30 +782,60 @@ function registerBridge(context: vscode.ExtensionContext) {
         interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
         const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
         const computeHash = (content: string) => { try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; } };
-        const loadLocalCatalog = (): CatalogEntry[] => {
-          try {
-            const mediaRoot = context.asAbsolutePath('media');
-            const guess = Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
-            const candidates: string[] = [];
-            if (guess.includes('zh') && (guess.includes('tw') || guess.includes('hant'))) { candidates.push('zh-tw'); }
-            candidates.push('en');
-            for (const loc of candidates) {
-              const f = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
-              if (fs.existsSync(f)) {
+        // Cache 避免每次開面板都重新抓；失效時間 5 分鐘
+        let _catalogCache: { at: number; entries: CatalogEntry[] } | null = null;
+        const loadCatalog = async (): Promise<CatalogEntry[]> => {
+          const now = Date.now();
+            if (_catalogCache && now - _catalogCache.at < 5 * 60 * 1000) { return _catalogCache.entries; }
+          const mediaRoot = context.asAbsolutePath('media');
+          const lang = vscode.env.language.toLowerCase();
+          const locales: string[] = [];
+          if (['zh-tw','zh-hant'].some(l => lang.startsWith(l))) { locales.push('zh-tw'); }
+          locales.push('en');
+          const RAW_BASE = 'https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/media';
+          const SIZE_LIMIT = 256 * 1024;
+          const https = require('https') as typeof import('https');
+
+          const tryRemote = (loc: string): Promise<CatalogEntry[] | null> => new Promise((resolve) => {
+            const url = `${RAW_BASE}/script-store.defaults.${loc}.json`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => { controller.abort(); resolve(null); }, 3000);
+            try {
+              https.get(url, { signal: (controller as any).signal, headers:{ 'User-Agent':'status-bar-helper' } }, res => {
+                if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return resolve(null); }
+                let size = 0; const chunks: Buffer[] = [];
+                res.on('data', d => { size += d.length; if (size > SIZE_LIMIT) { res.destroy(new Error('size limit')); } else { chunks.push(d); } });
+                res.on('end', () => { clearTimeout(timer); try { const text = Buffer.concat(chunks).toString('utf8'); const arr = JSON.parse(text); if (Array.isArray(arr)) { resolve(normalize(arr)); } else { resolve(null); } } catch { resolve(null); } });
+                res.on('error', () => { clearTimeout(timer); resolve(null); });
+              }).on('error', () => { clearTimeout(timer); resolve(null); });
+            } catch { clearTimeout(timer); resolve(null); }
+          });
+
+          const normalize = (arr: any[]): CatalogEntry[] => arr.map(o => ({
+            command: String(o.command || ''),
+            text: typeof o.text === 'string' ? o.text : String(o.command || ''),
+            tooltip: typeof o.tooltip === 'string' ? o.tooltip : undefined,
+            tags: Array.isArray(o.tags) ? o.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0,12) : undefined,
+            script: typeof o.script === 'string' ? o.script : undefined
+          })).filter(e => e.command);
+
+          // 依序嘗試：遠端 → 本地
+          for (const loc of locales) {
+            try {
+              const remote = await tryRemote(loc);
+              if (remote && remote.length) { _catalogCache = { at: now, entries: remote }; return remote; }
+            } catch { /* ignore */ }
+            // 本地 fallback
+            const f = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
+            if (fs.existsSync(f)) {
+              try {
                 const raw = fs.readFileSync(f, 'utf8');
                 const arr = JSON.parse(raw);
-                if (Array.isArray(arr)) {
-                  return arr.map(o => ({
-                    command: String(o.command || ''),
-                    text: typeof o.text === 'string' ? o.text : String(o.command || ''),
-                    tooltip: typeof o.tooltip === 'string' ? o.tooltip : undefined,
-                    tags: Array.isArray(o.tags) ? o.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0,12) : undefined,
-                    script: typeof o.script === 'string' ? o.script : undefined
-                  })).filter(e => e.command);
-                }
-              }
+                if (Array.isArray(arr)) { const norm = normalize(arr); _catalogCache = { at: now, entries: norm }; return norm; }
+              } catch (e) { console.warn('[sbh] scriptStore catalog parse failed', f, (e as any)?.message || e); }
             }
-          } catch (e) { console.warn('[sbh] scriptStore loadLocalCatalog failed:', (e as any)?.message || e); }
+          }
+          _catalogCache = { at: now, entries: [] };
           return [];
         };
         const currentItems = () => loadFromGlobal(context);
@@ -813,12 +886,28 @@ function registerBridge(context: vscode.ExtensionContext) {
         };
         switch (fn) {
           case 'catalog': {
-            const enriched = buildStatusView(loadLocalCatalog());
+            const base = await loadCatalog();
+            const enriched = buildStatusView(base);
             return { ok: true, data: { entries: enriched, count: enriched.length } };
+          }
+          case 'uninstall': {
+            const [command] = args as [string];
+            if (typeof command !== 'string' || !command) { return { ok:false, error:'invalidCommand' }; }
+            // remove from global state
+            const all = currentItems();
+            const remain = all.filter(i => i.command !== command);
+            if (remain.length === all.length) { return { ok:false, error:'notFound' }; }
+            try {
+              await saveAllToGlobal(context, remain);
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              return { ok:true, data:{ command } };
+            } catch(e:any){
+              return { ok:false, error:'uninstallFailed', message:e?.message||String(e) };
+            }
           }
           case 'diff': { // preview local vs catalog for specific command list
             const [commands] = args as [string[]];
-            const cat = buildStatusView(loadLocalCatalog());
+            const cat = buildStatusView(await loadCatalog());
             const subset = Array.isArray(commands) && commands.length ? cat.filter(c => commands.includes(c.command)) : cat;
             const diffs = subset.map(entry => {
               const installed = indexItems().get(entry.command);

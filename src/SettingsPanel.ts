@@ -397,7 +397,7 @@ export class SettingsPanel {
 
   private _loadTranslations(): Record<string, string> {
     try {
-      const locale = vscode.env.language;
+  const locale = vscode.env.language;
       let translations: Record<string, string> = {};
       
       // Load English fallback first
@@ -407,8 +407,10 @@ export class SettingsPanel {
         translations = JSON.parse(enContent);
       }
       
-      // Overlay with locale-specific translations if Chinese
-      if (locale.startsWith('zh-') || locale === 'zh') {
+  // Only overlay Traditional Chinese (avoid forcing zh-tw text on zh / zh-cn environments)
+  const lower = locale.toLowerCase();
+  const isTraditionalZh = lower === 'zh-tw' || lower === 'zh-hant';
+  if (isTraditionalZh) {
         const zhPath = path.join(this._extensionUri.fsPath, 'media', 'nls.zh-tw.json');
         if (fs.existsSync(zhPath)) {
           const zhContent = fs.readFileSync(zhPath, 'utf-8');

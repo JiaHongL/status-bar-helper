@@ -132,7 +132,7 @@
   body.compact .tags-cell{ display:none; }
   /* Script Store Modal */
   #script-store-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:2000; }
-  #script-store-modal{ width:880px; max-width:96%; max-height:86vh; background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); border-radius:8px; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,.4); }
+  #script-store-modal{ width:1040px; max-width:96%; max-height:90vh; background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); border-radius:8px; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.5); }
   #ss-header{ padding:10px 14px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--vscode-editorGroup-border); }
   #ss-header h3{ margin:0; font-size:14px; font-weight:600; }
   #ss-close{ margin-left:auto; background:transparent; border:1px solid transparent; color:var(--vscode-foreground); cursor:pointer; }
@@ -163,9 +163,9 @@
   @keyframes sspin { to { transform:rotate(360deg); } }
   .loading-dim{ opacity:.5; pointer-events:none; }
   #ss-filters{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  #ss-filters input{ height:26px; padding:2px 6px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
-  #ss-filters select{ height:26px; padding:2px 6px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
-  #ss-table-wrap{ flex:1; overflow:auto; border:1px solid var(--vscode-editorGroup-border); }
+  /* Unify input & select heights (user request) */
+  #ss-filters input,#ss-filters select{ height:26px; line-height:24px; padding:0 6px; box-sizing:border-box; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
+  #ss-table-wrap{ flex:1; overflow:auto; border:1px solid var(--vscode-editorGroup-border); min-height:360px; }
   table#ss-table{ width:100%; border-collapse:collapse; }
   table#ss-table th, table#ss-table td{ padding:6px 8px; border-bottom:1px dotted var(--vscode-editorGroup-border); font-size:12px; vertical-align:middle; }
   table#ss-table th{ position:sticky; top:0; background:var(--vscode-sideBar-background); text-align:left; }
@@ -173,7 +173,8 @@
   .ss-status-update{ background:var(--vscode-editorWarning-background, #946200); color:var(--vscode-editorWarning-foreground,#fff); }
   .ss-status-installed{ background:var(--vscode-editorInfo-background,#005a9c); color:var(--vscode-editorInfo-foreground,#fff); }
   .ss-status-new{ background:var(--vscode-editorSuccess-background,#2d7); color:var(--vscode-editorSuccess-foreground,#003300); }
-  .ss-actions button{ height:24px; padding:0 8px; font-size:11px; }
+  .ss-actions{ display:flex; flex-wrap:wrap; gap:4px; }
+  .ss-actions button{ height:24px; padding:0 8px; font-size:11px; flex:0 0 auto; }
   #ss-pre-before .ln, #ss-pre-after .ln{ white-space:pre; }
   #ss-footer{ padding:8px 14px; border-top:1px solid var(--vscode-editorGroup-border); display:flex; gap:8px; align-items:center; }
   #ss-footer .spacer{ flex:1; }
@@ -376,6 +377,11 @@
     .copy-btn:hover {
         opacity: 1;
     }
+  /* Script Store column width constraints (td) */
+  #ss-table td:nth-child(2){ width:155px; max-width:155px; }
+  #ss-table td:nth-child(3){ width:300px; max-width:300px; }
+  #ss-table td:nth-child(5){ width:60px; }
+  #ss-table td:nth-child(6){ width:110px; }
   </style>
     </head>
     <body>
@@ -440,7 +446,6 @@
                                 <th style="width: 50px; text-align:center;">Visible</th>
                                 <th style="width: 100px; text-align:center;">Run at Startup</th>
                                 <th style="width: 50px; text-align:center;">CmdId</th>
-                                <th style="width: 150px; text-align:left;">Tags</th>
                                 <th style="width: 120px; text-align:right;">Actions</th>
                             </tr>
                         </thead>
@@ -622,6 +627,8 @@
 
         const copyExportBtn = document.getElementById('copy-export-btn');
         if (copyExportBtn) copyExportBtn.textContent = t('copyToClipboard', 'Copy to Clipboard');
+  // Also refresh Script Store localized texts if overlay already mounted
+  if (document.getElementById('script-store-overlay')) updateScriptStoreTexts();
         
         // Update table headers
         const headers = document.querySelectorAll('table.list-table th');
@@ -658,6 +665,27 @@
             dataHeaders[2].textContent = t('size', 'Size');
             dataHeaders[3].textContent = t('actions', 'Actions');
         }
+    }
+
+    function updateScriptStoreTexts(){
+      const header = document.querySelector('#ss-header h3'); if (header) header.textContent = t('scriptStore','Script Store');
+  const search = document.getElementById('ss-search'); if (search) search.placeholder = t('filterScripts','Filter scripts…');
+  const tagFilter = document.getElementById('ss-tag-filter'); if (tagFilter) tagFilter.placeholder = t('tagFilterSingle','Tag filter (single)');
+      const refreshBtn = document.getElementById('ss-refresh'); if (refreshBtn) refreshBtn.textContent = t('refresh','Refresh');
+      const bulkBtnEl = document.getElementById('ss-bulk-install'); if (bulkBtnEl) bulkBtnEl.textContent = t('installSelected','Install Selected');
+      const setText=(id,key,fb)=>{ const el=document.getElementById(id); if(el) el.textContent=t(key,fb); };
+      setText('ss-col-label','label','Label');
+      setText('ss-col-tooltip','tooltip','Tooltip');
+      setText('ss-col-tags','tags','Tags');
+      setText('ss-col-status','status','Status');
+      setText('ss-col-actions','actions','Actions');
+      const empty=document.getElementById('ss-empty'); if(empty) empty.textContent=t('scriptStoreNoEntries','No entries');
+  const statusSel=document.getElementById('ss-status-filter'); if(statusSel && statusSel.options && statusSel.options.length>=4){
+        statusSel.options[0].textContent=t('filterAll','All');
+        statusSel.options[1].textContent=t('statusNew','New');
+        statusSel.options[2].textContent=t('update','Update');
+        statusSel.options[3].textContent=t('installed','Installed');
+      }
     }
 
     let items = [], currentEditor = null, typeDefs = null;
@@ -964,7 +992,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       });
 
       if (!filteredItems.length) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
         return;
       }
 
@@ -996,7 +1024,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           row.setAttribute('draggable', 'true');
         }
 
-        const tagsHtml = (Array.isArray(item.tags) ? item.tags : []).slice(0,8).map(t=>`<span class="tag-badge" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
         row.innerHTML = `
           <td class="drag-handle" title="Drag to reorder"><div class="td-content-wrapper"><i class="codicon codicon-grabber"></i></div></td>
           <td class="item-icon"><div class="td-content-wrapper justify-center"><i class="codicon codicon-${icon || 'ellipsis'}"></i></div></td>
@@ -1017,7 +1044,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             </div>
             <input hidden style="width:0px" type="text" readonly class="command-input" value="${escapeHtml(item.command || '')}" />
           </td>
-          <td class="tags-cell"><div class="td-content-wrapper"><div class="tags">${tagsHtml || '<span style=\"opacity:.4\">—</span>'}</div></div></td>
           <td class="item-actions">
             <div class="td-content-wrapper justify-end">
               <button class="run-now-item" data-index="${originalIndex}" type="button">${t('run', 'Run')}</button>
@@ -1129,11 +1155,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
       let initIcon = m ? m[1] : '';
       let initLabel = m ? m[2] : item.text;
-      const original = { icon: initIcon, label: initLabel, tooltip: item.tooltip || '', script: item.script || '' };
+  const original = { icon: initIcon, label: initLabel, tooltip: item.tooltip || '', script: item.script || '', tags: Array.isArray(item.tags)? item.tags.slice():[] };
 
       let editing = getEditing();
       if (!editing || editing.command !== item.command || !editing.pristine) {
-        editing = { command: item.command, pristine: JSON.stringify(original) };
+        // Canonical pristine (sorted tags)
+        const origCanon = { ...original, tags: (original.tags||[]).slice().sort() };
+        editing = { command: item.command, pristine: JSON.stringify(origCanon) };
         writeEditing(editing);
       }
 
@@ -1320,10 +1348,16 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         }
         else if (btn.id === 'cancel-edit-btn') {
           const hasUnsaved = () => {
-            const current = { icon: selectedIcon, label: document.getElementById('edit-label').value, tooltip: document.getElementById('edit-tooltip').value, script: currentEditor ? currentEditor.getValue() : (item.script || ''), tags: document.getElementById('edit-tags').value };
             const ed = getEditing();
-            const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify(original);
-            return JSON.stringify(current) !== pristineJson;
+            const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify({ ...original, tags:(original.tags||[]).slice().sort() });
+            let pristineObj; try { pristineObj = JSON.parse(pristineJson); } catch { pristineObj = original; }
+            const lbl = document.getElementById('edit-label').value.trim();
+            const tooltipVal = document.getElementById('edit-tooltip').value;
+            const scriptVal = currentEditor ? currentEditor.getValue() : (item.script || '');
+            const rawTags = document.getElementById('edit-tags').value.trim();
+            const parsedTags = rawTags ? Array.from(new Set(rawTags.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean))).slice(0,12).sort() : [];
+            const currentCanon = { icon: selectedIcon||'', label: lbl, tooltip: tooltipVal, script: scriptVal, tags: parsedTags };
+            return JSON.stringify(currentCanon) !== JSON.stringify({ icon: pristineObj.icon||'', label: pristineObj.label||'', tooltip: pristineObj.tooltip||'', script: pristineObj.script||'', tags: (pristineObj.tags||[]).slice().sort() });
           };
           const discardAndBack = () => { clearDraftIfMatch(item.command); clearEditing(); showListView(); };
           if (hasUnsaved()) { 
@@ -1447,6 +1481,18 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         text:'New Item', tooltip:'', command:newCommand, script: defaultScript, enableOnInit: false, hidden: false, tags: []
       });
     }
+
+    // 支援 Cmd/Ctrl+S 快捷儲存（避免使用者以為已存卻未觸發 Save 按鈕導致 Script Store 沒出現 Update）
+    window.addEventListener('keydown', (e)=>{
+      if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+        const editVisible = editView && editView.style.display === 'flex';
+        if (editVisible) {
+          e.preventDefault();
+          const saveBtn = document.getElementById('save-item-btn');
+          if (saveBtn) { saveBtn.click(); }
+        }
+      }
+    });
     
     document.getElementById('export-btn').onclick = () => showExportPreview();
     document.getElementById('import-btn').onclick = () => vscode.postMessage({ command:'importSettings' });
@@ -1715,6 +1761,14 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           } else {
             showListView();
           }
+          // 若 Script Store overlay 開啟，重新取得 catalog 以反映最新安裝狀態（避免延遲）
+          try {
+            const ov = document.getElementById('script-store-overlay');
+            if (ov && ov.style.display !== 'none' && typeof fetchCatalog === 'function') {
+              // 使用微小延遲，確保 globalState 已完成寫入
+              setTimeout(()=>{ try { fetchCatalog(); } catch(_){} }, 30);
+            }
+          } catch{/* noop */}
           break;
         case 'importDone':
           items = msg.items || [];
@@ -1815,24 +1869,17 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                       <thead>
                         <tr>
                           <th style="width:26px;"></th>
-                          <th style="width:120px;">Label</th>
-                          <th>Command</th>
-                          <th style="width:140px;">Tags</th>
-                          <th style="width:70px;">Status</th>
-                          <th style="width:140px;">Actions</th>
+                          <th id="ss-col-label" style="width:155px;">Label</th>
+                          <th id="ss-col-tooltip" style="width:300px;">Tooltip</th>
+                          <th id="ss-col-tags" style="width:140px;">Tags</th>
+                          <th id="ss-col-status" style="width:60px;">Status</th>
+                          <th id="ss-col-actions" style="width:110px;">Actions</th>
                         </tr>
                       </thead>
                       <tbody id="ss-tbody"></tbody>
                     </table>
                     <div id="ss-empty" style="display:none;">No entries</div>
                   </div>
-                </div>
-                <div id="ss-right" style="display:none;">
-                  <div id="ss-diff-header">
-                    <h4 id="ss-diff-title">Diff</h4>
-                    <button id="ss-diff-close" title="Close Diff" class="codicon codicon-close"></button>
-                  </div>
-                  <div id="ss-diff-body"></div>
                 </div>
               </div>
             </div>
@@ -1842,7 +1889,49 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               <button id="ss-bulk-install" type="button" disabled>Install Selected</button>
             </div>
           </div>
+          <!-- Floating Diff Window Layer -->
+          <div id="ss-diff-layer" style="display:none;">
+            <div class="ss-diff-backdrop"></div>
+            <div id="ss-diff-window" class="ss-diff-window">
+              <div class="ss-diff-window-header ss-store-header-like" id="ss-diff-header">
+                <h3 id="ss-diff-window-title">Diff</h3>
+                <div class="spacer"></div>
+                <button id="ss-dw-close" class="codicon codicon-close" title="Close"></button>
+              </div>
+              <div id="ss-diff-body" class="ss-diff-window-body"></div>
+            </div>
+          </div>
         </div>
+        <!-- Confirm Layer -->
+        <div id="ss-confirm-layer">
+          <div class="backdrop"></div>
+          <div id="ss-confirm-box">
+            <h4 id="ss-confirm-title"></h4>
+            <div id="ss-confirm-message" style="font-size:12px; opacity:.85;"></div>
+            <div id="ss-confirm-actions">
+              <button type="button" id="ss-confirm-cancel"></button>
+              <button type="button" id="ss-confirm-ok" class="primary"></button>
+            </div>
+          </div>
+        </div>
+        <style>
+          #ss-diff-layer { position:fixed; inset:0; z-index:3100; }
+          #ss-diff-layer .ss-diff-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.35); backdrop-filter:blur(2px); }
+          /* lightweight confirm dialog */
+          #ss-confirm-layer{ position:fixed; inset:0; z-index:3200; display:none; }
+          #ss-confirm-layer .backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.35); }
+          #ss-confirm-box{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(420px,90vw); background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); box-shadow:0 6px 22px rgba(0,0,0,.5); border-radius:6px; padding:16px 18px 14px; display:flex; flex-direction:column; gap:14px; }
+          #ss-confirm-box h4{ margin:0; font-size:14px; }
+          #ss-confirm-actions{ display:flex; justify-content:flex-end; gap:8px; }
+          #ss-confirm-actions button{ height:26px; }
+          .ss-diff-window { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(1100px,90vw); height:min(80vh,800px); display:flex; flex-direction:column; background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); box-shadow:0 8px 28px rgba(0,0,0,.55); border-radius:6px; overflow:hidden; }
+          .ss-diff-window-header { display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--vscode-panel-border); font-size:14px; font-weight:600; line-height:1.4; }
+          .ss-diff-window-header button { height:24px; width:28px; display:inline-flex; align-items:center; justify-content:center; }
+          #ss-dw-close{ background:transparent; border:1px solid transparent; color:var(--vscode-foreground); cursor:pointer; }
+          .ss-diff-window-header h3 { margin:0; font-size:14px; font-weight:600; }
+          .ss-diff-window-body { flex:1; overflow:auto; padding:10px 14px; }
+          .ss-diff-window pre { margin:0; }
+        </style>
         <script>
           (function(){
             // Webview 內沒有 vscode.commands；改用 postMessage RPC 到 extension host
@@ -1880,34 +1969,59 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
             function badge(status){
               const cls = status === 'update' ? 'ss-status-badge ss-status-update' : status === 'installed' ? 'ss-status-badge ss-status-installed' : 'ss-status-badge ss-status-new';
-              return `<span class="${cls}">${status}</span>`;
+              const label = status === 'update' ? t('update','Update') : (status === 'installed' ? t('installed','Installed') : t('statusNew','New'));
+              return `<span class="${cls}">${label}</span>`;
+            }
+            async function uninstallOne(cmd){
+              try {
+                ssInstalling = true; render();
+                try { await callHost('uninstall', [cmd]); } catch(err){ errorEl.textContent = 'Uninstall failed: ' + (err?.message||err); }
+                await fetchCatalog();
+                            try { vscodeRef.postMessage({ command:'getSettings' }); } catch{}
+              } catch(e){ errorEl.textContent = 'Uninstall error: ' + (e?.message||e); }
+              finally { ssInstalling=false; render(); }
             }
             function render(){
               const q = (searchEl.value||'').toLowerCase();
               const st = statusEl.value;
               const tag = tagEl.value.trim().toLowerCase();
               let list = ssCatalog.slice();
-              if (q) list = list.filter(e => e.text.toLowerCase().includes(q) || e.command.toLowerCase().includes(q) || (e.tooltip||'').toLowerCase().includes(q));
+              if (q) {
+                const fuzzy = (text, pat) => {
+                  if(!text) return false; let ti=0, pi=0; const t=text.toLowerCase(); const p=pat.toLowerCase(); while(ti<t.length && pi<p.length){ if(t[ti]===p[pi]) pi++; ti++; } return pi===p.length; };
+                list = list.filter(e => {
+                  const hay = [e.text, e.command, e.tooltip||'', (e.tags||[]).join(' ')];
+                  return hay.some(h => h && (h.toLowerCase().includes(q) || fuzzy(h, q)));
+                });
+              }
               if (st !== 'all') list = list.filter(e => e.status === st);
-              if (tag) list = list.filter(e => Array.isArray(e.tags) && e.tags.some(t => t.toLowerCase() === tag));
+              if (tag) {
+                const fuzzyTag = (text, pat)=>{ if(!text) return false; let i=0,j=0; const t=text.toLowerCase(); const p=pat.toLowerCase(); while(i<t.length && j<p.length){ if(t[i]===p[j]) j++; i++; } return j===p.length; };
+                list = list.filter(e => Array.isArray(e.tags) && e.tags.some(t => { const tl=t.toLowerCase(); return tl===tag || tl.includes(tag) || fuzzyTag(tl, tag); }));
+              }
               tbody.innerHTML='';
               if (!list.length){
-                document.getElementById('ss-empty').style.display='block';
+                const emptyEl = document.getElementById('ss-empty');
+                if (emptyEl){ emptyEl.textContent = t('scriptStoreNoEntries', 'No entries'); }
+                emptyEl.style.display='block';
                 bulkBtn.disabled = true;
                 return;
               }
               document.getElementById('ss-empty').style.display='none';
               list.forEach((e,i)=>{
                 const tr=document.createElement('tr');
+                const actionBtns = (()=>{
+                  const viewBtn = `<button data-action=\"view\" data-cmd=\"${e.command}\">${t('view','View')}</button>`;
+                  if (e.status==='new') return viewBtn + `<button data-action=\"install\" data-kind=\"install\" data-cmd=\"${e.command}\" ${ssInstalling?'disabled':''}>${t('install','Install')}</button>`;
+                  if (e.status==='update') return viewBtn + `<button data-action=\"install\" data-kind=\"update\" data-cmd=\"${e.command}\" ${ssInstalling?'disabled':''}>${t('update','Update')}</button>`;
+                  return viewBtn + `<button data-action=\"uninstall\" data-cmd=\"${e.command}\">${t('removeScriptStore','Remove')}</button>`;
+                })();
                 tr.innerHTML=`<td><input type="checkbox" class="ss-sel" data-cmd="${e.command}" ${e.status==='installed'?'':'checked'}></td>
                   <td title="${escapeHtml(e.text)}">${escapeHtml(e.text)}</td>
-                  <td><code>${escapeHtml(e.command)}</code></td>
-                  <td>${(e.tags||[]).map(t=>`<span class='ss-tag-badge'>${escapeHtml(t)}</span>`).join('')||'<span style="opacity:.4">—</span>'}</td>
-                  <td>${badge(e.status)}</td>
-                  <td class="ss-actions">
-                    <button data-action="install" data-cmd="${e.command}" ${ssInstalling?'disabled':''}>${e.status==='update'?i18n('Update','可更新'):(e.status==='installed'?i18n('Reinstall','重新安裝'):i18n('Install','安裝'))}</button>
-                    <button data-action="view" data-cmd="${e.command}">${i18n('View','檢視')}</button>
-                  </td>`;
+                  <td title="${escapeHtml(e.tooltip||'')}" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(e.tooltip||'—')}</td>
+                  <td>${(e.tags||[]).map(t=>`<span class='ss-tag-badge'>${escapeHtml(t)}</span>`).join('')||'<span style=\"opacity:.4">—</span>'}</td>
+                  <td data-status="${e.status}">${badge(e.status)}</td>
+                  <td class="ss-actions">${actionBtns}</td>`;
                 tbody.appendChild(tr);
               });
               syncBulkButton();
@@ -1922,7 +2036,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         try {
           const r = await callHost('catalog', []);
           ssCatalog = (r.data && r.data.entries) || []; ssLoaded=true;
-          headerStatus.textContent = `${ssCatalog.length} entries`;
+          headerStatus.textContent = `${ssCatalog.length} ${t('scriptStoreEntriesSuffix', 'entries')}`;
         } catch(e){
           errorEl.textContent = 'Load failed: ' + (e?.message||e);
           headerStatus.textContent='Error';
@@ -1934,6 +2048,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 ssInstalling = true; render();
         try { await callHost('install', [entry]); } catch(err){ errorEl.textContent = 'Install failed: ' + (err?.message||err); }
                 await fetchCatalog();
+                      try { vscodeRef.postMessage({ command:'getSettings' }); } catch{}
               } catch(e){ errorEl.textContent = 'Install error: ' + (e?.message||e); }
               finally { ssInstalling=false; render(); }
             }
@@ -1953,6 +2068,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           errorEl.textContent = fail?`Partial success: ${ok} ok / ${fail} failed`:`Installed ${ok} item(s)`;
         } catch(err){ errorEl.textContent = 'Bulk install failed: ' + (err?.message||err); }
                 await fetchCatalog();
+                      try { vscodeRef.postMessage({ command:'getSettings' }); } catch{}
               } catch(e){ errorEl.textContent = 'Bulk install error: ' + (e?.message||e); }
               finally { ssInstalling=false; render(); }
             }
@@ -1987,12 +2103,14 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 <div class="split-pre" data-collapse="${collapse?1:0}"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
               </div>`;
             }
-      async function showDiff(cmd){
-              currentDiffCommand = cmd;
-              const diffPane = document.getElementById('ss-right');
-              const body = document.getElementById('ss-diff-body');
-              diffPane.style.display='flex';
-              body.innerHTML = '<div style="padding:8px; opacity:.7;">Loading diff…</div>';
+  async function showDiff(cmd){
+      currentDiffCommand = cmd;
+      const layer = document.getElementById('ss-diff-layer');
+      const body = document.getElementById('ss-diff-body');
+      const title = document.getElementById('ss-diff-window-title');
+  if (title) title.textContent = `${t('diffTitle','Diff')} - ${cmd}`;
+      layer.style.display='block';
+      body.innerHTML = '<div style="padding:8px; opacity:.7;">Loading diff…</div>';
               try {
         const r = await callHost('diff', [[cmd]]);
                 const d = r && r.ok && r.data && r.data.diffs ? r.data.diffs[0] : null;
@@ -2004,15 +2122,15 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 const scriptBefore = before.script||''; const scriptAfter = after.script||'';
                 body.innerHTML = `
                   <div class="field-diff ${textDiff.changed?'changed':''}">
-                    <div class="label">Text</div>
+                    <div class="label">${t('text', 'Text')}</div>
                     <div class="pair"><div class="before">${textDiff.before||'<i style=opacity:.5>—</i>'}</div><div class="after">${textDiff.after||'<i style=opacity:.5>—</i>'}</div></div>
                   </div>
                   <div class="field-diff ${tooltipDiff.changed?'changed':''}">
-                    <div class="label">Tooltip</div>
+                    <div class="label">${t('tooltip','Tooltip')}</div>
                     <div class="pair"><div class="before">${tooltipDiff.before||'<i style=opacity:.5>—</i>'}</div><div class="after">${tooltipDiff.after||'<i style=opacity:.5>—</i>'}</div></div>
                   </div>
                   <div class="field-diff ${tagsDiff.changed?'changed':''}">
-                    <div class="label">Tags</div>
+                    <div class="label">${t('tags','Tags')}</div>
                     <div class="pair"><div class="before">${tagsDiff.before||'<i style=opacity:.5>—</i>'}</div><div class="after">${tagsDiff.after||'<i style=opacity:.5>—</i>'}</div></div>
                   </div>
                   ${renderScriptDiff(scriptBefore, scriptAfter)}
@@ -2031,21 +2149,35 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 });
               } catch(e){ body.innerHTML='<div style="padding:8px; color:var(--vscode-errorForeground);">Diff error: '+escapeHtml(e?.message||String(e))+'</div>'; }
             }
-            document.getElementById('ss-diff-close').addEventListener('click', ()=>{ document.getElementById('ss-right').style.display='none'; currentDiffCommand=null; });
-            // Simple i18n detection (reuse earlier locale in localStorage if set)
-            const locale = (localStorage.getItem('sbh.locale')||navigator.language||'en').toLowerCase();
-            function i18n(labelEn, labelZh){ return locale.startsWith('zh') ? (labelZh||labelEn) : labelEn; }
-            document.querySelector('#ss-header h3').textContent = t('scriptStore', i18n('Script Store','腳本商店'));
-            document.getElementById('ss-search').placeholder = i18n('Filter scripts…','搜尋腳本…');
-            document.getElementById('ss-tag-filter').placeholder = i18n('Tag filter (single)','標籤過濾 (單一)');
-            document.getElementById('ss-refresh').textContent = i18n('Refresh','重新整理');
-            bulkBtn.textContent = i18n('Install Selected','安裝選取');
-            const statusSel = document.getElementById('ss-status-filter');
-            statusSel.options[0].textContent = i18n('All','全部');
-            statusSel.options[1].textContent = i18n('New','新增');
-            statusSel.options[2].textContent = i18n('Update','可更新');
-            statusSel.options[3].textContent = i18n('Installed','已安裝');
-            function openScriptStore(){ overlay.style.display='flex'; if(!ssLoaded) fetchCatalog(); else render(); }
+            function closeDiff(){ const layer=document.getElementById('ss-diff-layer'); if(layer){ layer.style.display='none'; currentDiffCommand=null; } }
+            document.getElementById('ss-dw-close').addEventListener('click', closeDiff);
+            document.getElementById('ss-diff-layer').addEventListener('click', e=>{ if(e.target.classList.contains('ss-diff-backdrop')) closeDiff(); });
+            window.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('ss-diff-layer').style.display==='block') closeDiff(); });
+            updateScriptStoreTexts();
+            // custom confirm (sandbox disallows native confirm)
+            const confirmLayer = document.getElementById('ss-confirm-layer');
+            const confirmTitle = document.getElementById('ss-confirm-title');
+            const confirmMsg = document.getElementById('ss-confirm-message');
+            const confirmOk = document.getElementById('ss-confirm-ok');
+            const confirmCancel = document.getElementById('ss-confirm-cancel');
+            function showConfirm(title, msg, okLabel, cancelLabel){
+              return new Promise(res=>{
+                confirmTitle.textContent = title || '';
+                confirmMsg.textContent = msg || '';
+                confirmOk.textContent = okLabel || 'OK';
+                confirmCancel.textContent = cancelLabel || t('cancel','Cancel');
+                confirmLayer.style.display='block';
+                const cleanup=()=>{ confirmLayer.style.display='none'; confirmOk.onclick=null; confirmCancel.onclick=null; };
+                confirmOk.onclick=()=>{ cleanup(); res(true); };
+                confirmCancel.onclick=()=>{ cleanup(); res(false); };
+                confirmLayer.querySelector('.backdrop').addEventListener('click', ()=>{ cleanup(); res(false); }, { once:true });
+              });
+            }
+            function openScriptStore(){
+              overlay.style.display='flex';
+              // 永遠重新抓 catalog（避免使用者在外部編輯後因 ssLoaded=true 而不更新狀態）
+              fetchCatalog();
+            }
             function closeScriptStore(){ overlay.style.display='none'; }
             window.openScriptStore = openScriptStore;
             document.getElementById('ss-close').onclick = closeScriptStore;
@@ -2054,8 +2186,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             tbody.addEventListener('click', e=>{ 
               const installBtn=e.target.closest('button[data-action="install"]'); 
               const viewBtn=e.target.closest('button[data-action="view"]');
+              const uninstallBtn=e.target.closest('button[data-action="uninstall"]');
               if(installBtn){ installOne(installBtn.dataset.cmd); }
               else if(viewBtn){ showDiff(viewBtn.dataset.cmd); }
+              else if(uninstallBtn){ const cmd=uninstallBtn.dataset.cmd; showConfirm(t('removeConfirm','Remove this script?'), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); }
             });
             bulkBtn.addEventListener('click', bulkInstall);
             searchEl.addEventListener('input', ()=>{ render(); });
