@@ -1,0 +1,98 @@
+[
+  {
+    "command": "sbh.demo.logMinimalPlus",
+    "text": "$(output) Log",
+    "tooltip": "VS Code + Node 快速示範：同時輸出到 Output 與底部日誌",
+    "hidden": true,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "core"
+    ],
+    "script": "// Minimal Log: VS Code + Node (read-only, one-click, dual output)\nconst vscode = require('vscode');\nconst fs = require('fs');\nconst path = require('path');\nconst { vm } = statusBarHelper.v1;\n(function main(){ const ch = vscode.window.createOutputChannel('SBH Minimal Log'); const emit=(...a)=>{ const line=a.join(' '); ch.appendLine(line); console.log(line); }; ch.show(true); emit('▶ Start'); emit('Node: ' + process.version + '  Platform: ' + process.platform + '/' + process.arch); const ws=vscode.workspace.workspaceFolders; const root=ws&&ws.length?ws[0].uri.fsPath:process.cwd(); emit('Workdir: '+root); try { fs.readdirSync(root,{withFileTypes:true}).slice(0,8).forEach(e=>emit((e.isDirectory()?'[D] ':'[F] ')+e.name)); } catch(e){ emit('readdir failed: '+e.message); } const ed=vscode.window.activeTextEditor; if(ed&&ed.document.uri.scheme==='file'){ emit('Active file: '+path.basename(ed.document.uri.fsPath)+' ('+ed.document.languageId+')'); } emit('✔ Done'); vscode.window.showInformationMessage('Log demo finished.'); vm.stop(); })();"
+  },
+  {
+    "command": "sbh.demo.gitAdd",
+    "text": "$(diff-added) Git Add",
+    "tooltip": "快速執行 git add .（第一個工作區）",
+    "hidden": true,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "git"
+    ],
+    "script": "// Git Add: stage all\nconst vscode=require('vscode'); const { exec }=require('child_process'); const { vm }=statusBarHelper.v1; (function main(){ const ws=vscode.workspace.workspaceFolders; if(!ws||!ws.length){ vscode.window.showWarningMessage('沒有 workspace，無法 git add'); vm.stop(); return; } const cwd=ws[0].uri.fsPath; exec('git add .',{ cwd },(err)=>{ if(err){ vscode.window.showErrorMessage('Git add 失敗: '+(err.message||err)); vm.stop(); return; } vscode.window.showInformationMessage('✅ git add . 完成'); vm.stop(); }); })();"
+  },
+  {
+    "command": "sbh.demo.storage",
+    "text": "$(database) Storage",
+    "tooltip": "storage / files API 範例：文字、JSON、位元組、鍵值",
+    "hidden": true,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "storage"
+    ],
+    "script": "// storage + files demo\nconst { Buffer }=require('buffer'); const { storage, files, vm }=statusBarHelper.v1; (async()=>{ const now=()=>new Date().toISOString(); const gPrev=await storage.global.get('demo.keep',{runs:0}); await storage.global.set('demo.keep',{...gPrev,runs:(gPrev.runs||0)+1,ts:now()}); try{ const wPrev=await storage.workspace.get('demo.keep',{runs:0}); await storage.workspace.set('demo.keep',{...wPrev,runs:(wPrev.runs||0)+1,ts:now()}); }catch{} const txt='demo/notes/hello.txt'; const old=(await files.exists('global',txt))?await files.readText('global',txt):''; await files.writeText('global',txt,old+'hi\n'); vm.stop(); })().catch(e=>{ console.error(e); vm.stop(); }); })();"
+  },
+  {
+    "command": "sbh.demo.toggleTheme",
+    "text": "$(color-mode)",
+    "tooltip": "切換亮/暗色主題",
+    "hidden": false,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "ui"
+    ],
+    "script": "const vscode=require('vscode'); const { vm }=statusBarHelper.v1; (async()=>{ try{ await vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes'); }catch(e){ vscode.window.showErrorMessage('切換主題失敗'); } finally { vm.stop(); } })();"
+  },
+  {
+    "command": "sbh.demo.whiteboard",
+    "text": "$(paintcan) Board",
+    "tooltip": "簡易白板 Webview（範例）",
+    "hidden": false,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "ui"
+    ],
+    "script": "// whiteboard minimal placeholder\nconst vscode=require('vscode'); const { vm }=statusBarHelper.v1; (function(){ const p=vscode.window.createWebviewPanel('sbhWhiteboard','Whiteboard',vscode.ViewColumn.Active,{enableScripts:true}); p.webview.html='<h3 style=\"font-family:var(--vscode-font-family);color:var(--vscode-foreground);\">Whiteboard Placeholder</h3>'; vm.onStop(()=>{ try{ p.dispose(); }catch{} }); p.onDidDispose(()=>vm.stop()); })();"
+  },
+  {
+    "command": "sbh.demo.pomodoro",
+    "text": "🍅 Pomodoro",
+    "tooltip": "番茄鐘計時器（狀態列）",
+    "hidden": true,
+    "enableOnInit": true,
+    "tags": [
+      "default",
+      "productivity"
+    ],
+    "script": "// pomodoro simplified\nconst vscode=require('vscode'); const { vm }=statusBarHelper.v1; (function(){ let item=vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right,1000); item.text='🍅 25:00'; item.command=''; item.show(); vm.onStop(()=>{ try{ item.dispose(); }catch{} }); })();"
+  },
+  {
+    "command": "sbh.demo.vmChatA",
+    "text": "$(comment) Chat A",
+    "tooltip": "VM 訊息傳遞示例 (A) — vm.open / sendMessage / onMessage",
+    "hidden": true,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "vm"
+    ],
+    "script": "// chat A minimal\nconst vscode=require('vscode'); const { vm }=statusBarHelper.v1; (function(){ vm.stop(); })();"
+  },
+  {
+    "command": "sbh.demo.vmChatB",
+    "text": "$(comment-discussion) Chat B",
+    "tooltip": "VM 訊息傳遞示例 (B) — vm.open / sendMessage / onMessage",
+    "hidden": true,
+    "enableOnInit": false,
+    "tags": [
+      "default",
+      "vm"
+    ],
+    "script": "// chat B minimal\nconst { vm }=statusBarHelper.v1; (function(){ vm.stop(); })();"
+  }
+]
