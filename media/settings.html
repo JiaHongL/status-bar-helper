@@ -124,11 +124,13 @@
 
     tr.is-hidden .item-label, tr.is-hidden .item-tooltip { opacity:.55; }
 
-  .item-actions{ display:flex; gap:4px; align-items:center; white-space:nowrap; height:28px; }
-  .item-actions .icon-btn{ width:26px; height:26px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--vscode-button-border, transparent); background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); border-radius:5px; cursor:pointer; }
+  .item-actions{ display:flex; gap:4px; align-items:center; white-space:nowrap; height:34px; }
+  .item-actions .td-content-wrapper{ height:34px; }
+  .item-actions .icon-btn{ width:24px; height:24px; min-width:24px; padding:0; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--vscode-button-border, transparent); background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); border-radius:6px; cursor:pointer; font-size:12px; }
   .item-actions .icon-btn:hover{ background:var(--vscode-button-secondaryHoverBackground, var(--vscode-button-secondaryBackground)); }
   .item-actions .icon-btn.delete-item{ background:#cc3333; color:var(--vscode-button-foreground); }
   .item-actions .icon-btn.delete-item:hover{ background:#a32929; }
+  .item-actions .icon-btn .codicon{ font-size:13px; line-height:1; }
   /* Tags */
   .tags-cell{ max-width:180px; }
   .tags{ display:flex; gap:4px; flex-wrap:wrap; }
@@ -179,6 +181,7 @@
   #ss-filters{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   /* Unify input & select heights (user request) */
   #ss-filters input,#ss-filters select{ height:26px; line-height:24px; padding:0 6px; box-sizing:border-box; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border); }
+  #ss-refresh{ margin-left:auto; height:26px; width:26px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
   #ss-table-wrap{ flex:1; overflow:auto; border:1px solid var(--vscode-editorGroup-border); min-height:360px; }
   table#ss-table{ width:100%; border-collapse:collapse; }
   table#ss-table th, table#ss-table td{ padding:6px 8px; border-bottom:1px dotted var(--vscode-editorGroup-border); font-size:12px; vertical-align:middle; }
@@ -187,8 +190,10 @@
   .ss-status-update{ background:var(--vscode-editorWarning-background, #946200); color:var(--vscode-editorWarning-foreground,#fff); }
   .ss-status-installed{ background:var(--vscode-editorInfo-background,#005a9c); color:var(--vscode-editorInfo-foreground,#fff); }
   .ss-status-new{ background:var(--vscode-editorSuccess-background,#2d7); color:var(--vscode-editorSuccess-foreground,#003300); }
-  .ss-actions{ display:flex; flex-wrap:wrap; gap:4px; }
-  .ss-actions button{ height:24px; padding:0 8px; font-size:11px; flex:0 0 auto; }
+  .ss-actions{ display:flex; flex-wrap:wrap; gap:3px; }
+  .ss-actions button{ height:22px; width:22px; padding:0; font-size:11px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; border-radius:4px; }
+  .ss-actions button .codicon{ font-size:12px; }
+  .ss-actions button.has-diff .codicon{ color:var(--vscode-editorWarning-foreground, #ff8c00); }
   #ss-pre-before .ln, #ss-pre-after .ln{ white-space:pre; }
   #ss-footer{ padding:8px 14px; border-top:1px solid var(--vscode-editorGroup-border); display:flex; gap:8px; align-items:center; }
   #ss-footer .spacer{ flex:1; }
@@ -203,18 +208,29 @@
 
     .delete-item { background: #cc3333; color: var(--vscode-button-foreground); }
     .delete-item:hover { background: #a32929; }
+  /* Stored Data icon delete button */
+  .data-table button.data-del{ width:24px; height:24px; min-width:24px; padding:0; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--vscode-button-border,transparent); background:#cc3333; color:var(--vscode-button-foreground); border-radius:6px; cursor:pointer; }
+  .data-table button.data-del:hover{ background:#a32929; }
+  .data-table button.data-del .codicon{ font-size:13px; line-height:1; }
 
     #edit-view{ display:none; flex-grow:1; height:100%; flex-direction:column; }
     .edit-item-container{ display:flex; flex-direction:column; height:100%; }
 
     .controls-row{
-      display:grid;
-      grid-template-columns: minmax(220px, 3fr) minmax(160px, 2fr) minmax(240px, 6fr) auto;
+      display:flex;
       gap:6px; margin-bottom:4px; align-items:center; overflow-x:auto;
+      white-space:nowrap;
     }
-    .field{ display:flex; align-items:center; gap:6px; min-width:0; }
-    .actions{ justify-self:end; display:flex; gap:6px; align-items:center; white-space:nowrap; flex-wrap:nowrap; }
+    .field{ display:flex; align-items:center; gap:6px; min-width:0; flex-shrink:0; }
+    .field:nth-child(1){ min-width:220px; }
+    .field:nth-child(2){ min-width:160px; }
+    .field:nth-child(3){ min-width:240px; flex-grow:1; }
+    .actions{ display:flex; gap:6px; align-items:center; white-space:nowrap; flex-wrap:nowrap; flex-shrink:0; }
     .actions button{ height:var(--ctrl-h); padding:0 10px; }
+    .actions .edit-icon-btn{ width:28px; height:28px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:6px; }
+    .actions .edit-icon-btn .codicon{ font-size:14px; }
+    .actions .edit-icon-btn.secondary{ background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); }
+    .actions .edit-icon-btn.secondary:hover{ background:var(--vscode-button-secondaryHoverBackground); }
 
     .controls-row input, .controls-row select, .icon-trigger{
       height:var(--ctrl-h); box-sizing:border-box; padding:2px 6px;
@@ -226,8 +242,8 @@
 
     button{ background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:1px solid var(--vscode-button-border,transparent); font-size:.9em; cursor:pointer; border-radius:3px; }
     button:hover{ background:var(--vscode-button-hoverBackground); }
-    #cancel-edit-btn,#stop-btn{ background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); }
-    #cancel-edit-btn:hover,#stop-btn:hover{ background:var(--vscode-button-secondaryHoverBackground); }
+    #cancel-edit-btn.edit-icon-btn,#stop-btn.edit-icon-btn{ background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); }
+    #cancel-edit-btn.edit-icon-btn:hover,#stop-btn.edit-icon-btn:hover{ background:var(--vscode-button-secondaryHoverBackground); }
 
     /* --- editor/output base --- */
     .editor-container{ flex-grow:1; border:1px solid var(--vscode-input-border); width:100%; margin-top:6px; min-height:240px; }
@@ -395,7 +411,7 @@
   #ss-table td:nth-child(2){ width:155px; max-width:155px; }
   #ss-table td:nth-child(3){ width:300px; max-width:300px; }
   #ss-table td:nth-child(5){ width:60px; }
-  #ss-table td:nth-child(6){ width:110px; }
+  #ss-table td:nth-child(6){ width:50px; }
   </style>
     </head>
     <body>
@@ -423,6 +439,13 @@
                     </div>
                     <div class="actions">
                         <button
+                          id="script-store-btn"
+                          type="button"
+                          title="Open Script Store"
+                        >
+                          Script Store
+                        </button>
+                        <button
                             id="import-btn"
                             type="button"
                         >
@@ -434,13 +457,6 @@
                         >
                             Export
                         </button>
-                        <button
-              id="script-store-btn"
-              type="button"
-              title="Open Script Store"
-            >
-              Script Store
-            </button>
                         <button
                             id="add-new-item-btn"
                             type="button"
@@ -685,7 +701,7 @@
       const header = document.querySelector('#ss-header h3'); if (header) header.textContent = t('scriptStore','Script Store');
   const search = document.getElementById('ss-search'); if (search) search.placeholder = t('filterScripts','Filter scripts…');
   const tagFilter = document.getElementById('ss-tag-filter'); if (tagFilter) tagFilter.placeholder = t('tagFilterSingle','Tag filter (single)');
-      const refreshBtn = document.getElementById('ss-refresh'); if (refreshBtn) refreshBtn.textContent = t('refresh','Refresh');
+      const refreshBtn = document.getElementById('ss-refresh'); if (refreshBtn) { refreshBtn.title = t('refresh','Refresh'); refreshBtn.setAttribute('aria-label', t('refresh','Refresh')); }
       const bulkBtnEl = document.getElementById('ss-bulk-install'); if (bulkBtnEl) bulkBtnEl.textContent = t('installSelected','Install Selected');
       const setText=(id,key,fb)=>{ const el=document.getElementById(id); if(el) el.textContent=t(key,fb); };
       setText('ss-col-label','label','Label');
@@ -693,6 +709,20 @@
       setText('ss-col-tags','tags','Tags');
       setText('ss-col-status','status','Status');
       setText('ss-col-actions','actions','Actions');
+      // Import/Export dialog localization
+      setText('preview-title','preview','Preview');
+      setText('import-options-title','importOptions','Import Options');
+      setText('merge-strategy-title','mergeStrategy','Merge Strategy');
+      setText('merge-replace-label','mergeReplace','Replace');
+      setText('merge-append-label','mergeAppend','Append');
+      setText('conflict-policy-title','conflictPolicy','Conflict Policy');
+      setText('conflict-skip-label','conflictSkip','Skip');
+      setText('conflict-newid-label','conflictNewId','New ID');
+      setText('select-all-preview','selectAll','Select All');
+      setText('deselect-all-preview','deselectAll','Deselect All');
+      setText('preview-th-text','text','Text');
+      setText('preview-th-command','command','Command');
+      setText('preview-th-tooltip','tooltip','Tooltip');
       const empty=document.getElementById('ss-empty'); if(empty) empty.textContent=t('scriptStoreNoEntries','No entries');
   const statusSel=document.getElementById('ss-status-filter'); if(statusSel && statusSel.options && statusSel.options.length>=4){
         statusSel.options[0].textContent=t('filterAll','All');
@@ -1154,7 +1184,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           <td class="type-cell"><span class="type-badge"><i class="codicon codicon-${typeIcon(r)}"></i></span><span>${r.kind==='kv'?`${r.scope} storage`:`${r.scope} ${r.ext}`}</span></td>
           <td class="mono">${r.keyPath}</td>
           <td>${formatBytes(r.size)}</td>
-          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}">${t('delete', 'Delete')}</button></td>
+          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}" title="${t('delete','Delete')}" aria-label="${t('delete','Delete')}"><i class="codicon codicon-trash"></i></button></td>
         `;
         tbody.appendChild(tr);
       });
@@ -1169,12 +1199,12 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
       let initIcon = m ? m[1] : '';
       let initLabel = m ? m[2] : item.text;
-  const original = { icon: initIcon, label: initLabel, tooltip: item.tooltip || '', script: item.script || '', tags: Array.isArray(item.tags)? item.tags.slice():[] };
+  const original = { icon: initIcon, label: initLabel, tooltip: item.tooltip || '', script: item.script || '' };
 
       let editing = getEditing();
       if (!editing || editing.command !== item.command || !editing.pristine) {
-        // Canonical pristine (sorted tags)
-        const origCanon = { ...original, tags: (original.tags||[]).slice().sort() };
+        // Canonical pristine
+        const origCanon = { ...original };
         editing = { command: item.command, pristine: JSON.stringify(origCanon) };
         writeEditing(editing);
       }
@@ -1187,7 +1217,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         if (curDraft.script != null) item.script = curDraft.script;
       }
 
-  const tagsValue = Array.isArray(item.tags) ? item.tags.join(', ') : '';
   editView.innerHTML = `
         <div class="edit-item-container">
           <div class="controls-row">
@@ -1198,12 +1227,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             </div>
             <div class="field label-field"><label for="edit-label">Label</label><input type="text" id="edit-label"></div>
             <div class="field tooltip-field"><label for="edit-tooltip">Tooltip</label><input type="text" id="edit-tooltip"></div>
-    <div class="field tags-field"><label for="edit-tags">Tags</label><input type="text" id="edit-tags" placeholder="comma or space separated"></div>
             <div class="actions">
-              <button type="button" id="run-btn" title="Smart Run (auto-detect)">${t('run', 'Run')}</button>
-              <button type="button" id="stop-btn">${t('stop', 'Stop')}</button>
-              <button type="button" id="save-item-btn">${t('save', 'Save')}</button>
-              <button type="button" id="cancel-edit-btn">${t('cancel', 'Cancel')}</button>
+              <button type="button" id="run-btn" class="edit-icon-btn" title="Smart Run (auto-detect)" aria-label="${t('run', 'Run')}"><i class="codicon codicon-play"></i></button>
+              <button type="button" id="stop-btn" class="edit-icon-btn" title="${t('stop', 'Stop')}" aria-label="${t('stop', 'Stop')}"><i class="codicon codicon-debug-stop"></i></button>
+              <button type="button" id="save-item-btn" class="edit-icon-btn" title="${t('save', 'Save')}" aria-label="${t('save', 'Save')}"><i class="codicon codicon-save"></i></button>
+              <button type="button" id="cancel-edit-btn" class="edit-icon-btn" title="${t('cancel', 'Cancel')}" aria-label="${t('cancel', 'Cancel')}"><i class="codicon codicon-close"></i></button>
             </div>
           </div>
 
@@ -1223,7 +1251,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
       document.getElementById('edit-label').value = initLabel;
       document.getElementById('edit-tooltip').value = item.tooltip || '';
-  document.getElementById('edit-tags').value = tagsValue;
       setupMonaco(item);
 
       /* --- Editor/Output resizer & collapse-aware layout --- */
@@ -1322,7 +1349,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       // Edit inputs
       document.getElementById('edit-label').addEventListener('input', e => { saveDraft({ command: item.command, label: e.target.value }); });
       document.getElementById('edit-tooltip').addEventListener('input', e => { saveDraft({ command: item.command, tooltip: e.target.value }); });
-  document.getElementById('edit-tags').addEventListener('input', e => { saveDraft({ command: item.command, tags: e.target.value }); });
 
       // Output collapse toggle
       document.getElementById('output-toggle').onclick = () => {
@@ -1350,10 +1376,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         if (btn.id === 'save-item-btn') {
           const lbl = document.getElementById('edit-label').value.trim();
           let txt = lbl; if(selectedIcon) txt = `\$(${selectedIcon}) ${lbl}`;
-          const rawTags = document.getElementById('edit-tags').value.trim();
-          const parsedTags = rawTags ? rawTags.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean) : [];
-          const dedupedTags = Array.from(new Set(parsedTags)).slice(0,12);
-          const upd = { ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue(), tags: dedupedTags };
+          const upd = { ...item, text:txt, tooltip:document.getElementById('edit-tooltip').value, script: currentEditor.getValue() };
           if(isNew) items.push(upd); else items[index]=upd;
           saveAndPostSettings();
           clearDraftIfMatch(item.command);
@@ -1363,15 +1386,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         else if (btn.id === 'cancel-edit-btn') {
           const hasUnsaved = () => {
             const ed = getEditing();
-            const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify({ ...original, tags:(original.tags||[]).slice().sort() });
+            const pristineJson = (ed && ed.command === item.command && ed.pristine) ? ed.pristine : JSON.stringify({ ...original });
             let pristineObj; try { pristineObj = JSON.parse(pristineJson); } catch { pristineObj = original; }
             const lbl = document.getElementById('edit-label').value.trim();
             const tooltipVal = document.getElementById('edit-tooltip').value;
             const scriptVal = currentEditor ? currentEditor.getValue() : (item.script || '');
-            const rawTags = document.getElementById('edit-tags').value.trim();
-            const parsedTags = rawTags ? Array.from(new Set(rawTags.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean))).slice(0,12).sort() : [];
-            const currentCanon = { icon: selectedIcon||'', label: lbl, tooltip: tooltipVal, script: scriptVal, tags: parsedTags };
-            return JSON.stringify(currentCanon) !== JSON.stringify({ icon: pristineObj.icon||'', label: pristineObj.label||'', tooltip: pristineObj.tooltip||'', script: pristineObj.script||'', tags: (pristineObj.tags||[]).slice().sort() });
+            const currentCanon = { icon: selectedIcon||'', label: lbl, tooltip: tooltipVal, script: scriptVal };
+            return JSON.stringify(currentCanon) !== JSON.stringify({ icon: pristineObj.icon||'', label: pristineObj.label||'', tooltip: pristineObj.tooltip||'', script: pristineObj.script||'' });
           };
           const discardAndBack = () => { clearDraftIfMatch(item.command); clearEditing(); showListView(); };
           if (hasUnsaved()) { 
@@ -1647,13 +1668,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
     itemsToShow.forEach((item, index) => {
             const row = document.createElement('tr');
-      const tags = Array.isArray(item.tags) ? item.tags.join(', ') : '';
       row.innerHTML = `
         <td><input type="checkbox" data-index="${index}" checked></td>
         <td>${escapeHtml(item.text || '')}</td>
         <td><code>${escapeHtml(item.command || '')}</code></td>
         <td>${escapeHtml(item.tooltip || '')}</td>
-        <td>${escapeHtml(tags)}</td>
       `;
             tbody.appendChild(row);
         });
@@ -1874,7 +1893,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                   <option value="installed">Installed</option>
                 </select>
                 <input type="text" id="ss-tag-filter" placeholder="Tag filter (single)" />
-                <button id="ss-refresh" type="button">Refresh</button>
+                <button id="ss-refresh" type="button" title="Refresh" aria-label="Refresh"><i class="codicon codicon-refresh"></i></button>
               </div>
               <div id="ss-main">
                 <div id="ss-left">
@@ -1883,11 +1902,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                       <thead>
                         <tr>
                           <th style="width:26px;"></th>
-                          <th id="ss-col-label" style="width:155px;">Label</th>
-                          <th id="ss-col-tooltip" style="width:300px;">Tooltip</th>
+                          <th id="ss-col-label" style="width:160px;">Label</th>
+                          <th id="ss-col-tooltip" style="width:auto">Tooltip</th>
                           <th id="ss-col-tags" style="width:140px;">Tags</th>
                           <th id="ss-col-status" style="width:60px;">Status</th>
-                          <th id="ss-col-actions" style="width:110px;">Actions</th>
+                          <th id="ss-col-actions" style="width:50px;">Actions</th>
                         </tr>
                       </thead>
                       <tbody id="ss-tbody"></tbody>
@@ -2024,10 +2043,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               list.forEach((e,i)=>{
                 const tr=document.createElement('tr');
                 const actionBtns = (()=>{
-                  const viewBtn = `<button data-action=\"view\" data-cmd=\"${e.command}\">${t('view','View')}</button>`;
-                  if (e.status==='new') return viewBtn + `<button data-action=\"install\" data-kind=\"install\" data-cmd=\"${e.command}\" ${ssInstalling?'disabled':''}>${t('install','Install')}</button>`;
-                  if (e.status==='update') return viewBtn + `<button data-action=\"install\" data-kind=\"update\" data-cmd=\"${e.command}\" ${ssInstalling?'disabled':''}>${t('update','Update')}</button>`;
-                  return viewBtn + `<button data-action=\"uninstall\" data-cmd=\"${e.command}\">${t('removeScriptStore','Remove')}</button>`;
+                  const hasDiff = e.status === 'update';
+                  const viewBtn = `<button data-action=\"view\" data-cmd=\"${e.command}\" title=\"${t('view','View')}\" aria-label=\"${t('view','View')}\" class=\"${hasDiff ? 'has-diff' : ''}\"><i class=\"codicon codicon-eye\"></i></button>`;
+                  if (e.status==='new') return viewBtn + `<button data-action=\"install\" data-kind=\"install\" data-cmd=\"${e.command}\" title=\"${t('install','Install')}\" aria-label=\"${t('install','Install')}\" ${ssInstalling?'disabled':''}><i class=\"codicon codicon-cloud-download\"></i></button>`;
+                  if (e.status==='update') return viewBtn + `<button data-action=\"update\" data-kind=\"update\" data-cmd=\"${e.command}\" title=\"${t('update','Update')}\" aria-label=\"${t('update','Update')}\" ${ssInstalling?'disabled':''}><i class=\"codicon codicon-sync\"></i></button>`;
+                  return viewBtn + `<button data-action=\"uninstall\" data-cmd=\"${e.command}\" title=\"${t('removeScriptStore','Remove')}\" aria-label=\"${t('removeScriptStore','Remove')}\"><i class=\"codicon codicon-trash\"></i></button>`;
                 })();
                 tr.innerHTML=`<td><input type="checkbox" class="ss-sel" data-cmd="${e.command}" ${e.status==='installed'?'':'checked'}></td>
                   <td title="${escapeHtml(e.text)}">${escapeHtml(e.text)}</td>
@@ -2257,9 +2277,16 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             tbody.addEventListener('change', e=>{ if(e.target.classList.contains('ss-sel')) syncBulkButton(); });
             tbody.addEventListener('click', e=>{ 
               const installBtn=e.target.closest('button[data-action="install"]'); 
+              const updateBtn=e.target.closest('button[data-action="update"]');
               const viewBtn=e.target.closest('button[data-action="view"]');
               const uninstallBtn=e.target.closest('button[data-action="uninstall"]');
               if(installBtn){ installOne(installBtn.dataset.cmd); }
+              else if(updateBtn){ 
+                const cmd = updateBtn.dataset.cmd;
+                showDiff(cmd).then(() => {
+                  showConfirm(t('updateConfirm','Update this script? You can view the differences above.'), '', t('update','Update'), t('cancel','Cancel')).then(ok=>{ if(ok) installOne(cmd); });
+                });
+              }
               else if(viewBtn){ showDiff(viewBtn.dataset.cmd); }
               else if(uninstallBtn){ const cmd=uninstallBtn.dataset.cmd; showConfirm(t('removeConfirm','Remove this script?'), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); }
             });
@@ -2282,7 +2309,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         <div class="preview-body">
           <div id="import-options-section" class="import-options hidden">
             <div class="options-header">
-              <span class="options-title">匯入選項</span>
+              <span class="options-title" id="import-options-title">匯入選項</span>
               <div class="options-actions">
                 <span id="import-options-summary" class="summary hidden"></span>
                 <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
@@ -2291,18 +2318,18 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             <div id="import-options-body" class="options-body">
               <div class="grid-two">
                 <div class="group">
-                  <div class="group-title">合併策略</div>
-                  <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong>Replace（取代）</strong></label>
-                  <div class="radio-desc" data-for="mergeReplace">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
-                  <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong>Append（新增）</strong></label>
-                  <div class="radio-desc" data-for="mergeAppend">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
+                  <div class="group-title" id="merge-strategy-title">合併策略</div>
+                  <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong id="merge-replace-label">Replace（取代）</strong></label>
+                  <div class="radio-desc" data-for="mergeReplace" id="merge-replace-desc">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
+                  <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong id="merge-append-label">Append（新增）</strong></label>
+                  <div class="radio-desc" data-for="mergeAppend" id="merge-append-desc">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
                 </div>
                 <div id="conflict-policy-wrapper" class="group hidden">
-                  <div class="group-title">衝突處理</div>
-                  <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong>Skip（略過）</strong></label>
-                  <div class="radio-desc" data-for="conflictSkip">忽略重複 command。</div>
-                  <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong>newId（重新命名）</strong></label>
-                  <div class="radio-desc" data-for="conflictNewId">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
+                  <div class="group-title" id="conflict-policy-title">衝突處理</div>
+                  <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong id="conflict-skip-label">Skip（略過）</strong></label>
+                  <div class="radio-desc" data-for="conflictSkip" id="conflict-skip-desc">忽略重複 command。</div>
+                  <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong id="conflict-newid-label">newId（重新命名）</strong></label>
+                  <div class="radio-desc" data-for="conflictNewId" id="conflict-newid-desc">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
                 </div>
               </div>
             </div>
@@ -2317,10 +2344,9 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                             <thead>
                 <tr>
                   <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
-                  <th>Text</th>
-                  <th>Command</th>
-                  <th>Tooltip</th>
-                  <th>Tags</th>
+                  <th id="preview-th-text">Text</th>
+                  <th id="preview-th-command">Command</th>
+                  <th id="preview-th-tooltip">Tooltip</th>
                 </tr>
                             </thead>
                             <tbody id="preview-tbody"></tbody>
