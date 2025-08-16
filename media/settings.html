@@ -142,6 +142,15 @@
   #ss-right{ flex:1 1 45%; display:flex; flex-direction:column; min-height:0; border:1px solid var(--vscode-editorGroup-border); border-radius:6px; overflow:hidden; }
   #ss-diff-header{ padding:6px 10px; background:var(--vscode-sideBar-background); display:flex; gap:8px; align-items:center; justify-content:space-between; }
   #ss-dw-close{ margin-left:auto; }
+  /* Inline script diff styles */
+  .script-diff .split-pre{ display:flex; gap:10px; }
+  .script-diff .split-pre pre{ flex:1; font-size:11px; line-height:1.35; background:var(--vscode-editor-background); border:1px solid var(--vscode-editorGroup-border); padding:6px 8px; overflow:auto; }
+  .script-diff .ln{ white-space:pre-wrap; word-break:break-word; }
+  .script-diff .ln.added-line{ background:rgba(0,160,0,.10); }
+  .script-diff .ln.removed-line{ background:rgba(200,0,0,.10); }
+  .script-diff .ln.changed-line{ background:rgba(255,200,0,.10); }
+  .script-diff .diff-del{ background:rgba(200,0,0,.25); text-decoration:line-through; }
+  .script-diff .diff-add{ background:rgba(0,160,0,.25); }
   #ss-diff-header h4{ margin:0; font-size:12px; font-weight:600; }
   #ss-diff-close{ margin-left:auto; background:transparent; border:1px solid transparent; cursor:pointer; }
   #ss-diff-body{ flex:1; overflow:auto; font-size:11px; line-height:1.35; padding:8px 10px; font-family:var(--vscode-editor-font-family,monospace); }
@@ -2084,6 +2093,59 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 else { rows.push({type:'added', before:'', after:bv}); }
               }} return rows;
             }
+            // LCS-based inline diff (character-level) with fallback to simple prefix/suffix when lines are huge
+            function inlineDiff(a,b){
+              if(a===b) return { a:escapeHtml(a||''), b:escapeHtml(b||'') };
+              a=a||''; b=b||'';
+              const maxProduct = 40000; // safeguard (e.g. 200x200 chars) to avoid heavy O(n*m) cost
+              const ax=[...a], bx=[...b]; // spread handles surrogate pairs
+              if(ax.length * bx.length > maxProduct){
+                // fallback: prefix/suffix (previous behavior)
+                let start=0; while(start<ax.length && start<bx.length && ax[start]===bx[start]) start++;
+                let endA=ax.length-1, endB=bx.length-1; while(endA>=start && endB>=start && ax[endA]===bx[endB]){ endA--; endB--; }
+                const prefix=escapeHtml(ax.slice(0,start).join(''));
+                const suffix=escapeHtml(ax.slice(endA+1).join('')); // same for b
+                const delSeg=escapeHtml(ax.slice(start,endA+1).join(''));
+                const addSeg=escapeHtml(bx.slice(start,endB+1).join(''));
+                return {
+                  a: prefix + (delSeg?`<span class="diff-del">${delSeg}</span>`:'') + suffix,
+                  b: escapeHtml(bx.slice(0,start).join('')) + (addSeg?`<span class="diff-add">${addSeg}</span>`:'') + escapeHtml(bx.slice(endB+1).join(''))
+                };
+              }
+              // Build LCS matrix
+              const n=ax.length, m=bx.length;
+              const dp = Array(n+1);
+              for(let i=0;i<=n;i++){ dp[i]=new Uint16Array(m+1); }
+              for(let i=1;i<=n;i++){
+                const ai=ax[i-1];
+                const row=dp[i], prev=dp[i-1];
+                for(let j=1;j<=m;j++){
+                  if(ai===bx[j-1]) row[j]=prev[j-1]+1; else row[j]= row[j-1] > prev[j] ? row[j-1] : prev[j];
+                }
+              }
+              // Reconstruct operations
+              let i=n, j=m; const ops = [];
+              while(i>0 || j>0){
+                if(i>0 && j>0 && ax[i-1]===bx[j-1]){ ops.push({t:'eq', c:ax[i-1]}); i--; j--; }
+                else if(j>0 && (i===0 || dp[i][j-1] >= dp[i-1][j])){ ops.push({t:'add', c:bx[j-1]}); j--; }
+                else { ops.push({t:'del', c:ax[i-1]}); i--; }
+              }
+              ops.reverse();
+              // Collapse consecutive ops of same type
+              const collapsed = [];
+              for(const o of ops){
+                const last = collapsed[collapsed.length-1];
+                if(last && last.t===o.t){ last.c += o.c; } else collapsed.push({ t:o.t, c:o.c });
+              }
+              let outA='', outB='';
+              for(const seg of collapsed){
+                const esc = escapeHtml(seg.c);
+                if(seg.t==='eq'){ outA += esc; outB += esc; }
+                else if(seg.t==='del'){ outA += `<span class="diff-del">${esc}</span>`; }
+                else if(seg.t==='add'){ outB += `<span class="diff-add">${esc}</span>`; }
+              }
+              return { a: outA, b: outB };
+            }
             function renderScriptDiff(before, after){
               before = before||''; after = after||'';
               const linesBefore = before.split(/\r?\n/).length;
@@ -2092,10 +2154,16 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               const diffRows = simpleLineDiff(before, after).slice(0, collapse?400:undefined);
               const preL = diffRows.map(r=>{
                 let cls=''; if(r.type==='changed') cls='changed-line'; else if(r.type==='removed') cls='removed-line';
-                return `<div class="ln">${escapeHtml(r.before||'')}</div>`; }).join('\n');
+                let content='';
+                if(r.type==='changed'){ const parts=inlineDiff(r.before||'', r.after||''); content=parts.a; }
+                else content=escapeHtml(r.before||'');
+                return `<div class="ln ${cls}">${content||''}</div>`; }).join('\n');
               const preR = diffRows.map(r=>{
                 let cls=''; if(r.type==='changed') cls='changed-line'; else if(r.type==='added') cls='added-line';
-                return `<div class="ln">${escapeHtml(r.after||'')}</div>`; }).join('\n');
+                let content='';
+                if(r.type==='changed'){ const parts=inlineDiff(r.before||'', r.after||''); content=parts.b; }
+                else content=escapeHtml(r.after||'');
+                return `<div class="ln ${cls}">${content||''}</div>`; }).join('\n');
               return `<div class="script-diff ${collapse?'collapsed':''}">
                 <div class="script-diff-header">Script Diff (${linesBefore} → ${linesAfter} lines)${collapse?'<span style="margin-left:auto;">(collapsed)</span>':''}
                   ${collapse?'<button type="button" data-action="expand-script">Expand</button>':''}
