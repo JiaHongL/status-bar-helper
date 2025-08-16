@@ -80,6 +80,7 @@
   /* Compact mode (narrow width) */
   body.compact .list-title > span { display:none; }
   body.compact .item-tooltip { display:none; }
+  body.compact .ss-share-text { display:none; }
   body.compact .list-title { gap:6px; }
   body.compact tr.item-row { height:30px; }
 
@@ -197,6 +198,9 @@
   #ss-pre-before .ln, #ss-pre-after .ln{ white-space:pre; }
   #ss-footer{ padding:8px 14px; border-top:1px solid var(--vscode-editorGroup-border); display:flex; gap:8px; align-items:center; }
   #ss-footer .spacer{ flex:1; }
+  .ss-share-link{ color:var(--vscode-textLink-foreground); text-decoration:none; font-size:12px; display:flex; align-items:center; gap:4px; }
+  .ss-share-link:hover{ text-decoration:underline; }
+  .ss-share-link .codicon{ font-size:12px; }
   #ss-empty{ text-align:center; padding:40px 0; opacity:.6; }
   .ss-tag-badge{ background:var(--vscode-editorGroup-border); padding:2px 5px; border-radius:6px; margin:0 4px 4px 0; font-size:10px; display:inline-block; }
   #ss-error{ color:var(--vscode-errorForeground); font-size:12px; }
@@ -703,6 +707,11 @@
   const tagFilter = document.getElementById('ss-tag-filter'); if (tagFilter) tagFilter.placeholder = t('tagFilterSingle','Tag filter (single)');
       const refreshBtn = document.getElementById('ss-refresh'); if (refreshBtn) { refreshBtn.title = t('refresh','Refresh'); refreshBtn.setAttribute('aria-label', t('refresh','Refresh')); }
       const bulkBtnEl = document.getElementById('ss-bulk-install'); if (bulkBtnEl) bulkBtnEl.textContent = t('installSelected','Install Selected');
+      const shareLink = document.getElementById('ss-share-link'); 
+      if (shareLink) {
+        const shareText = shareLink.querySelector('.ss-share-text');
+        if (shareText) shareText.textContent = t('shareYourScript','Share your script');
+      }
       const setText=(id,key,fb)=>{ const el=document.getElementById(id); if(el) el.textContent=t(key,fb); };
       setText('ss-col-label','label','Label');
       setText('ss-col-tooltip','tooltip','Tooltip');
@@ -1918,6 +1927,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             </div>
             <div id="ss-footer">
               <div id="ss-error"></div>
+              <a id="ss-share-link" href="#" class="ss-share-link">
+                <span class="codicon codicon-github"></span>
+                <span class="ss-share-text">Share your script</span>
+              </a>
               <div class="spacer"></div>
               <button id="ss-bulk-install" type="button" disabled>Install Selected</button>
             </div>
@@ -2295,6 +2308,17 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             statusEl.addEventListener('change', ()=>{ render(); });
             tagEl.addEventListener('input', ()=>{ render(); });
             document.getElementById('ss-refresh').addEventListener('click', ()=>fetchCatalog());
+            
+            // Share script link handler
+            const shareLink = document.getElementById('ss-share-link');
+            if (shareLink) {
+              shareLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                const shareUrl = 'https://github.com/joe-re/status-bar-helper/issues/new?assignees=&labels=script-share&projects=&template=script-share.md&title=%5BScript+Share%5D+';
+                window.open(shareUrl, '_blank');
+              });
+            }
+            
             // expose open function used by main button
           })();
         </script>

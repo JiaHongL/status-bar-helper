@@ -112,5 +112,6 @@
   "label": "Label",
   "updateConfirm": "Update script? You can view the differences above.",
   "preview": "Preview",
-  "importOptions": "Import Options"
+  "importOptions": "Import Options",
+  "shareYourScript": "Share your script"
 }

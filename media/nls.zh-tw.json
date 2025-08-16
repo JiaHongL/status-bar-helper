@@ -112,5 +112,6 @@
   "label": "標籤",
   "updateConfirm": "更新腳本？您可以在上方查看差異。",
   "preview": "預覽",
-  "importOptions": "匯入選項"
+  "importOptions": "匯入選項",
+  "shareYourScript": "分享你的腳本"
 }
