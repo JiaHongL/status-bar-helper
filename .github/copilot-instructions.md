@@ -14,6 +14,11 @@ Update Triggers (若發生務必同步本檔):
 6. Webview UI 斷點 (<1100 / <860) 或同步指示器顯示策略調整
 7. Import/Export 格式（策略、欄位、合併規則）變更
 8. 新增/移除本檔引用的關鍵 NLS key / typedef 注入流程
+9. 🔧 架構變更時須同步更新核心檔案的架構圖註解：
+   - extension.ts (系統層級架構)
+   - SettingsPanel.ts (Webview管理層架構) 
+   - settings.html (UI頁面層架構)
+   確保組件關係、數據流向、頁面結構的準確性與一致性
 Instruction Change Log:
 2025-08-16: Sync with UI icon conversion & edit view tags removal. Updated responsive design and UI interaction patterns.
 -->
@@ -112,6 +117,9 @@ Instruction Change Log:
 9. **Diff 視窗 UX 重新設計**：底部按鈕佈局（取消/更新），消除同時跳出視窗的困擾，提供類似標準確認對話框的體驗。
 10. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
 11. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
+12. **NEW 徽章指示器**：Script Store 按鈕顯示新腳本數量的動態徽章，提供視覺化的更新提示。
+13. **安裝確認對話框**：批次安裝前顯示詳細清單確認，支援多語系。
+14. **現代化色彩系統**：漸層背景與主題適配的狀態徽章，提升視覺層次感與一致性。
 
 ### 待辦（Phase 2）
 1. ETag / If-None-Match → 精準網路快取（減少 5 分鐘 TTL 期間的重複資料）。

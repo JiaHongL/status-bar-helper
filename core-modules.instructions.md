@@ -102,6 +102,9 @@ UI 規則：
 - **Icon Button Specifications**: All action buttons use VS Code Codicons with consistent sizing (24x24px for list view, 28x28px for edit page, 22x22px for Script Store).
 - **Edit Page Simplification**: Edit interface maintains only four core fields: Icon, Label, Tooltip, Script (tags editing removed).
 - **Diff Window UX**: Bottom button layout (Cancel/Update) replaces header buttons, providing standard confirmation dialog experience.
+- **Script Store NEW Badge**: Dynamic badge on Script Store button shows count of new scripts with auto-loading on panel init.
+- **Installation Confirmation**: Batch install displays detailed item confirmation dialog with multilingual support.
+- **Modern Color System**: Gradient backgrounds and theme-adaptive status badges for enhanced visual hierarchy.
 - **Status Sorting**: Script Store entries sorted by priority: New > Update > Installed.
 - **Accessibility**: All icon buttons include complete `title` and `aria-label` attributes.
 - **Internationalization**: All UI text uses `t()` function with corresponding nls file entries.

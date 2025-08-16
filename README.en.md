@@ -12,7 +12,7 @@ A VS Code extension that allows you to add custom buttons to the status bar. You
 - **Data Access API**: Access Storage and File system through extension API for convenient data management.
 - **Independent VM Execution**: Each script runs in an independent Node.js VM environment without interference, using only native Node modules.
 - **Security & Isolation**: Scripts execute in a controlled environment, avoiding impact on VS Code stability and security.
-- **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, and detect updates via hash signature.
+- **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, detect updates via hash signature, NEW badge indicator showing available script counts, and modern UI with confirmation dialogs.
 - **Intuitive Icon Interface**: All action buttons use consistent VS Code Codicons for a clean and user-friendly experience.
 
 ## 📖 Usage Guide
@@ -65,11 +65,14 @@ Features:
 
 - Remote-first with GitHub raw fetch (3s timeout / 256KB limit) → fallback to packaged JSON
 - Locale resolution via `vscode.env.language` (only `zh-tw` / `zh-hant` → Traditional Chinese; others → English)
+- **NEW Badge Indicator**: Script Store button displays count of new scripts with visual update hints
 - Status badges: NEW / INSTALLED / UPDATE (hash of script + text + tooltip + tags)
 - **Status Priority Sorting**: New > Update > Installed order
 - Per-item or bulk install (bulk is atomic: any failure rolls back all)
+- **Batch Install Confirmation**: Displays detailed item list confirmation before installation
 - **Improved Diff UX**: Bottom button layout (Cancel/Update), eliminating confusing simultaneous dialogs
 - **Icon-based Actions**: View/Install/Update/Remove with intuitive icon design
+- **Modern Color System**: Gradient backgrounds and theme-adaptive status badges
 - Safety filters: reject scripts containing `eval(`, `new Function`, or excessive `process.env` access
 - 5‑minute in-memory catalog cache (future: ETag planned)
 

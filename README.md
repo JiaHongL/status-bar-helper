@@ -108,11 +108,14 @@ Status Bar Helper 支援完整的資料匯入匯出功能，讓你輕鬆備份�
 
 - 遠端優先（GitHub raw，3 秒 timeout / 256KB 上限）→ 失敗 fallback 本地檔
 - 語系判斷：`vscode.env.language`（僅 zh-tw / zh-hant 走繁體，其餘英文）
+- **NEW 徽章指示器**：Script Store 按鈕顯示新腳本數量，提供視覺化更新提示
 - 狀態徽章：NEW / INSTALLED / UPDATE（script + text + tooltip + tags hash）
 - **狀態排序**：新增 > 可更新 > 已安裝 的優先順序
 - 單項 / 批次安裝（批次為原子：任一失敗即回滾）
+- **批次安裝確認**：安裝前顯示詳細清單確認，支援多語系
 - **Diff 檢視 UX 改進**：底部按鈕佈局（取消/更新），消除同時跳出視窗問題
 - **圖示化操作**：View/Install/Update/Remove 採用直觀圖示設計
+- **現代化色彩系統**：漸層背景與主題適配的狀態徽章
 - 安全快篩：拒絕含 `eval(`、`new Function`、大量 `process.env` 取用的腳本
 - 5 分鐘記憶體快取（後續規劃 ETag）
 

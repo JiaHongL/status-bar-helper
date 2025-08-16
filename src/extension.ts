@@ -1,3 +1,38 @@
+/**
+ * Status Bar Helper - Core Extension Module
+ * 
+ * Architecture Overview:
+ * ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+ * │   VS Code UI        │    │   Settings Panel    │    │   Background VM     │
+ * │   (Status Bar)      │◄──►│   (Webview)         │◄──►│   (Script Runner)   │
+ * └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
+ *            ▲                          ▲                          ▲
+ *            │                          │                          │
+ *            └──────────────────────────┼──────────────────────────┘
+ *                                       │
+ *                          ┌─────────────────────┐
+ *                          │   Global State      │
+ *                          │   Manager           │
+ *                          └─────────────────────┘
+ * 
+ * Key Responsibilities:
+ * - Status bar item lifecycle management
+ * - VM sandbox creation and script execution
+ * - Cross-device synchronization with adaptive polling
+ * - Bridge API for secure host-VM communication
+ * - Settings panel and webview management
+ * 
+ * State Management:
+ * - GLOBAL_MANIFEST_KEY: Status bar item display settings
+ * - GLOBAL_ITEMS_KEY: Command → script mapping
+ * - _lastSyncApplied: Last successful sync timestamp for UI indicators
+ * 
+ * Security Model:
+ * - Scripts run in isolated VM context with limited Node.js modules
+ * - All file I/O goes through bridge API with path validation
+ * - Size limits enforced: 2MB/key, 200MB total, 10MB JSON/text, 50MB binary
+ */
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,16 +59,46 @@ import {
   GLOBAL_ITEMS_KEY
 } from './globalStateManager';
 
+// ============================================================================
+// Global State - VM Management & Status Bar Runtime
+// ============================================================================
+
+/** Commands that have executed their "run once on startup" logic */
 let _runOnceExecutedCommands: Set<string> = new Set();
+
+/** Current items signature hash for change detection across devices */
 let _itemsSignature = '';
+
+/** Background polling timer for cross-device sync */
 let _pollTimer: NodeJS.Timeout | null = null;
-// 自適應輪詢狀態
-let _pollStableCount = 0;         // 連續未變更次數
-let _pollCurrentInterval = 20000; // 目前使用的間隔（ms）
-let _lastSyncApplied: number | null = null; // 最近一次偵測到遠端同步變更並套用的時間戳 (ms)
-// 進階自適應階梯：20s → 45s → 90s → 180s (3m) → 300s (5m) → 600s (10m)
+
+// ============================================================================
+// Adaptive Polling System - Cross-Device Sync
+// ============================================================================
+
+/** 連續未變更次數 - 用於自適應調整輪詢間隔 */
+let _pollStableCount = 0;
+
+/** 目前使用的輪詢間隔（毫秒） */
+let _pollCurrentInterval = 20000;
+
+/** 最近一次偵測到遠端同步變更並套用的時間戳 (ms) - 用於 UI "Last sync" 指示器 */
+let _lastSyncApplied: number | null = null;
+
+/**
+ * 進階自適應階梯：20s → 45s → 90s → 180s (3m) → 300s (5m) → 600s (10m)
+ * 依據連續未變更次數逐步放緩輪詢，節省資源同時保持同步能力
+ */
 const POLL_INTERVAL_STEPS = [20000, 45000, 90000, 180000, 300000, 600000];
-// 升級門檻：>=3 → idx1, >=6 → idx2, >=10 → idx3, >=15 → idx4, >=25 → idx5
+
+/**
+ * 計算自適應輪詢間隔
+ * @param isPanelOpen 設定面板是否開啟（開啟時最大限制在90s，確保即時性）
+ * @param stable 連續未變更次數
+ * @returns 輪詢間隔（毫秒）
+ * 
+ * 升級門檻：>=3 → idx1, >=6 → idx2, >=10 → idx3, >=15 → idx4, >=25 → idx5
+ */
 function _calcAdaptiveInterval(isPanelOpen: boolean, stable: number): number {
   let idx = 0;
   if (stable >= 25) {
@@ -220,38 +285,71 @@ const ensureDir = async (absFile: string) => {
   await fsp.mkdir(path.dirname(absFile), { recursive: true }).catch(() => {});
 };
 
-// ─────────────────────────────────────────────────────────────
-// ★ Runtime Manager（依 command 管理 VM）
-// ─────────────────────────────────────────────────────────────
+// ============================================================================
+// VM Runtime Management - Isolated Script Execution
+// ============================================================================
+
+/**
+ * VM Runtime Context - 追蹤每個 command 的執行環境
+ * 
+ * 每個狀態列按鈕對應一個獨立的 VM 沙箱，確保：
+ * - 腳本間互不干擾
+ * - 資源可以完整清理
+ * - 錯誤隔離不影響其他腳本
+ */
 type RuntimeCtx = {
+  /** AbortController for graceful script termination */
   abort: AbortController;
+  /** Timer references for cleanup (setTimeout, setInterval) */
   timers: Set<NodeJS.Timeout>;
+  /** VS Code disposable resources (listeners, providers, etc.) */
   disposables: Set<vscode.Disposable>;
 };
 
+/** Active VM runtimes mapped by command ID */
 const RUNTIMES = new Map<string, RuntimeCtx>();
 
-// ─────────────────────────────────────────────────────────────
-// VM 之間的訊息傳遞 (簡易 Bus)
-// - 允許腳本呼叫 vm.sendMessage(target, msg)
-// - 允許腳本註冊 vm.onMessage(handler)
-// - vm.open(cmdId, payload?)：若目標尚未啟動則啟動；啟動後（或已在跑）可傳遞初始 payload
-// - 若目標尚未註冊任何 handler，訊息會暫存於佇列，待第一個 handler 註冊時 flush
-// - 訊息只在當次 VM 生命週期內有效；VM 關閉後其 handlers 與 queue 一併移除
-// -----------------------------------------------------------------
+// ============================================================================
+// Inter-VM Message Bus - Script Communication System
+// ============================================================================
+
+/**
+ * 腳本間訊息傳遞系統
+ * 
+ * 功能：
+ * - vm.sendMessage(target, msg)：向指定 command 發送訊息
+ * - vm.onMessage(handler)：註冊訊息接收處理器
+ * - vm.open(cmdId, payload?)：啟動目標腳本並可選傳遞初始資料
+ * 
+ * 特性：
+ * - 訊息只在當次 VM 生命週期內有效
+ * - 目標 VM 未啟動時訊息會暫存於佇列
+ * - VM 關閉時自動清理相關 handlers 與 queue
+ */
 type MessageRecord = { from: string; message: any };
+
+/** Message handlers registered by each VM */
 const MESSAGE_HANDLERS = new Map<string, Set<(from: string, message: any) => void>>();
+
+/** Queued messages for VMs that haven't registered handlers yet */
 const MESSAGE_QUEUES   = new Map<string, MessageRecord[]>();
 
+/**
+ * 分發訊息到目標 VM
+ * @param target 目標 command ID
+ * @param from 發送者 command ID  
+ * @param message 訊息內容
+ */
 function dispatchMessage(target: string, from: string, message: any) {
   const handlers = MESSAGE_HANDLERS.get(target);
   if (!handlers || handlers.size === 0) {
-    // queue
+    // 目標尚未註冊 handler，加入佇列
     let q = MESSAGE_QUEUES.get(target);
     if (!q) { q = []; MESSAGE_QUEUES.set(target, q); }
     q.push({ from, message });
     return;
   }
+  // 立即分發給所有註冊的 handlers
   for (const h of handlers) {
     try { h(from, message); } catch (e) { console.error('[vm message handler error]', e); }
   }
@@ -272,6 +370,17 @@ function registerMessageHandler(command: string, handler: (from: string, message
   return () => { try { set?.delete(handler); } catch {} };
 }
 
+/**
+ * 清理 VM 執行環境
+ * @param command 要終止的 command ID
+ * @param reason 終止原因（用於診斷和日誌）
+ * @returns 是否成功終止（false 表示該 command 未在執行）
+ * 
+ * 完整清理流程：
+ * 1. 發送 abort 信號給 VM
+ * 2. 從 RUNTIMES 移除執行上下文
+ * 3. 清理該 VM 的訊息處理器和佇列
+ */
 function abortByCommand(command: string, reason: any = { type: 'external', at: Date.now() }) {
   const ctx = RUNTIMES.get(command);
   if (!ctx) { return false; }
@@ -282,6 +391,18 @@ function abortByCommand(command: string, reason: any = { type: 'external', at: D
   return true;
 }
 
+/**
+ * 建構 StatusBarHelper API 物件 - 提供給 VM 沙箱使用
+ * 
+ * 架構說明：
+ * VM 沙箱 → sbh.v1.* → call() → _bridge command → Host APIs
+ * 
+ * 這種間接調用確保：
+ * - VM 無法直接存取 host 環境
+ * - 所有 I/O 經過安全驗證
+ * - 統一的錯誤處理和日誌記錄
+ * - 可以追蹤和限制 API 使用
+ */
 function buildSbh() {
   // 透過 _bridge 指令統一呼叫；提供給 VM 沙箱
   const call = async (ns: string, fn: string, ...args: any[]) => {
@@ -292,13 +413,16 @@ function buildSbh() {
 
   return {
     v1: {
+      // Key-Value 持久化儲存 - 適合設定、小型資料
       storage: {
+        // 全域儲存 - 跨工作區共享
         global: {
           get:  (key: string, def?: any) => call('storage', 'getGlobal', key, def),
           set:  (key: string, val: any)  => call('storage', 'setGlobal', key, val),
           remove: (key: string)          => call('storage', 'removeGlobal', key),
           keys: ()                       => call('storage', 'keysGlobal'),
         },
+        // 工作區儲存 - 僅當前工作區可見
         workspace: {
           get:  (key: string, def?: any) => call('storage', 'getWorkspace', key, def),
           set:  (key: string, val: any)  => call('storage', 'setWorkspace', key, val),
@@ -306,6 +430,7 @@ function buildSbh() {
           keys: ()                       => call('storage', 'keysWorkspace'),
         },
       },
+      // 檔案系統操作 - 支援文字、JSON、二進位格式
       files: {
         dirs:       () => call('files', 'dirs'),
         readText:   (scope: 'global'|'workspace', rel: string) => call('files', 'readText', scope, rel),
@@ -326,32 +451,56 @@ function buildSbh() {
   };
 }
 
-/** 封裝：在 Extension Host 內跑 VM（依 command 註冊、可被 stop） */
+/**
+ * 在 Extension Host 內執行 VM 沙箱腳本
+ * 
+ * 設計原則：
+ * - 每個 command 對應一個獨立的 VM 沙箱
+ * - 提供受限的 Node.js 環境（僅內建模組）
+ * - 透過 bridge API 進行安全的 host 通訊
+ * - 完整的資源清理和錯誤隔離
+ * 
+ * @param context VS Code 擴充套件上下文
+ * @param command 指令 ID（用作 VM 識別）
+ * @param code 要執行的 JavaScript 程式碼
+ * @param origin 執行來源（狀態列按鈕/自動執行/設定面板預覽）
+ */
 function runScriptInVm(
   context: vscode.ExtensionContext,
   command: string,
   code: string,
   origin: 'statusbar' | 'autorun' | 'settingsPanel'
 ) {
-  // 同 command 舊 VM 先取代
+  // 同 command 舊 VM 先替換（確保單一實例）
   abortByCommand(command, { type: 'replaced', from: origin, at: Date.now() });
 
+  // 建立執行上下文
   const abort = new AbortController();
   const signal = abort.signal;
-  const timers = new Set<NodeJS.Timeout>();
-  const disposables = new Set<vscode.Disposable>();
+  const timers = new Set<NodeJS.Timeout>();           // 追蹤計時器供清理
+  const disposables = new Set<vscode.Disposable>();   // 追蹤 VS Code 資源供清理
 
+  /**
+   * 包裝 Timer 函數以追蹤資源
+   * 確保 VM 結束時可以清理所有 setTimeout/setInterval
+   */
   const wrapTimeout = <T extends (...a: any[]) => any>(orig: T) =>
     ((...args: any[]) => { const h = orig(...args); timers.add(h as any); return h; }) as unknown as T;
 
-  // 方便往設定面板丟訊息
+  /**
+   * 向設定面板發送訊息（僅限面板預覽模式）
+   * 用於即時顯示腳本執行結果和錯誤
+   */
   const postToSettingsPanel = (m: any) => {
   if (origin !== 'settingsPanel') { return; }
     const p = (SettingsPanel.currentPanel as any);
     p?._panel?.webview?.postMessage?.(m);
   };
 
-  // 讓 console.* 也回傳到 webview 的 Output
+  /**
+   * 代理 console 輸出到設定面板
+   * 讓 VM 內的 console.log 等可以顯示在 Output 面板
+   */
   const makeConsoleProxy = (base: Console) => {
     const forward = (level: 'log'|'info'|'warn'|'error') =>
       (...args: any[]) => {

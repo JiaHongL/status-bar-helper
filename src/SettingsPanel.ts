@@ -1,3 +1,55 @@
+/**
+ * Status Bar Helper - Settings Panel Management
+ * 
+ * Architecture Overview:
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │                            VS Code Host (Extension)                        │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *                                       │
+ *                                  postMessage
+ *                                       │
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │                              Webview Panel                                 │
+ * │                                                                             │
+ * │  ┌─────────────────────┐                    ┌─────────────────────┐       │
+ * │  │     Main Page       │◄──────────────────►│     Edit Page       │       │
+ * │  │                     │                    │                     │       │
+ * │  │ ┌─────────────────┐ │                    │ ┌─────────────────┐ │       │
+ * │  │ │   List View     │ │                    │ │ Monaco Editor   │ │       │
+ * │  │ │ (Status Items)  │ │                    │ │ (Script Edit)   │ │       │
+ * │  │ └─────────────────┘ │                    │ └─────────────────┘ │       │
+ * │  │ ┌─────────────────┐ │                    │ ┌─────────────────┐ │       │
+ * │  │ │   Data View     │ │                    │ │ Preview VM      │ │       │
+ * │  │ │ (Stored Data)   │ │                    │ │ (Run Button)    │ │       │
+ * │  │ └─────────────────┘ │                    │ └─────────────────┘ │       │
+ * │  └─────────────────────┘                    └─────────────────────┘       │
+ * │           │                                            │                   │
+ * │  ┌─────────────────┐              ┌─────────────────┐ │                   │
+ * │  │  Script Store   │              │ Import/Export   │ │                   │
+ * │  │   (Modal)       │              │   (Dialog)      │ │                   │
+ * │  └─────────────────┘              └─────────────────┘ │                   │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *                                       │
+ *                                  RPC Bridge
+ *                                       │
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │                            Global State Manager                            │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ * 
+ * Key Responsibilities:
+ * - Webview lifecycle management and resource cleanup
+ * - Settings synchronization between UI and global state
+ * - Script preview execution with isolated VM
+ * - Script Store integration and RPC handling
+ * - Import/Export functionality with file I/O
+ * - Real-time running status updates
+ * 
+ * Communication Patterns:
+ * - Host → Webview: State updates, running status, sync indicators
+ * - Webview → Host: Setting changes, script execution, file operations
+ * - Script Store: RPC bridge for catalog management and installation
+ */
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,25 +62,53 @@ import {
 } from './globalStateManager';
 import { localize } from './nls';
 
+/**
+ * Settings Panel - 主要的設定介面管理類別
+ * 
+ * 生命週期管理：
+ * - 單例模式確保同時只有一個設定面板
+ * - 自動清理資源防止記憶體洩漏
+ * - 智慧重新載入現有面板而非建立新實例
+ */
 export class SettingsPanel {
+  /** 單例面板實例 */
   public static currentPanel: SettingsPanel | undefined;
+  
+  /** Extension 上下文參照（用於狀態存取） */
   public static extensionContext: vscode.ExtensionContext | undefined;
   
+  /** VS Code Webview 面板 */
   private readonly _panel: vscode.WebviewPanel;
+  
+  /** Extension URI（用於資源載入） */
   private readonly _extensionUri: vscode.Uri;
+  
+  /** 資源清理追蹤 */
   private _disposables: vscode.Disposable[] = [];
 
+  /** 目前的檢視模式：列表檢視或編輯檢視 */
   private _activeView: 'list' | 'edit' = 'list';
+  
+  /** 正在編輯的項目（編輯模式時） */
   private _editingItem: any = null;
 
-  // Smart Run
+  // ============================================================================
+  // Script Preview Execution - 設定面板內的腳本預覽執行
+  // ============================================================================
+  
+  /** Smart Run - Node.js 子程序（用於執行系統指令） */
   private _nodeChild: ChildProcessWithoutNullStreams | null = null;
 
-  // 面板自己的 VM（用於「Run」按鈕預覽）  
+  /** 面板專用的 VM 執行狀態定時器（用於「Run」按鈕預覽） */
   private sendRunningSetIntervalId: NodeJS.Timeout | undefined;
 
+  /**
+   * Settings Panel 建構函數
+   * @param panel VS Code webview 面板實例
+   * @param extensionUri Extension 的 URI（用於載入資源）
+   */
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
-
+    // 啟動執行狀態定時更新（每1.5秒向 webview 發送最新的執行狀態）
     this.sendRunningSetIntervalId = setInterval(()=>{
       this._sendRunningToWebview();
     }, 1500);
@@ -36,13 +116,17 @@ export class SettingsPanel {
     this._panel = panel;
     this._extensionUri = extensionUri;
 
+    // 面板關閉時自動清理資源
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
+    // ============================================================================
+    // Webview ↔ Host 通訊協定處理
+    // ============================================================================
     this._panel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
+          // Script Store RPC 橋接 - 轉發到主 extension 的 bridge 系統
           case 'scriptStore:req': {
-            // Webview Script Store RPC → 直接調用 bridge namespace scriptStore
             const { reqId, fn, args } = message;
             let result: any;
             try {
@@ -55,6 +139,7 @@ export class SettingsPanel {
             return;
           }
           
+          // 更新設定 - 儲存到 global state 並刷新狀態列
           case 'updateSettings': {
             if (SettingsPanel.extensionContext) {
               await saveAllToGlobal(SettingsPanel.extensionContext, message.items);
@@ -69,26 +154,37 @@ export class SettingsPanel {
             this._editingItem = null;
             return;
           }
+          
+          // 載入設定狀態
           case 'getSettings': {
             this._sendStateToWebview();
             return;
           }
+          
+          // 進入編輯檢視
           case 'enterEditView': {
             this._activeView = 'edit';
             this._editingItem = message.item;
             return;
           }
+          
+          // 離開編輯檢視
           case 'exitEditView': {
             this._activeView = 'list';
             this._editingItem = null;
             return;
           }
+          
+          // 顯示錯誤訊息
           case 'showError': {
             vscode.window.showErrorMessage(message.message);
             return;
           }
+          
+          // 匯出設定到檔案
           case 'exportSettings': {
             const items = message.items;
+            // 產生時間戳檔名
             const now = new Date();
             const y = now.getFullYear();
             const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -98,6 +194,7 @@ export class SettingsPanel {
             const ss = String(now.getSeconds()).padStart(2, '0');
             const defaultName = `status-bar-helper-${y}-${m}-${d}-${hh}-${mm}-${ss}.json`;
 
+            // 預設儲存位置為工作區根目錄
             const workspaceFolders = vscode.workspace.workspaceFolders;
             let defaultUri: vscode.Uri | undefined;
             if (workspaceFolders && workspaceFolders.length > 0) {
@@ -116,6 +213,8 @@ export class SettingsPanel {
             });
             return;
           }
+          
+          // 匯入設定從檔案
           case 'importSettings': {
             vscode.window.showOpenDialog({ canSelectMany: false, filters: { 'JSON': ['json'] } }).then(async (uris) => {
               if (uris && uris.length > 0) {
@@ -124,7 +223,7 @@ export class SettingsPanel {
                 try {
                   const importItems = JSON.parse(content);
                   if (Array.isArray(importItems)) {
-                    // Send to webview for preview instead of direct import
+                    // 發送到 webview 進行預覽而非直接匯入
                     this._panel.webview.postMessage({ 
                       command: 'importPreviewData', 
                       items: importItems 

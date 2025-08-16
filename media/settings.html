@@ -1,4 +1,65 @@
 <!DOCTYPE html>
+<!--
+Status Bar Helper - Settings Panel Webview
+===========================================
+
+Architecture Overview:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            Settings Panel Webview                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                        ┌──────────────┴──────────────┐
+                        │                             │
+               ┌─────────────────────┐       ┌─────────────────────┐
+               │    Main Page        │◄─────►│    Edit Page        │
+               │                     │       │  (Monaco Editor)    │
+               │ ┌─────────────────┐ │       └─────────────────────┘
+               │ │   List View     │ │
+               │ │ (Status Items)  │ │
+               │ └─────────────────┘ │
+               │ ┌─────────────────┐ │
+               │ │   Data View     │ │
+               │ │ (Stored Data)   │ │
+               │ └─────────────────┘ │
+               └─────────────────────┘
+                        │
+           ┌────────────┼────────────┐
+           │            │            │
+    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+    │ Script Store │ │ Import/Export│ │ Running      │
+    │ (Modal)      │ │ (Dialog)     │ │ Status       │
+    └──────────────┘ └──────────────┘ └──────────────┘
+           │            │            │
+    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+    │ NEW Badge    │ │ File I/O     │ │ Sync         │
+    │ System       │ │ Operations   │ │ Indicators   │
+    └──────────────┘ └──────────────┘ └──────────────┘
+
+Page Structure:
+- Main Page: Split layout with List View (top 60%) + Data View (bottom 40%)
+- Edit Page: Full-screen Monaco editor with preview execution
+- Overlays: Script Store modal, Import/Export dialogs
+
+Key Features:
+- Responsive Design: 860px breakpoint for compact mode, 1100px for sync indicator
+- Icon-Based Interface: All operations use VS Code Codicons (24-28px sizing)
+- Modern Color System: Gradient backgrounds with theme adaptation
+- Script Store Integration: NEW badge, installation confirmation, diff preview
+- Real-time Updates: Live running status, sync indicators, auto-refresh
+- Multi-language Support: NLS integration with English/Traditional Chinese
+
+Communication Protocols:
+- postMessage(): Bi-directional host ↔ webview communication
+- Script Store RPC: Async request/response pattern for catalog operations
+- Monaco Integration: Embedded editor with TypeScript definitions
+- State Synchronization: Real-time updates for running status and settings
+
+Security & Resource Management:
+- CSP-compliant resource loading via webview.asWebviewUri()
+- Automatic cleanup of timers and event listeners
+- Safe HTML injection with escapeHtml() utility
+- Path validation for all file operations
+-->
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -9,14 +70,35 @@
         <title>StatusBar Helper Settings</title>
         <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css">
         <link rel="stylesheet" href="{{codiconsUri}}">
+        
+        <!-- 
+        ==========================================================================
+        CSS Framework - VS Code Theme Integration & Responsive Design
+        ==========================================================================
+        
+        Design Principles:
+        - Follow VS Code design tokens for seamless integration
+        - Responsive breakpoints: <860px (compact), <1100px (hide sync text)
+        - Modern gradient color system with light/dark theme support
+        - Icon-first interface with consistent 22-28px button sizing
+        - Accessible design with proper ARIA labels and keyboard navigation
+        -->
         <style>
+    /* ==========================================================================
+       Global Layout & Design Tokens
+       ========================================================================== */
     :root { --ctrl-h: 24px; }
 
+    /* 全螢幕佈局，防止內容溢出 */
     html, body { height: 100vh; margin:0; padding:0; overflow:hidden; display:flex; flex-direction:column; font-size:var(--vscode-font-size); }
     body { font-family:var(--vscode-font-family); color:var(--vscode-editor-foreground); background:var(--vscode-editor-background); padding:8px 10px; box-sizing:border-box; display: flex; flex-direction: column; }
 
+    /* ==========================================================================
+       Main Layout Structure - Split Panel Design
+       ========================================================================== */
     #list-view-wrapper { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 10px; }
 
+    /* 上半部：狀態列項目管理 (60% 高度) */
     #list-view{
       background:var(--vscode-sideBar-background);
       border:1px solid var(--vscode-editorGroup-border);
@@ -27,6 +109,7 @@
       flex-direction: column;
     }
 
+    /* 下半部：儲存資料檢視 (40% 高度) */
     #data-view {
       background:var(--vscode-sideBar-background);
       border:1px solid var(--vscode-editorGroup-border);
@@ -37,6 +120,9 @@
       flex-direction: column;
     }
 
+    /* ==========================================================================
+       Panel Headers & Search Components
+       ========================================================================== */
     .list-title-bar, .data-title-bar {
       display: flex;
       align-items: center;
@@ -47,6 +133,7 @@
     .list-title, .data-title { display:flex; align-items:center; gap:8px; font-weight:600; margin-right: auto; }
     .list-title i, .data-title i { opacity:.8 }
 
+    /* 搜尋輸入框樣式 */
     .search-wrap, .data-search-wrap {
       flex:1; display:flex; align-items:center; gap:6px; min-width:180px; max-width:420px;
       background:var(--vscode-input-background); border:1px solid var(--vscode-input-border);
@@ -67,6 +154,115 @@
     .actions, .data-actions { display:flex; gap:8px; }
     .actions button, .data-actions button { height:28px; padding:0 10px; }
     .data-actions button { height: 26px; }
+
+    /* Button Color System */
+    /* Primary Actions - Main brand actions */
+    #add-new-item-btn {
+      background: linear-gradient(135deg, #28a745, #34ce57);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(40, 167, 69, 0.25);
+      transition: all 0.2s ease;
+    }
+    
+    #add-new-item-btn:hover {
+      background: linear-gradient(135deg, #218838, #28a745);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(40, 167, 69, 0.35);
+    }
+
+    #script-store-btn {
+      background: linear-gradient(135deg, #007acc, #0099ff);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(0, 122, 204, 0.25);
+      transition: all 0.2s ease;
+    }
+    
+    #script-store-btn:hover {
+      background: linear-gradient(135deg, #0066cc, #007acc);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(0, 122, 204, 0.35);
+    }
+
+    /* Secondary Actions - Utility functions */
+    #import-btn, #export-btn {
+      background: var(--vscode-button-secondaryBackground, #525252);
+      color: var(--vscode-button-secondaryForeground, #ffffff);
+      border: 1px solid var(--vscode-button-border, transparent);
+      font-weight: 400;
+      transition: all 0.2s ease;
+    }
+    
+    #import-btn:hover, #export-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground, #5a5a5a);
+      transform: translateY(-1px);
+    }
+
+    /* Clear All - Destructive action */
+    #clear-all-btn {
+      background: linear-gradient(135deg, #dc3545, #e74c5c);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(220, 53, 69, 0.25);
+      transition: all 0.2s ease;
+    }
+    
+    #clear-all-btn:hover {
+      background: linear-gradient(135deg, #c82333, #dc3545);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(220, 53, 69, 0.35);
+    }
+
+    /* Light theme optimizations for buttons */
+    body.vscode-light #add-new-item-btn {
+      background: linear-gradient(135deg, #218838, #28a745);
+      box-shadow: 0 2px 4px rgba(33, 136, 56, 0.3);
+    }
+    
+    body.vscode-light #add-new-item-btn:hover {
+      background: linear-gradient(135deg, #1e7e34, #218838);
+    }
+
+    body.vscode-light #script-store-btn {
+      background: linear-gradient(135deg, #0056b3, #007acc);
+      box-shadow: 0 2px 4px rgba(0, 86, 179, 0.3);
+    }
+    
+    body.vscode-light #script-store-btn:hover {
+      background: linear-gradient(135deg, #004085, #0056b3);
+    }
+
+    body.vscode-light #clear-all-btn {
+      background: linear-gradient(135deg, #c82333, #dc3545);
+      box-shadow: 0 2px 4px rgba(200, 35, 51, 0.3);
+    }
+    
+    body.vscode-light #clear-all-btn:hover {
+      background: linear-gradient(135deg, #bd2130, #c82333);
+    }
+
+    /* NEW badge for Script Store button */
+    .new-badge {
+      background: linear-gradient(135deg, #007acc, #0099ff);
+      color: #ffffff;
+      border-radius: 10px;
+      padding: 2px 6px;
+      margin-left: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1;
+      min-width: 14px;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
 
     /* Last sync indicator */
   .last-sync { display:flex; align-items:center; gap:4px; font-size:11px; opacity:.7; margin-left:10px; padding:2px 6px; border-radius:4px; line-height:1; white-space:nowrap; background:var(--vscode-editorGroup-border); }
@@ -187,10 +383,47 @@
   table#ss-table{ width:100%; border-collapse:collapse; }
   table#ss-table th, table#ss-table td{ padding:6px 8px; border-bottom:1px dotted var(--vscode-editorGroup-border); font-size:12px; vertical-align:middle; }
   table#ss-table th{ position:sticky; top:0; background:var(--vscode-sideBar-background); text-align:left; }
-  .ss-status-badge{ padding:2px 6px; border-radius:10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; background:var(--vscode-editorGroup-border); opacity:.85; }
-  .ss-status-update{ background:var(--vscode-editorWarning-background, #946200); color:var(--vscode-editorWarning-foreground,#fff); }
-  .ss-status-installed{ background:var(--vscode-editorInfo-background,#005a9c); color:var(--vscode-editorInfo-foreground,#fff); }
-  .ss-status-new{ background:var(--vscode-editorSuccess-background,#2d7); color:var(--vscode-editorSuccess-foreground,#003300); }
+  .ss-status-badge{ padding:2px 6px; border-radius:10px; font-size:9px; text-transform:uppercase; letter-spacing:.3px; font-weight:600; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+  .ss-status-update{ background: linear-gradient(135deg, #ff9500, #ffad33); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
+  .ss-status-installed{ background: linear-gradient(135deg, #28a745, #34ce57); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
+  .ss-status-new{ background: linear-gradient(135deg, #007acc, #0099ff); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
+
+  /* Light theme optimizations */
+  body.vscode-light .new-badge {
+    background: linear-gradient(135deg, #0066cc, #0088ff);
+    box-shadow: 0 2px 4px rgba(0, 102, 204, 0.25);
+  }
+  
+  body.vscode-light .ss-status-update {
+    background: linear-gradient(135deg, #e67700, #ff9500);
+    box-shadow: 0 1px 3px rgba(230, 119, 0, 0.25);
+  }
+  
+  body.vscode-light .ss-status-installed {
+    background: linear-gradient(135deg, #218838, #28a745);
+    box-shadow: 0 1px 3px rgba(33, 136, 56, 0.25);
+  }
+  
+  body.vscode-light .ss-status-new {
+    background: linear-gradient(135deg, #0056b3, #007acc);
+    box-shadow: 0 1px 3px rgba(0, 86, 179, 0.25);
+  }
+
+  /* Hover effects for interactive elements */
+  .new-badge:hover {
+    transform: translateY(-0.5px);
+    box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+    transition: all 0.2s ease;
+  }
+
+  .ss-status-badge {
+    transition: all 0.2s ease;
+  }
+
+  .ss-status-badge:hover {
+    transform: translateY(-0.5px);
+    filter: brightness(1.05);
+  }
   .ss-actions{ display:flex; flex-wrap:wrap; gap:3px; }
   .ss-actions button{ height:22px; width:22px; padding:0; font-size:11px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; border-radius:4px; }
   .ss-actions button .codicon{ font-size:12px; }
@@ -448,6 +681,7 @@
                           title="Open Script Store"
                         >
                           Script Store
+                          <span id="script-store-new-badge" class="new-badge" style="display:none;"></span>
                         </button>
                         <button
                             id="import-btn"
@@ -552,17 +786,63 @@
         <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
     <script>
+      /*
+      ============================================================================
+      Status Bar Helper Settings Panel - JavaScript Architecture
+      ============================================================================
+      
+      Core Architecture:
+      ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+      │   UI State Mgmt     │◄──►│   postMessage API   │◄──►│   Monaco Editor     │
+      │   (Views & Tables)  │    │   (Host ↔ Webview)  │    │   (Script Editing)  │
+      └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
+                 ▲                          ▲                          ▲
+                 │                          │                          │
+      ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+      │   Script Store RPC  │    │   I18n & Theming    │    │   Resource Cleanup  │
+      │   (Catalog Mgmt)    │    │   (NLS Integration) │    │   (Timers & Events) │
+      └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
+      
+      Key Modules:
+      1. Communication Layer: vscode.postMessage() bidirectional protocol
+      2. State Management: Real-time sync of settings, running status, sync info
+      3. UI Controllers: List view, edit view, script store overlay management
+      4. Script Store: Async RPC system for catalog operations
+      5. Monaco Integration: TypeScript-aware editor with SBH API definitions
+      6. Responsive Design: Automatic layout adaptation based on viewport size
+      7. Resource Management: Timer cleanup, event listener disposal
+      
+      Security Features:
+      - CSP-compliant resource loading
+      - HTML injection protection via escapeHtml()
+      - Safe postMessage parameter validation
+      - No eval() or Function() constructor usage
+      */
+      
+      // VS Code API 取得與全域暴露
       const vscode = acquireVsCodeApi();
       // expose globally for later overlay scripts to reuse instead of reacquiring
       if (!window.vscode) { window.vscode = vscode; }
     
-    /* ---------- Internationalization ---------- */
+    // ============================================================================
+    // Internationalization (I18n) System
+    // ============================================================================
     let nls = {};
     
+    /**
+     * 國際化文字取得函數
+     * @param {string} key NLS 鍵值
+     * @param {string} defaultValue 預設文字（當鍵值不存在時）
+     * @returns {string} 本地化後的文字
+     */
     function t(key, defaultValue) {
         return nls[key] || defaultValue || key;
     }
     
+    /**
+     * 更新 UI 中的靜態文字為本地化版本
+     * 應在 NLS 資料載入後和語言切換時調用
+     */
     function updateUITexts() {
         // Update static texts
         document.title = t('title', 'StatusBar Helper Settings');
@@ -599,7 +879,10 @@
   const addNewBtn = document.getElementById('add-new-item-btn');
   if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
   const scriptStoreBtn = document.getElementById('script-store-btn');
-  if (scriptStoreBtn) { scriptStoreBtn.textContent = t('scriptStore', 'Script Store'); scriptStoreBtn.title = t('scriptStore', 'Script Store'); }
+  if (scriptStoreBtn) { 
+    scriptStoreBtn.childNodes[0].nodeValue = t('scriptStore', 'Script Store'); 
+    scriptStoreBtn.title = t('scriptStore', 'Script Store'); 
+  }
         
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
@@ -698,6 +981,20 @@
             dataHeaders[1].textContent = t('keyPath', 'Key / Path');
             dataHeaders[2].textContent = t('size', 'Size');
             dataHeaders[3].textContent = t('actions', 'Actions');
+        }
+    }
+
+    function updateScriptStoreNewBadge(catalog) {
+        const badge = document.getElementById('script-store-new-badge');
+        if (!badge) return;
+        
+        const newCount = (catalog || []).filter(entry => entry.status === 'new').length;
+        if (newCount > 0) {
+            badge.textContent = newCount.toString();
+            badge.title = t('scriptStoreNewBadge', '{0} new scripts', newCount);
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
         }
     }
 
@@ -1015,7 +1312,20 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       });
     }
 
-    /* ---------- Main Views Logic ---------- */
+    // ============================================================================
+    // Main View Controllers - List View & Edit View Management
+    // ============================================================================
+    
+    /**
+     * 顯示列表檢視（主要設定檢視）
+     * 
+     * 操作流程：
+     * 1. 切換 DOM 顯示狀態
+     * 2. 清理編輯器資源
+     * 3. 重新渲染項目列表和儲存資料
+     * 4. 啟動資料定時重新整理
+     * 5. 更新 VM 執行狀態和同步指示器
+     */
     function showListView() {
       listViewWrapper.style.display = 'flex';
       editView.style.display = 'none';
@@ -1029,6 +1339,18 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
   updateLastSyncDisplay();
     }
 
+    /**
+     * 顯示編輯檢視（單一項目編輯）
+     * 
+     * @param {number} index 項目在陣列中的索引
+     * @param {object} item 要編輯的項目物件
+     * 
+     * 操作流程：
+     * 1. 停止資料自動重新整理
+     * 2. 切換 DOM 顯示狀態
+     * 3. 初始化 Monaco 編輯器
+     * 4. 通知 host 進入編輯模式
+     */
     function showEditView(index, item) {
       if (dataRefreshInterval) { clearInterval(dataRefreshInterval); dataRefreshInterval = null; }
       listViewWrapper.style.display = 'none';
@@ -2023,19 +2345,67 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           .ss-diff-window pre { margin:0; }
         </style>
         <script>
+          /*
+          ============================================================================
+          Script Store Module - Catalog Management & RPC System
+          ============================================================================
+          
+          Architecture:
+          ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+          │   Webview Client    │◄──►│   postMessage RPC   │◄──►│   Extension Host    │
+          │   (Catalog UI)      │    │   (Async Bridge)    │    │   (Bridge Handler)  │
+          └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
+                     ▲                          ▲                          ▲
+                     │                          │                          │
+          ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+          │   Diff Viewer       │    │   Installation      │    │   Remote Catalog    │
+          │   (Change Preview)  │    │   (Batch/Single)    │    │   (GitHub + Cache)  │
+          └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
+          
+          Features:
+          - Async RPC pattern with request/response correlation
+          - Status-aware sorting (NEW > UPDATE > INSTALLED)
+          - NEW badge indicator with auto-loading on panel init
+          - Diff preview with bottom-button UX design
+          - Batch installation with confirmation dialog
+          - Modern gradient color system with theme adaptation
+          - Error handling with timeout and retry logic
+          
+          Security:
+          - All host communication via controlled RPC bridge
+          - No direct file system access from webview
+          - Timeout protection against hanging requests
+          - Input validation on all user interactions
+          */
           (function(){
+            // ========================================================================
+            // RPC Communication Layer - Webview ↔ Extension Host
+            // ========================================================================
+            
             // Webview 內沒有 vscode.commands；改用 postMessage RPC 到 extension host
             let vscodeRef; try { vscodeRef = (window.vscode || acquireVsCodeApi()); } catch {}
             if (!vscodeRef) { console.error('[SS] cannot acquire VSCode API'); return; }
+            
+            /** 待處理的 RPC 請求 Map<requestId, {resolve, reject}> */
             const pending = new Map();
+            
+            /**
+             * 呼叫 Extension Host 的 Script Store Bridge API
+             * @param {string} fn 函數名稱（catalog, install, bulkInstall 等）
+             * @param {Array} args 函數參數陣列
+             * @returns {Promise} 非同步回應 Promise
+             */
             function callHost(fn, args){
               return new Promise((resolve,reject)=>{
                 const id = 'ss_'+Math.random().toString(36).slice(2,9);
                 pending.set(id,{resolve,reject});
                 vscodeRef.postMessage({ command:'scriptStore:req', reqId:id, fn, args });
+                // 15 秒超時保護
                 setTimeout(()=>{ if(pending.has(id)){ pending.get(id).reject(new Error('timeout')); pending.delete(id);} }, 15000);
               });
             }
+            
+            // RPC 回應處理器
             window.addEventListener('message', ev=>{
               const msg = ev.data; if(!msg || msg.command!=='scriptStore:resp') return;
               const h = pending.get(msg.reqId); if(!h) return;
@@ -2043,11 +2413,23 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               if (msg.result && msg.result.ok) h.resolve(msg.result);
               else h.reject(new Error(msg.result?.error||'error'));
             });
+            
+            // ========================================================================
+            // Script Store State Management
+            // ========================================================================
+            
+            /** Catalog 資料陣列 */
             let ssCatalog = [];
+            /** 是否已載入 catalog */
             let ssLoaded = false;
+            /** 是否正在載入 */
             let ssLoading = false;
+            /** 是否正在安裝 */
             let ssInstalling = false;
+            /** 目前顯示 diff 的 command ID */
             let currentDiffCommand = null;
+            
+            // DOM 元素參照
             const overlay = document.getElementById('script-store-overlay');
             const tbody = document.getElementById('ss-tbody');
             const errorEl = document.getElementById('ss-error');
@@ -2139,9 +2521,13 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           const r = await callHost('catalog', []);
           ssCatalog = (r.data && r.data.entries) || []; ssLoaded=true;
           headerStatus.textContent = `${ssCatalog.length} ${t('scriptStoreEntriesSuffix', 'entries')}`;
+          // Update Script Store NEW badge
+          updateScriptStoreNewBadge(ssCatalog);
         } catch(e){
           errorEl.textContent = 'Load failed: ' + (e?.message||e);
           headerStatus.textContent='Error';
+          // Hide badge on error
+          updateScriptStoreNewBadge([]);
         } finally { setLoading(false); render(); if(currentDiffCommand) showDiff(currentDiffCommand); }
       }
       async function installOne(cmd){
@@ -2158,6 +2544,20 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               const selected = Array.from(tbody.querySelectorAll('input.ss-sel:checked')).map(cb=>cb.dataset.cmd);
               const payload = ssCatalog.filter(e => selected.includes(e.command) && e.status!=='installed');
               if (!payload.length) { return; }
+              
+              // Show confirmation dialog with items to install
+              const installList = payload.map(p => `• ${p.text || p.command} (${p.status === 'new' ? 'New' : 'Update'})`).join('\n');
+              const message = `${t('confirmInstall', 'Are you sure you want to install the following items?')}\n\n${installList}`;
+              const choice = await showChoiceDialog(
+                t('installScript', 'Install Scripts'), 
+                message, 
+                ['Install', 'Cancel']
+              );
+              
+              if (choice !== 'Install') {
+                return; // User cancelled
+              }
+              
               try {
                 const diffCmds = payload.map(p=>p.command);
                 try { await callHost('diff', [diffCmds]); } catch {}
@@ -2403,6 +2803,18 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 vscode.postMessage({ command: 'openExternal', url: shareUrl });
               });
             }
+            
+            // Auto-load catalog after Script Store initialization
+            setTimeout(async () => {
+                try {
+                    const r = await callHost('catalog', []);
+                    const catalog = (r.data && r.data.entries) || [];
+                    updateScriptStoreNewBadge(catalog);
+                } catch (e) {
+                    // Silently fail - badge will remain hidden
+                    updateScriptStoreNewBadge([]);
+                }
+            }, 300);
             
             // expose open function used by main button
           })();

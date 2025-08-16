@@ -6,6 +6,15 @@
 
 ### Added
 
+- **Script Store NEW Badge System** - Script Store NEW 徽章系統
+
+  - Script Store 按鈕顯示新腳本數量的動態徽章
+  - 自動在面板初始化時載入 catalog 並更新徽章狀態
+  - 多語系支援徽章文字（英文/繁體中文）
+  - 批次安裝前顯示詳細清單確認對話框
+  - 現代化色彩系統：漸層背景與主題適配的狀態徽章
+  - 優化按鈕與徽章尺寸，提升 VS Code 整合度
+
 - **Script Store Diff Window Redesign** - Script Store 差異視窗重新設計
 
   - 新增底部操作按鈕區域，提供更直觀的使用者體驗
