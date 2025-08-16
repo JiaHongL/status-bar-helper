@@ -61,6 +61,7 @@ Instruction Change Log:
   - 調整或新增斷點時：集中於 `settings.html`，避免散落 magic numbers；必要時以 ResizeObserver 改寫。
   - **全面圖示化介面**：所有操作按鈕（Run/Stop/Edit/Delete/Save/Cancel）均採用 VS Code Codicons，提供一致的視覺體驗。
   - 圖示按鈕規格：列表檢視 24x24px，編輯頁面 28x28px，Script Store 22x22px，均包含完整的 title 和 aria-label 屬性。
+  - **Diff 視窗 UX 重新設計**：底部按鈕佈局（取消/更新），消除令人困惑的標題列更新按鈕。
 - **UI 新增同步資訊**：last sync 指示器優先放在標題列右側，顏色/背景須遵循 VS Code Theme token，不直接寫死色碼。
 
 ## Quality bar
@@ -102,14 +103,15 @@ Instruction Change Log:
 3. Cache：記憶體 5 分鐘 TTL（面板重開 / 多次請求不重複下載）。
 4. UI：面板「Script Store」 overlay 表格欄位：Icon、Label、Tags、Status（Installed / Update / New）、Action（圖示化操作：View/Install/Update/Remove）。
 5. Status 判斷：hash = sha256(script|text|tooltip|tags JSON)；與現有項目 hash 相同 → Installed；存在差異 → Update；不存在 → New。
-6. 安裝 / 更新：覆蓋 script/text/tooltip/tags；保留 hidden / enableOnInit。
-7. 安全：
+6. **狀態排序**：新增 > 可更新 > 已安裝 的優先順序，提供更好的使用者體驗。
+7. 安裝 / 更新：覆蓋 script/text/tooltip/tags；保留 hidden / enableOnInit。
+8. 安全：
   - 單 script 安全大小限制（目前 32KB；超過拒絕）。
   - Pattern 掃描拒絕：`eval(`、`new Function`、大量 `process.env.` (>5 次)。
   - JSON parse 失敗或格式非陣列 → 忽略該來源並 fallback。
-8. Diff 視窗：簡易 line-based（>400 行可摺疊）；顯示 catalog vs installed 差異。
-9. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
-10. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
+9. **Diff 視窗 UX 重新設計**：底部按鈕佈局（取消/更新），消除同時跳出視窗的困擾，提供類似標準確認對話框的體驗。
+10. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
+11. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
 
 ### 待辦（Phase 2）
 1. ETag / If-None-Match → 精準網路快取（減少 5 分鐘 TTL 期間的重複資料）。

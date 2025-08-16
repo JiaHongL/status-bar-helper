@@ -109,8 +109,10 @@ Status Bar Helper 支援完整的資料匯入匯出功能，讓你輕鬆備份�
 - 遠端優先（GitHub raw，3 秒 timeout / 256KB 上限）→ 失敗 fallback 本地檔
 - 語系判斷：`vscode.env.language`（僅 zh-tw / zh-hant 走繁體，其餘英文）
 - 狀態徽章：NEW / INSTALLED / UPDATE（script + text + tooltip + tags hash）
+- **狀態排序**：新增 > 可更新 > 已安裝 的優先順序
 - 單項 / 批次安裝（批次為原子：任一失敗即回滾）
-- Diff 檢視（欄位變更 + 行級簡易差異；>400 行預設摺疊）
+- **Diff 檢視 UX 改進**：底部按鈕佈局（取消/更新），消除同時跳出視窗問題
+- **圖示化操作**：View/Install/Update/Remove 採用直觀圖示設計
 - 安全快篩：拒絕含 `eval(`、`new Function`、大量 `process.env` 取用的腳本
 - 5 分鐘記憶體快取（後續規劃 ETag）
 

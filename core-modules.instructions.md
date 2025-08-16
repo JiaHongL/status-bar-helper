@@ -98,7 +98,15 @@ UI 規則：
 - 尺寸：KV 單鍵 2MB / KV 總量 200MB / JSON/Text 10MB / Binary 50MB；修改需同步文件與錯誤訊息文字、避免靜默差異。
 - 避免在 Webview 放長輪詢：host 已有 background polling；如需主動刷新 sync 資訊 → 呼叫 `forceImmediatePoll()`（新增 hostRun API）。
 
-## 8. Modification Checklist (PR 自查)
+## 8. UI Icon Interface & Edit View Standards
+- **Icon Button Specifications**: All action buttons use VS Code Codicons with consistent sizing (24x24px for list view, 28x28px for edit page, 22x22px for Script Store).
+- **Edit Page Simplification**: Edit interface maintains only four core fields: Icon, Label, Tooltip, Script (tags editing removed).
+- **Diff Window UX**: Bottom button layout (Cancel/Update) replaces header buttons, providing standard confirmation dialog experience.
+- **Status Sorting**: Script Store entries sorted by priority: New > Update > Installed.
+- **Accessibility**: All icon buttons include complete `title` and `aria-label` attributes.
+- **Internationalization**: All UI text uses `t()` function with corresponding nls file entries.
+
+## 9. Modification Checklist (PR 自查)
 | 類型 | 檢查項 |
 | ---- | ------ |
 | VM API | 是否需要更新 Monaco typedef (sbhTypeDefs)？ |

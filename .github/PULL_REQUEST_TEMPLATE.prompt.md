@@ -22,4 +22,4 @@ Change Log:
 ## Checklist
 - [ ] 無破壞性變更或已標註 BREAKING CHANGE
 - [ ] 文件已更新（若必要）
- - [ ] Instruction / Prompt 檔若受影響已同步更新 Maintenance Notes
+- [ ] Instruction / Prompt 檔若受影響已同步更新 Maintenance Notes

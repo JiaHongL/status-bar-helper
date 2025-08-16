@@ -30,7 +30,7 @@ Constraints:
   - 安全限制：KV 單鍵 2MB / 總量 200MB / JSON/TEXT 10MB / Binary 50MB；路徑禁止絕對及 `..` → 必經 `inside()`。
   - Bridge 回傳格式：`{ ok:true, data }` / `{ ok:false, error }`；不可丟未過濾 Error。
   - Monaco typedef（`settings.html` 注入）需與新增/修改的 VM / Bridge API 同步。
-  - UI：<1100px 隱藏 last sync 文案；<860px `body.compact`；Running badge = host VM union；拖曳禁止執行中項目。
+  - UI：<1100px 隱藏 last sync 文案；<860px `body.compact`；Running badge = host VM union；拖曳禁止執行中項目。**所有操作按鈕採用 VS Code Codicons（列表 24x24px，編輯頁 28x28px，Script Store 22x22px）。編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本）。Diff 視窗採用底部按鈕佈局（取消/更新）**。
   - `enableOnInit` 僅首次 activation 執行一次（靠 `_runOnceExecutedCommands`）。
 - 不得：提升限制/引入第三方模組/繞過橋接直接存取檔案或 VS Code 物件。
 

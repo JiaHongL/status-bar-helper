@@ -6,6 +6,14 @@
 
 ### Added
 
+- **Script Store Diff Window Redesign** - Script Store 差異視窗重新設計
+
+  - 新增底部操作按鈕區域，提供更直觀的使用者體驗
+  - 移除 header 中的更新按鈕，改為底部 Cancel/Update 按鈕配置
+  - 實現狀態排序：新增 > 可更新 > 已安裝，提供更好的項目組織
+  - 修正 diff 視窗按鈕的國際化支援
+  - 整合確認對話框到 diff 視窗，消除混亂的同時顯示問題
+
 - **Comprehensive UI Icon Conversion** - 全面圖示化介面升級
   - 將所有操作按鈕轉換為緊湊圖示格式：
     - 列表檢視：Run/Stop/Edit/Delete 按鈕改用 Codicons
@@ -19,6 +27,13 @@
 
 ### Changed
 
+- **Enhanced Script Store UX** - Script Store 使用者體驗強化
+
+  - Diff 視窗採用標準確認對話框佈局，按鈕位於底部
+  - 改善更新工作流程，消除同時顯示 diff 和確認對話框的問題
+  - 狀態排序讓使用者更容易找到新增和可更新的腳本
+  - 完整的國際化支援，包含編輯頁面 headers 和所有新增按鈕
+
 - **Edit View Tags Removal** - 移除編輯頁面 Tags 欄位
   - 使用者無法再在項目編輯介面中編輯 tags
   - 保留列表檢視和 Script Store 中的 tags 顯示
@@ -30,6 +45,9 @@
 
 ### Technical
 
+- 更新 `showDiff()` 函數控制底部操作區域顯示
+- 強化 `updateScriptStoreTexts()` 處理 diff 視窗按鈕國際化
+- 新增底部按鈕 CSS 樣式，支援 VS Code 主題
 - 維持完整的無障礙功能（title 和 aria-label 屬性）
 - 使用 VS Code Codicons 提供一致的視覺體驗
 - 保持所有現有功能完整性
@@ -92,53 +110,40 @@
   - 新增 `importExport` 橋接命名空間：`importPreview`、`exportPreview`、`applyImport`
   - 新增檔案載入與儲存橋接：`loadImportFile`、`saveExportToFile`
 
-  ## [1.6.0] - 2025-08-15
+## [1.5.0] - 2025-08-15
 
-  ### Added
+### Added
 
-  - **Script Store Phase 1**：取代舊範例還原流程，提供集中式腳本目錄
-    - 本地 catalog：`script-store.defaults.<locale>.json`（含 tags）
-    - 狀態判斷：Installed / Update / New（依 command + scriptHash + 文字/tooltip/tags）
-    - 單筆安裝、批次安裝（原子性：任一失敗自動回滾）
-    - Diff 後端：`scriptStore.diff` 提供 before/after 欄位與 script
-    - 新增橋接命名空間：`scriptStore.catalog`、`install`、`bulkInstall`、`diff`
-    - Tags 支援：於項目列表、匯入/匯出、Script Store 顯示與過濾
-  - **Diff Viewer (Webview)**：
-    - 右側面板顯示欄位差異（Text / Tooltip / Tags）
-    - Script side-by-side 行級簡易差異（>400 行預設摺疊可展開）
-    - 變動欄位高亮、快速切換 View
-  - **UI/UX**：
-    - 安裝/批次安裝 loading spinner、按鈕停用狀態
-    - 批次安裝結果摘要（成功/失敗統計）
-    - View 按鈕快速預覽差異
+- **Script Store Phase 1**：取代舊範例還原流程，提供集中式腳本目錄
+  - 本地 catalog：`script-store.defaults.<locale>.json`（含 tags）
+  - 狀態判斷：Installed / Update / New（依 command + scriptHash + 文字/tooltip/tags）
+  - 單筆安裝、批次安裝（原子性：任一失敗自動回滾）
+  - Diff 後端：`scriptStore.diff` 提供 before/after 欄位與 script
+  - 新增橋接命名空間：`scriptStore.catalog`、`install`、`bulkInstall`、`diff`
+  - Tags 支援：於項目列表、匯入/匯出、Script Store 顯示與過濾
+- **Diff Viewer (Webview)**：
+  - 右側面板顯示欄位差異（Text / Tooltip / Tags）
+  - Script side-by-side 行級簡易差異（>400 行預設摺疊可展開）
+  - 變動欄位高亮、快速切換 View
+- **UI/UX**：
+  - 安裝/批次安裝 loading spinner、按鈕停用狀態
+  - 批次安裝結果摘要（成功/失敗統計）
+  - View 按鈕快速預覽差異
 
-  ### Changed
+### Changed
 
-  - 移除舊「Restore Samples」流程，改用 Script Store
-  - Bulk install 從逐項覆蓋改為 snapshot + rollback 策略
+- 移除舊「Restore Samples」流程，改用 Script Store
+- Bulk install 從逐項覆蓋改為 snapshot + rollback 策略
 
-  ### Technical
+### Security
 
-  - 重構橋接內部：抽離 hash 計算 / 狀態建構 / 安裝套用 / 回滾流程
-  - 加入 tags 至同步/更新判斷 signature
+- 安裝前腳本快篩：阻擋 `eval(`、`new Function`、可疑 `process.env` 大量讀取 pattern
+- 保持既有限制（大小、原生模組）— 後續擴充 remote 時再加強
 
-  ### Security (Phase 1)
+### Technical
 
-  - 安裝前腳本快篩：阻擋 `eval(`、`new Function`、可疑 `process.env` 大量讀取 pattern
-  - 保持既有限制（大小、原生模組）— 後續擴充 remote 時再加強
-
-  ### Docs (Phase 1)
-
-  - 更新 `IMPLEMENTATION_SUMMARY.md` 與 Copilot 指令，說明 Script Store 架構與後續規劃
-
-  ### Next (Planned)
-
-  - Remote catalog fetch (ETag)
-  - `scriptUrl` Lazy 載入
-  - Rich diff (LCS/token highlight)
-  - Remote/本地合併策略與快取
-
-### Technical (Refactor & Signature)
+- 重構橋接內部：抽離 hash 計算 / 狀態建構 / 安裝套用 / 回滾流程
+- 加入 tags 至同步/更新判斷 signature
 
 - 新增 Import/Export 相關型別定義：`MergeStrategy`、`ConflictPolicy`、`ParseResult` 等
 - 完善錯誤處理與安全驗證機制

@@ -40,7 +40,7 @@ Change Log:
 7. 安全限制：KV 單鍵 2MB / 總量 200MB / JSON & TEXT 10MB / Binary 50MB；路徑禁止絕對與 `..`；I/O 經 `inside()`。
 8. 錯誤回傳：Bridge 統一 `{ ok:false, error }`（僅 message，不傳遞整個 Error 物件）；Webview 不直接信任 host 物件引用。
 9. Monaco typedef 必與 VM / Bridge API 同步（在 `settings.html` 注入的 sbhTypeDefs）。
-10. UI：<1100px 隱藏 last sync 文字；<860px `body.compact`；拖曳禁止針對執行中項目；running badge = host VM union。
+10. UI：<1100px 隱藏 last sync 文字；<860px `body.compact`；拖曳禁止針對執行中項目；running badge = host VM union。所有操作按鈕採用 VS Code Codicons（列表 24x24px，編輯頁 28x28px，Script Store 22x22px）。編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本）。Diff 視窗採用底部按鈕佈局（取消/更新）。
 11. `enableOnInit` 只在首次 activation 且未執行過執行一次；靠 `_runOnceExecutedCommands` 防重入。
 12. Script Store：catalog 遠端優先（3s timeout / 256KB 限制 / 失敗 fallback 本地），記憶體 5 分鐘 cache；狀態判斷 hash = sha256(script|text|tooltip|tags)；單 script 32KB 限制；拒絕 `eval(` / `new Function` / 過量 `process.env.` (>5)。批次安裝必須原子回滾。
 

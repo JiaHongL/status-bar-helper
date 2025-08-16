@@ -66,8 +66,10 @@ Features:
 - Remote-first with GitHub raw fetch (3s timeout / 256KB limit) → fallback to packaged JSON
 - Locale resolution via `vscode.env.language` (only `zh-tw` / `zh-hant` → Traditional Chinese; others → English)
 - Status badges: NEW / INSTALLED / UPDATE (hash of script + text + tooltip + tags)
+- **Status Priority Sorting**: New > Update > Installed order
 - Per-item or bulk install (bulk is atomic: any failure rolls back all)
-- Inline diff viewer (field changes + simple line diff; large scripts folded >400 lines)
+- **Improved Diff UX**: Bottom button layout (Cancel/Update), eliminating confusing simultaneous dialogs
+- **Icon-based Actions**: View/Install/Update/Remove with intuitive icon design
 - Safety filters: reject scripts containing `eval(`, `new Function`, or excessive `process.env` access
 - 5‑minute in-memory catalog cache (future: ETag planned)
 
