@@ -58,5 +58,6 @@
   "err.execStopped": "Execution stopped",
   "err.vmOpenInvalidCmd": "vm.open: invalid cmdId",
   "err.vmOpenCmdNotFound": "vm.open: command not found or empty script: {0}",
-  "err.vmOpenStartFailed": "vm.open: failed to start target: {0}"
+  "err.vmOpenStartFailed": "vm.open: failed to start target: {0}",
+  "err.openExternal": "Failed to open external link."
 }

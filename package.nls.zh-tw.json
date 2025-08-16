@@ -58,5 +58,6 @@
   "err.execStopped": "執行已停止",
   "err.vmOpenInvalidCmd": "vm.open: 無效的 cmdId",
   "err.vmOpenCmdNotFound": "vm.open: 找不到指令或腳本為空：{0}",
-  "err.vmOpenStartFailed": "vm.open: 啟動目標失敗：{0}"
+  "err.vmOpenStartFailed": "vm.open: 啟動目標失敗：{0}",
+  "err.openExternal": "無法開啟外部連結。"
 }

@@ -111,8 +111,10 @@
   "installSelected": "Install Selected",
   "removeScriptStore": "Remove",
   "label": "Label",
-  "updateConfirm": "Update script? You can view the differences above.",
+  "updateConfirm": "Update script \"{name}\"?",
   "preview": "Preview",
   "importOptions": "Import Options",
-  "shareYourScript": "Share your script"
+  "shareYourScript": "Share your script",
+  "searchIcons": "Search icons…",
+  "selectIcon": "Select icon"
 }

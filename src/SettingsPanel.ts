@@ -249,6 +249,17 @@ export class SettingsPanel {
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
+          case 'openExternal': {
+            if (message.url && typeof message.url === 'string') {
+              try {
+                await vscode.env.openExternal(vscode.Uri.parse(message.url));
+              } catch (e) {
+                console.warn('Failed to open external URL:', e);
+                vscode.window.showErrorMessage(localize('err.openExternal', 'Failed to open external link.'));
+              }
+            }
+            return;
+          }
           case 'data:clearAll': {
             for (const scope of ['global', 'workspace'] as const) {
               try {

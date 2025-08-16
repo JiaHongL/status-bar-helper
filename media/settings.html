@@ -80,7 +80,7 @@
   /* Compact mode (narrow width) */
   body.compact .list-title > span { display:none; }
   body.compact .item-tooltip { display:none; }
-  body.compact .ss-share-text { display:none; }
+  /* body.compact .ss-share-text { display:none; } */ /* 保持分享連結文字顯示 */
   body.compact .list-title { gap:6px; }
   body.compact tr.item-row { height:30px; }
 
@@ -712,6 +712,12 @@
         const shareText = shareLink.querySelector('.ss-share-text');
         if (shareText) shareText.textContent = t('shareYourScript','Share your script');
       }
+      // Diff window buttons
+      const diffCancel = document.getElementById('ss-diff-cancel'); 
+      if (diffCancel) diffCancel.textContent = t('cancel','Cancel');
+      const diffUpdate = document.getElementById('ss-diff-update'); 
+      if (diffUpdate) diffUpdate.textContent = t('update','Update');
+      
       const setText=(id,key,fb)=>{ const el=document.getElementById(id); if(el) el.textContent=t(key,fb); };
       setText('ss-col-label','label','Label');
       setText('ss-col-tooltip','tooltip','Tooltip');
@@ -1230,12 +1236,12 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         <div class="edit-item-container">
           <div class="controls-row">
             <div class="field icon-field">
-              <label>Icon</label>
-              <div id="icon-trigger" class="icon-trigger"><i id="selected-icon" class="codicon codicon-${initIcon||'ellipsis'}"></i><span id="selected-icon-name">${initIcon||'Select icon'}</span><i class="codicon codicon-chevron-down"></i></div>
-              <div id="icon-dropdown" class="icon-dropdown"><input type="text" id="icon-search" placeholder="Search icons…"><div id="icon-list" class="icon-list"></div></div>
+              <label>${t('icon', 'Icon')}</label>
+              <div id="icon-trigger" class="icon-trigger"><i id="selected-icon" class="codicon codicon-${initIcon||'ellipsis'}"></i><span id="selected-icon-name">${initIcon||t('selectIcon', 'Select icon')}</span><i class="codicon codicon-chevron-down"></i></div>
+              <div id="icon-dropdown" class="icon-dropdown"><input type="text" id="icon-search" placeholder="${t('searchIcons', 'Search icons…')}"><div id="icon-list" class="icon-list"></div></div>
             </div>
-            <div class="field label-field"><label for="edit-label">Label</label><input type="text" id="edit-label"></div>
-            <div class="field tooltip-field"><label for="edit-tooltip">Tooltip</label><input type="text" id="edit-tooltip"></div>
+            <div class="field label-field"><label for="edit-label">${t('label', 'Label')}</label><input type="text" id="edit-label"></div>
+            <div class="field tooltip-field"><label for="edit-tooltip">${t('tooltip', 'Tooltip')}</label><input type="text" id="edit-tooltip"></div>
             <div class="actions">
               <button type="button" id="run-btn" class="edit-icon-btn" title="Smart Run (auto-detect)" aria-label="${t('run', 'Run')}"><i class="codicon codicon-play"></i></button>
               <button type="button" id="stop-btn" class="edit-icon-btn" title="${t('stop', 'Stop')}" aria-label="${t('stop', 'Stop')}"><i class="codicon codicon-debug-stop"></i></button>
@@ -1944,6 +1950,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 <button id="ss-dw-close" class="codicon codicon-close" title="Close"></button>
               </div>
               <div id="ss-diff-body" class="ss-diff-window-body"></div>
+              <div id="ss-diff-actions" class="ss-diff-actions" style="display:none;">
+                <button id="ss-diff-cancel" type="button" data-i18n-text="cancel">Cancel</button>
+                <button id="ss-diff-update" type="button" class="primary" data-i18n-text="update">Update</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1975,6 +1985,41 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           #ss-dw-close{ background:transparent; border:1px solid transparent; color:var(--vscode-foreground); cursor:pointer; }
           .ss-diff-window-header h3 { margin:0; font-size:14px; font-weight:600; }
           .ss-diff-window-body { flex:1; overflow:auto; padding:10px 14px; }
+          .ss-diff-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--vscode-editorWidget-background);
+            border-top: 1px solid var(--vscode-panel-border);
+          }
+          .ss-diff-actions button {
+            padding: 4px 12px;
+            border: 1px solid var(--vscode-button-border);
+            border-radius: 2px;
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            cursor: pointer;
+            font-size: 13px;
+            min-width: 70px;
+            height: 28px;
+          }
+          .ss-diff-actions button.primary {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border-color: var(--vscode-button-background);
+          }
+          .ss-diff-actions button:hover {
+            background: var(--vscode-button-hoverBackground);
+            color: var(--vscode-button-foreground);
+          }
+          .ss-diff-actions button.primary:hover {
+            background: var(--vscode-button-hoverBackground);
+          }
+          .ss-diff-actions button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
           .ss-diff-window pre { margin:0; }
         </style>
         <script>
@@ -2044,6 +2089,17 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 const fuzzyTag = (text, pat)=>{ if(!text) return false; let i=0,j=0; const t=text.toLowerCase(); const p=pat.toLowerCase(); while(i<t.length && j<p.length){ if(t[i]===p[j]) j++; i++; } return j===p.length; };
                 list = list.filter(e => Array.isArray(e.tags) && e.tags.some(t => { const tl=t.toLowerCase(); return tl===tag || tl.includes(tag) || fuzzyTag(tl, tag); }));
               }
+              
+              // 狀態排序：新增 > 可更新 > 已安裝
+              list.sort((a, b) => {
+                const statusOrder = { 'new': 0, 'update': 1, 'installed': 2 };
+                const orderA = statusOrder[a.status] ?? 999;
+                const orderB = statusOrder[b.status] ?? 999;
+                if (orderA !== orderB) return orderA - orderB;
+                // 同狀態時按名稱排序
+                return a.text.localeCompare(b.text);
+              });
+              
               tbody.innerHTML='';
               if (!list.length){
                 const emptyEl = document.getElementById('ss-empty');
@@ -2208,12 +2264,25 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 <div class="split-pre" data-collapse="${collapse?1:0}"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
               </div>`;
             }
-  async function showDiff(cmd){
+  async function showDiff(cmd, showUpdateButton = false){
       currentDiffCommand = cmd;
       const layer = document.getElementById('ss-diff-layer');
       const body = document.getElementById('ss-diff-body');
       const title = document.getElementById('ss-diff-window-title');
-  if (title) title.textContent = `${t('diffTitle','Diff')} - ${cmd}`;
+      const actionsArea = document.getElementById('ss-diff-actions');
+      const updateBtn = document.getElementById('ss-diff-update');
+      
+      if (title) title.textContent = `${t('diffTitle','Diff')} - ${cmd}`;
+      if (actionsArea) {
+        actionsArea.style.display = showUpdateButton ? 'flex' : 'none';
+        const cancelBtn = document.getElementById('ss-diff-cancel');
+        if (cancelBtn) cancelBtn.textContent = t('cancel','Cancel');
+        if (updateBtn) {
+          updateBtn.dataset.cmd = cmd;
+          updateBtn.textContent = t('update','Update');
+          updateBtn.setAttribute('aria-label', t('update','Update'));
+        }
+      }
       layer.style.display='block';
       body.innerHTML = '<div style="padding:8px; opacity:.7;">Loading diff…</div>';
               try {
@@ -2256,6 +2325,19 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             }
             function closeDiff(){ const layer=document.getElementById('ss-diff-layer'); if(layer){ layer.style.display='none'; currentDiffCommand=null; } }
             document.getElementById('ss-dw-close').addEventListener('click', closeDiff);
+            document.getElementById('ss-diff-update').addEventListener('click', async (e) => {
+              const cmd = e.target.dataset.cmd;
+              if (cmd) {
+                const entry = ssCatalog.find(e => e.command === cmd);
+                const scriptName = entry ? entry.text || cmd : cmd;
+                const confirmed = await showConfirm(t('updateConfirm','Update script "{name}"?').replace('{name}', scriptName), '', t('update','Update'), t('cancel','Cancel'));
+                if (confirmed) {
+                  closeDiff();
+                  installOne(cmd);
+                }
+              }
+            });
+            document.getElementById('ss-diff-cancel').addEventListener('click', closeDiff);
             document.getElementById('ss-diff-layer').addEventListener('click', e=>{ if(e.target.classList.contains('ss-diff-backdrop')) closeDiff(); });
             window.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('ss-diff-layer').style.display==='block') closeDiff(); });
             updateScriptStoreTexts();
@@ -2296,14 +2378,12 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               if(installBtn){ installOne(installBtn.dataset.cmd); }
               else if(updateBtn){ 
                 const cmd = updateBtn.dataset.cmd;
-                showDiff(cmd).then(() => {
-                  showConfirm(t('updateConfirm','Update this script? You can view the differences above.'), '', t('update','Update'), t('cancel','Cancel')).then(ok=>{ if(ok) installOne(cmd); });
-                });
+                showDiff(cmd, true); // 傳入 true 表示這是更新操作
               }
               else if(viewBtn){ showDiff(viewBtn.dataset.cmd); }
               else if(uninstallBtn){ 
                 const cmd=uninstallBtn.dataset.cmd; 
-                const entry = catalog.find(e => e.command === cmd);
+                const entry = ssCatalog.find(e => e.command === cmd);
                 const scriptName = entry ? entry.text || cmd : cmd;
                 showConfirm(t('removeConfirm','Remove script "{name}"?').replace('{name}', scriptName), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); 
               }
@@ -2319,8 +2399,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             if (shareLink) {
               shareLink.addEventListener('click', (e) => {
                 e.preventDefault();
-                const shareUrl = 'https://github.com/joe-re/status-bar-helper/issues/new?assignees=&labels=script-share&projects=&template=script-share.md&title=%5BScript+Share%5D+';
-                window.open(shareUrl, '_blank');
+                const shareUrl = 'https://github.com/JiaHongL/status-bar-helper/issues/new?title=%5BShare%5D%20%5BYour%20Script%20Name%5D&body=Label%28s%29%3A%20%5BYour%20Label%5D%0ATooltip%3A%20%5BYour%20Tooltip%5D%0A%0AScript%3A%0A%60%60%60js%0A%5BYour%20Script%5D%0A%60%60%60';
+                vscode.postMessage({ command: 'openExternal', url: shareUrl });
               });
             }
             
