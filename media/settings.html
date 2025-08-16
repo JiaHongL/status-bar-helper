@@ -1481,7 +1481,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         const row = target.closest('tr');
         const labelEl = row.querySelector('.item-label');
         const label = labelEl ? labelEl.textContent : '';
-        const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Item'), t('deleteMessage', `Are you sure you want to delete the item "${label}"?`), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
+        const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Item'), t('deleteMessage', 'Are you sure you want to delete the item "{name}"?').replace('{name}', label), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
         if (choice === t('delete', 'Delete')) {
             items.splice(index, 1);
             saveAndPostSettings();
@@ -1513,7 +1513,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const row = target.closest('tr');
       const keyPathEl = row.querySelector('.mono');
       const keyPath = keyPathEl ? keyPathEl.textContent : '';
-      const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Data'), t('deleteMessage', `Are you sure you want to delete the data at "${keyPath}"?`), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
+      const choice = await showChoiceDialog(t('deleteConfirm', 'Delete Data'), t('deleteDataMessage', 'Are you sure you want to delete the data at "{path}"?').replace('{path}', keyPath), [t('delete', 'Delete'), t('cancel', 'Cancel')]);
       if (choice === t('delete', 'Delete')) {
         vscode.postMessage({ command: 'data:delete', row: storedRows[index] });
       }
@@ -2301,7 +2301,12 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 });
               }
               else if(viewBtn){ showDiff(viewBtn.dataset.cmd); }
-              else if(uninstallBtn){ const cmd=uninstallBtn.dataset.cmd; showConfirm(t('removeConfirm','Remove this script?'), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); }
+              else if(uninstallBtn){ 
+                const cmd=uninstallBtn.dataset.cmd; 
+                const entry = catalog.find(e => e.command === cmd);
+                const scriptName = entry ? entry.text || cmd : cmd;
+                showConfirm(t('removeConfirm','Remove this script?').replace('{name}', scriptName), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); 
+              }
             });
             bulkBtn.addEventListener('click', bulkInstall);
             searchEl.addEventListener('input', ()=>{ render(); });
