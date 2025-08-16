@@ -98,7 +98,7 @@ export function diff(current: SbhItem[], incoming: SbhItem[]): DiffResult {
   return { added, replaced, conflicted, skipped, unchanged };
 }
 
-// 匯入套用（不動原始順序與未知欄位）
+// 匯入套用（不動原始順序與未知欄位，保留現有項目的 hidden/enableOnInit 設定）
 export function applyImport(
   current: SbhItem[],
   incoming: SbhItem[],
@@ -110,38 +110,75 @@ export function applyImport(
   const applied: SbhItem[] = [];
   const skipped: SbhItem[] = [];
   const conflicted: SbhItem[] = [];
+  
+  // 輔助函數：合併項目時保留現有的 hidden/enableOnInit 設定
+  const mergeWithExisting = (incoming: SbhItem, existing?: SbhItem): SbhItem => {
+    if (!existing) {
+      // 新項目，使用預設值
+      return {
+        ...incoming,
+        hidden: incoming.hidden ?? false,
+        enableOnInit: incoming.enableOnInit ?? false
+      };
+    }
+    // 現有項目，保留 hidden/enableOnInit 設定，其他欄位使用匯入的值
+    return {
+      ...incoming,
+      hidden: existing.hidden,
+      enableOnInit: existing.enableOnInit
+    };
+  };
+  
   if (strategy === 'replace') {
+    // replace 策略：更新現有項目，新增不存在的項目
     for (const inc of incoming) {
-      if (curMap.has(inc.command)) {
+      const existing = curMap.get(inc.command);
+      if (existing) {
         if (conflictPolicy === 'skip') {
           skipped.push(inc);
         } else if (conflictPolicy === 'newId') {
           // 產生新 command id
           const newInc = { ...inc, command: inc.command + '_' + Math.random().toString(36).slice(2, 6) };
-          result.push(newInc);
-          applied.push(newInc);
+          const merged = mergeWithExisting(newInc);
+          result.push(merged);
+          applied.push(merged);
+        } else {
+          // 預設：直接更新現有項目（保留 hidden/enableOnInit）
+          const merged = mergeWithExisting(inc, existing);
+          result.push(merged);
+          applied.push(merged);
         }
       } else {
-        result.push(inc);
-        applied.push(inc);
+        const merged = mergeWithExisting(inc);
+        result.push(merged);
+        applied.push(merged);
+      }
+    }
+    // 保留未被匯入覆蓋的現有項目
+    for (const cur of current) {
+      if (!incoming.some(inc => inc.command === cur.command)) {
+        result.push(cur);
       }
     }
     return { result, applied, skipped, conflicted };
   } else {
-    // append
+    // append 策略：保留全部現有項目，只新增不存在的
     result.push(...current);
     for (const inc of incoming) {
-      if (curMap.has(inc.command)) {
+      const existing = curMap.get(inc.command);
+      if (existing) {
         if (conflictPolicy === 'skip') {
           skipped.push(inc);
         } else if (conflictPolicy === 'newId') {
           const newInc = { ...inc, command: inc.command + '_' + Math.random().toString(36).slice(2, 6) };
-          result.push(newInc);
-          applied.push(newInc);
+          const merged = mergeWithExisting(newInc);
+          result.push(merged);
+          applied.push(merged);
         }
       } else {
-        result.push(inc);
-        applied.push(inc);
+        const merged = mergeWithExisting(inc);
+        result.push(merged);
+        applied.push(merged);
       }
     }
     return { result, applied, skipped, conflicted };
