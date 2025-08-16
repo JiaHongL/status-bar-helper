@@ -23,7 +23,7 @@ Update Triggers:
 6. 安全與大小限制修改 (KV / JSON / TEXT / Binary / Script)
 7. Typedef 注入機制或內容版本化策略調整
 Change Log:
-2025-08-16: Added scriptStore namespace description & update triggers block.
+2025-08-16: Added scriptStore namespace description & update triggers block. Updated UI icon button specifications and edit view simplification.
 -->
 
 ## 1. Runtime & VM Lifecycle (extension.ts)
@@ -85,6 +85,8 @@ Message directions：
 
 UI 規則：
 - Responsive：`COMPACT_BREAKPOINT = 860px`；<860 → body.compact：隱藏列表 tooltip、標題文字。<1100 → 隱藏 last sync 文字（只留 icon）。
+- **Icon Interface**：所有操作按鈕採用 VS Code Codicons：Run/Stop/Edit/Delete/Save/Cancel，規格為 22-28px 含完整無障礙屬性。
+- **Edit View Simplification**：編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本），移除 tags 編輯功能。
 - Running badge：host VM + panel VM union；任何更動 running 計算方式→同步修改 `getRunningSet()` 與徽章更新邏輯。
 - Drag reorder：禁止拖放執行中的項目；排序完成後 `saveAndPostSettings()`（更新 host）。
 - Edit split layout：維持 `splitRatio` state；折疊 output 時不重算 ratio 以利回復。
@@ -105,6 +107,8 @@ UI 規則：
 | Signature | 變更 `computeItemsSignature()` 是否同步 UI / 同步邏輯？ |
 | State 更新 | 修改 globalState 後是否呼叫 `updateStatusBarItems` + `_sendStateToWebview`？ |
 | 新 UI 事件 | 有集中定義 & 避免硬字串？ |
+| Icon 按鈕 | 新增操作按鈕是否採用 Codicons 並包含 title/aria-label？ |
+| 編輯頁面 | 是否維持僅四個核心欄位（圖示、標籤、工具提示、腳本）？ |
 | 安全限制 | 是否維持路徑與大小檢查？ |
 | 多語系 | 新增 user-visible string 是否透過 `localize()` & 對應 nls 檔？ |
 | 清理 | 新增計時器 / Disposable 是否在 VM 結束釋放？ |

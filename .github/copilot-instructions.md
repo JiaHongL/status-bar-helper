@@ -15,7 +15,7 @@ Update Triggers (若發生務必同步本檔):
 7. Import/Export 格式（策略、欄位、合併規則）變更
 8. 新增/移除本檔引用的關鍵 NLS key / typedef 注入流程
 Instruction Change Log:
-2025-08-16: Sync with remote-first Script Store (Phase 1.5), caching & security limits section consolidated.
+2025-08-16: Sync with UI icon conversion & edit view tags removal. Updated responsive design and UI interaction patterns.
 -->
 
 ## Project quick facts
@@ -55,10 +55,12 @@ Instruction Change Log:
   - 以 items signature（command|scriptHash|text|tooltip|hidden|enableOnInit）偵測遠端變更；變更時重置 interval & `_lastSyncApplied`。
   - `_lastSyncApplied` 初次啟動即初始化，並透過 `hostRun.lastSyncInfo` 提供給 Webview 顯示「Last sync …」。
   - UI 相對時間（just now / Xs / Xm / Xh）後續若本地化需加入 nls；避免在 Webview 端做重複運算（目前 15s 更新可視需求調整）。
-- **Responsive / Compact Mode**：
+- **Responsive / Compact Mode + Icon Interface**：
   - < 1100px：隱藏 last sync 文字（僅 icon）。
   - < 860px：`body.compact` 啟用；隱藏「狀態列項目」標題文字與每列 tooltip，壓縮行高。
   - 調整或新增斷點時：集中於 `settings.html`，避免散落 magic numbers；必要時以 ResizeObserver 改寫。
+  - **全面圖示化介面**：所有操作按鈕（Run/Stop/Edit/Delete/Save/Cancel）均採用 VS Code Codicons，提供一致的視覺體驗。
+  - 圖示按鈕規格：列表檢視 24x24px，編輯頁面 28x28px，Script Store 22x22px，均包含完整的 title 和 aria-label 屬性。
 - **UI 新增同步資訊**：last sync 指示器優先放在標題列右側，顏色/背景須遵循 VS Code Theme token，不直接寫死色碼。
 
 ## Quality bar
@@ -77,6 +79,8 @@ Instruction Change Log:
   2) （若為預設示例）調整 `media/script-store.defaults.<locale>.json` 並升級 seed key（`ensureDefaultItems`）  
   3) 確保 `GLOBAL_*` 兩份資料一致並觸發重繪（`statusBarHelper._refreshStatusBar`）
 - 當我請你**寫/改 Webview**：產出 TS/HTML/CSS，遵循現有 postMessage 協定；所有外掛資源用 `webview.asWebviewUri`。避免直接引用已移除的 restore defaults 流程。
+  - **編輯頁面設計**：僅保留圖示、標籤、工具提示和腳本四個核心編輯欄位，**不包含 tags 編輯功能**。
+  - **圖示按鈕介面**：所有操作按鈕使用 Codicons，確保一致的視覺體驗和完整的無障礙支援。
 - 當我請你**寫測試**：使用 `@vscode/test-electron` 啟動 VS Code，模擬指令與 Webview 通訊，驗證清理行為。
 - 當我請你**實作 Import/Export**時：
   1) utils 在 `src/utils/importExport.ts`，嚴格型別檢查與欄位保留
@@ -96,7 +100,7 @@ Instruction Change Log:
 1. Catalog 來源：遠端 `https://raw.githubusercontent.com/.../media/script-store.defaults.<locale>.json`（3s timeout、256KB JSON 大小上限、失敗則本地 packaged JSON）。
 2. Locale：`vscode.env.language` → `zh-tw`（含 zh-hant）優先，其餘 fallback `en`；遠端 / 本地皆使用同一判斷邏輯，避免 tooltip 語系錯配。
 3. Cache：記憶體 5 分鐘 TTL（面板重開 / 多次請求不重複下載）。
-4. UI：面板「Script Store」 overlay 表格欄位：Icon、Label、Tags、Status（Installed / Update / New）、Action（Install / Update / View）。
+4. UI：面板「Script Store」 overlay 表格欄位：Icon、Label、Tags、Status（Installed / Update / New）、Action（圖示化操作：View/Install/Update/Remove）。
 5. Status 判斷：hash = sha256(script|text|tooltip|tags JSON)；與現有項目 hash 相同 → Installed；存在差異 → Update；不存在 → New。
 6. 安裝 / 更新：覆蓋 script/text/tooltip/tags；保留 hidden / enableOnInit。
 7. 安全：
@@ -105,6 +109,7 @@ Instruction Change Log:
   - JSON parse 失敗或格式非陣列 → 忽略該來源並 fallback。
 8. Diff 視窗：簡易 line-based（>400 行可摺疊）；顯示 catalog vs installed 差異。
 9. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
+10. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
 
 ### 待辦（Phase 2）
 1. ETag / If-None-Match → 精準網路快取（減少 5 分鐘 TTL 期間的重複資料）。

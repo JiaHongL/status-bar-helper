@@ -13,28 +13,30 @@ A VS Code extension that allows you to add custom buttons to the status bar. You
 - **Independent VM Execution**: Each script runs in an independent Node.js VM environment without interference, using only native Node modules.
 - **Security & Isolation**: Scripts execute in a controlled environment, avoiding impact on VS Code stability and security.
 - **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, and detect updates via hash signature.
+- **Intuitive Icon Interface**: All action buttons use consistent VS Code Codicons for a clean and user-friendly experience.
 
 ## 📖 Usage Guide
 
 ### Settings Page
 
-On this page, you can write and test status bar item scripts in real-time:
+On this page, you can manage status bar items with an intuitive icon-based interface:
 
 - Show/hide status bar buttons.
-- Add, edit, delete status bar items.
+- Add, edit, delete status bar items (using icon buttons).
 - View running status in real-time (green dot/count).
 - Toggle visibility in status bar and auto-execution on startup.
 - Copy cmdId
-- One-click Run/Stop to control script execution status.
+- One-click Run/Stop to control script execution status (icon buttons).
 - Manage global and workspace data stored by the extension (including deletion and size display).
 
 ![Settings Page](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1.png)
 
 ### Editor Page
 
-On this page, you can write and test status bar item scripts in real-time:
+On this page, you can write and test status bar item scripts with a clean icon-based interface:
 
-- Built-in Run/Stop buttons for immediate script testing.
+- **Icon-based Action Buttons**: Run/Stop/Save/Cancel buttons feature intuitive icon design.
+- **Focused Core Editing**: Only retain icon, label, tooltip, and script editing functions for a cleaner interface.
 - Built-in Monaco editor with support for native Node modules and VS Code API.
 - Output panel below shows real-time script output and execution status (success/failure/VM closed).
 - Output panel can be hidden or resized by dragging.

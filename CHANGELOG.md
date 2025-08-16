@@ -4,6 +4,36 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Comprehensive UI Icon Conversion** - 全面圖示化介面升級
+  - 將所有操作按鈕轉換為緊湊圖示格式：
+    - 列表檢視：Run/Stop/Edit/Delete 按鈕改用 Codicons
+    - Script Store：View/Install/Update/Remove 按鈕轉換為圖示
+    - 編輯頁面：Run/Stop/Save/Cancel 按鈕改為圖示按鈕
+    - 儲存資料：Delete 按鈕轉換為垃圾桶圖示
+  - Script Store 更新確認對話框，包含差異預覽
+  - 重新整理按鈕轉換為圖示格式並右對齊
+  - 匯出預覽對話框中隱藏 Tags 欄位
+  - 為 Script Store 和對話框增加完整國際化支援
+
+### Changed
+
+- **Edit View Tags Removal** - 移除編輯頁面 Tags 欄位
+  - 使用者無法再在項目編輯介面中編輯 tags
+  - 保留列表檢視和 Script Store 中的 tags 顯示
+  - 簡化編輯介面，專注於核心功能（圖示、標籤、工具提示、腳本）
+- **Layout Optimizations** - 版面配置最佳化
+  - 改善表格行高一致性和按鈕對齊
+  - 操作欄寬度針對雙圖示佈局最佳化（60px）
+  - 表格佈局一致性修復
+
+### Technical
+
+- 維持完整的無障礙功能（title 和 aria-label 屬性）
+- 使用 VS Code Codicons 提供一致的視覺體驗
+- 保持所有現有功能完整性
+
 ### Added (Remote Catalog & Locale Refactor)
 
 - Remote + Cached Script Store catalog：優先 GitHub raw，3s timeout / 256KB 上限，失敗 fallback 本地；結果 5 分鐘快取。
