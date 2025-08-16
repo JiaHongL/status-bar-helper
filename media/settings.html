@@ -140,7 +140,8 @@
   #ss-main{ display:flex; flex:1; min-height:0; gap:12px; }
   #ss-left{ flex:1 1 55%; display:flex; flex-direction:column; min-height:0; }
   #ss-right{ flex:1 1 45%; display:flex; flex-direction:column; min-height:0; border:1px solid var(--vscode-editorGroup-border); border-radius:6px; overflow:hidden; }
-  #ss-diff-header{ padding:6px 10px; background:var(--vscode-sideBar-background); display:flex; gap:8px; align-items:center; }
+  #ss-diff-header{ padding:6px 10px; background:var(--vscode-sideBar-background); display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  #ss-dw-close{ margin-left:auto; }
   #ss-diff-header h4{ margin:0; font-size:12px; font-weight:600; }
   #ss-diff-close{ margin-left:auto; background:transparent; border:1px solid transparent; cursor:pointer; }
   #ss-diff-body{ flex:1; overflow:auto; font-size:11px; line-height:1.35; padding:8px 10px; font-family:var(--vscode-editor-font-family,monospace); }
@@ -1895,7 +1896,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             <div id="ss-diff-window" class="ss-diff-window">
               <div class="ss-diff-window-header ss-store-header-like" id="ss-diff-header">
                 <h3 id="ss-diff-window-title">Diff</h3>
-                <div class="spacer"></div>
                 <button id="ss-dw-close" class="codicon codicon-close" title="Close"></button>
               </div>
               <div id="ss-diff-body" class="ss-diff-window-body"></div>
