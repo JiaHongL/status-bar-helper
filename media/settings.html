@@ -2305,7 +2305,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 const cmd=uninstallBtn.dataset.cmd; 
                 const entry = catalog.find(e => e.command === cmd);
                 const scriptName = entry ? entry.text || cmd : cmd;
-                showConfirm(t('removeConfirm','Remove this script?').replace('{name}', scriptName), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); 
+                showConfirm(t('removeConfirm','Remove script "{name}"?').replace('{name}', scriptName), '', t('removeConfirmYes','Remove'), t('cancel','Cancel')).then(ok=>{ if(ok) uninstallOne(cmd); }); 
               }
             });
             bulkBtn.addEventListener('click', bulkInstall);
