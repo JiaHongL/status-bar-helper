@@ -124,7 +124,11 @@
 
     tr.is-hidden .item-label, tr.is-hidden .item-tooltip { opacity:.55; }
 
-    .item-actions{ display:flex; gap:6px; align-items:center; white-space:nowrap; height: 34px; }
+  .item-actions{ display:flex; gap:4px; align-items:center; white-space:nowrap; height:28px; }
+  .item-actions .icon-btn{ width:26px; height:26px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--vscode-button-border, transparent); background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); border-radius:5px; cursor:pointer; }
+  .item-actions .icon-btn:hover{ background:var(--vscode-button-secondaryHoverBackground, var(--vscode-button-secondaryBackground)); }
+  .item-actions .icon-btn.delete-item{ background:#cc3333; color:var(--vscode-button-foreground); }
+  .item-actions .icon-btn.delete-item:hover{ background:#a32929; }
   /* Tags */
   .tags-cell{ max-width:180px; }
   .tags{ display:flex; gap:4px; flex-wrap:wrap; }
@@ -1056,10 +1060,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
           </td>
           <td class="item-actions">
             <div class="td-content-wrapper justify-end">
-              <button class="run-now-item" data-index="${originalIndex}" type="button">${t('run', 'Run')}</button>
-              <button class="stop-item" data-index="${originalIndex}" type="button">${t('stop', 'Stop')}</button>
-              <button class="edit-item" data-index="${originalIndex}" type="button">${t('edit', 'Edit')}</button>
-              <button class="delete-item" data-index="${originalIndex}" type="button">${t('delete', 'Delete')}</button>
+              <button class="icon-btn run-now-item" data-index="${originalIndex}" type="button" title="${t('run','Run')}" aria-label="${t('run','Run')}"><i class="codicon codicon-play"></i></button>
+              <button class="icon-btn stop-item" data-index="${originalIndex}" type="button" title="${t('stop','Stop')}" aria-label="${t('stop','Stop')}"><i class="codicon codicon-debug-stop"></i></button>
+              <button class="icon-btn edit-item" data-index="${originalIndex}" type="button" title="${t('edit','Edit')}" aria-label="${t('edit','Edit')}"><i class="codicon codicon-edit"></i></button>
+              <button class="icon-btn delete-item" data-index="${originalIndex}" type="button" title="${t('delete','Delete')}" aria-label="${t('delete','Delete')}"><i class="codicon codicon-trash"></i></button>
             </div>
           </td>
         `;
