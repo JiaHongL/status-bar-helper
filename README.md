@@ -29,8 +29,14 @@
 - 複製 cmdId
 - 一鍵 Run / Stop 控制腳本運行狀態（圖示按鈕）。
 - 管理套件儲存的全域與工作區資料（包含刪除與大小顯示）。
+- 提供 script store (之後陸續新增更多腳本範例)，可直接安裝或更新。
+- 增加本地備份，可手動備份或自動定時備份，並提供還原功能。
 
-![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1.png)
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_1.png)
+
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_2.png)
+
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_3.png)
 
 ### 編輯頁
 

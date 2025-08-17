@@ -28,8 +28,14 @@ On this page, you can manage status bar items with an intuitive icon-based inter
 - Copy cmdId
 - One-click Run/Stop to control script execution status (icon buttons).
 - Manage global and workspace data stored by the extension (including deletion and size display).
+- script store (to be added later with more sample scripts) for direct installation or updates.
+- local storage backup with manual or scheduled backups, and restore functionality.
 
-![Settings Page](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1.png)
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_1.png)
+
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_2.png)
+
+![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-1_3.png)
 
 ### Editor Page
 
