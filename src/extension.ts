@@ -58,6 +58,10 @@ import {
   GLOBAL_MANIFEST_KEY,
   GLOBAL_ITEMS_KEY
 } from './globalStateManager';
+import { SmartBackupManager } from './SmartBackupManager';
+import { BACKUP_DIR } from './utils/backup';
+
+let _smartBackupManager: SmartBackupManager | null = null;
 
 // ============================================================================
 // Global State - VM Management & Status Bar Runtime
@@ -719,7 +723,7 @@ function updateStatusBarItems(context: vscode.ExtensionContext, firstActivation 
   });
   // 更新簽章（用於遠端同步差異偵測）
   try { _itemsSignature = computeItemsSignature(items); } catch {}
-  // 若是首次啟動尚未有同步紀錄，初始化基準時間（方便 UI 顯示）
+  // 若是首次啟动尚未有同步紀錄，初始化基準時間（方便 UI 顯示）
   if (firstActivation && _lastSyncApplied === null) {
     _lastSyncApplied = Date.now();
   }
@@ -923,10 +927,93 @@ async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
 function registerBridge(context: vscode.ExtensionContext) {
   return vscode.commands.registerCommand('statusBarHelper._bridge', async (payload?: any) => {
     try {
-  if (!payload || typeof payload !== 'object') { throw new Error('invalid payload'); }
+      if (!payload || typeof payload !== 'object') { throw new Error('invalid payload'); }
       const { ns, fn, args = [] } = payload as { ns: string; fn: string; args: any[] };
 
-      // ---------- Script Store (Phase 1: local catalog only) ----------
+      // --- 智慧備份 bridge API ---
+      if (ns === 'backup') {
+        try {
+          if (!_smartBackupManager) { throw new Error('SmartBackupManager not initialized'); }
+          switch (fn) {
+            case 'createBackup': {
+              // 取得目前 global items
+              const { loadFromGlobal } = require('./globalStateManager');
+              const { writeSmartBackup, cleanupOldBackups } = require('./utils/backup');
+              const items = loadFromGlobal(context);
+              // 產生 signature
+              const changeSignature = require('crypto').createHash('sha256').update(JSON.stringify(items)).digest('hex');
+              const freq = 'manual';
+              const content = {
+                timestamp: new Date().toISOString(),
+                type: 'smart',
+                changeSignature,
+                changeFrequency: freq,
+                items
+              };
+              await writeSmartBackup(context.globalStorageUri.fsPath, content);
+              await cleanupOldBackups(context.globalStorageUri.fsPath);
+              return { ok: true };
+            }
+            case 'getStatus': {
+              const status = _smartBackupManager.getStatus();
+              return { ok: true, data: status };
+            }
+            case 'forceBackup': {
+              try {
+                await _smartBackupManager['checkAndBackup']();
+                return { ok: true };
+              } catch (e:any) {
+                return { ok: false, error: e?.message || String(e) };
+              }
+            }
+            case 'listHistory': {
+              const { listSmartBackups } = require('./utils/backup');
+              const basePath = context.globalStorageUri.fsPath;
+              const list = await listSmartBackups(basePath);
+              return { ok: true, data: list };
+            }
+            case 'restore': {
+              const [filePath] = args;
+              const { readSmartBackup } = require('./utils/backup');
+              const backup = await readSmartBackup(filePath);
+              if (!backup || !Array.isArray(backup.items)) { return { ok: false, error: 'invalidBackupFile' }; }
+              // 實際還原 items
+              const { saveAllToGlobal } = require('./globalStateManager');
+              await saveAllToGlobal(context, backup.items);
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              return { ok: true };
+            }
+            case 'delete': {
+              const [backupId] = args;
+              const fs = require('fs');
+              const path = require('path');
+              try {
+                if (!backupId || typeof backupId !== 'string') { throw new Error('invalidBackupId'); }
+                if (!backupId.startsWith('smart-backup-') || !backupId.endsWith('.json')) { throw new Error('invalidBackupFile'); }
+                const filePath = path.join(context.globalStorageUri.fsPath, BACKUP_DIR, backupId);
+                const exists = fs.existsSync(filePath);
+
+                if (!exists) { throw new Error('fileNotFound'); }
+                await fs.promises.unlink(filePath);
+                return { ok: true };
+              } catch (e:any) {
+
+                return { ok: false, error: e?.message || String(e) };
+              }
+            }
+            case 'resetSchedule': {
+              _smartBackupManager.stop();
+              await _smartBackupManager.start();
+              return { ok: true };
+            }
+          }
+          return { ok: false, error: 'unknownFn' };
+        } catch (e:any) {
+          return { ok: false, error: e?.message || String(e) };
+        }
+      }
+
+      // ---- Script Store API ----
       if (ns === 'scriptStore') {
         interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
         const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
@@ -1478,26 +1565,30 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Status Bar Helper 正在啟動...');
   
   try {
-  console.log('✅ Status Bar Helper Activated');
+    console.log('✅ Status Bar Helper Activated');
 
-  // 1) 初始化 globalState 同步設定
-  initGlobalSyncKeys(context);
+    // 1) 初始化 globalState 同步設定
+    initGlobalSyncKeys(context);
 
-  // 2) 執行一次性遷移（從 settings.json 到 globalState）
-  await migrateFromSettingsIfNeeded(context);
+    // 2) 執行一次性遷移（從 settings.json 到 globalState）
+    await migrateFromSettingsIfNeeded(context);
 
-  // 3) 植入預設項目（若目前為空）
-  await ensureDefaultItems(context);
-  
-  // 4) 回填可能為空的 Chat A/B 範例腳本
-  await backfillChatMessagingSamples(context);
+    // 3) 植入預設項目（若目前為空）
+    await ensureDefaultItems(context);
 
-  // 5) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
-  updateStatusBarItems(context, true);
-  // 啟動背景輪詢偵測同步變更
-  startBackgroundPolling(context);
+    // 4) 回填可能為空的 Chat A/B 範例腳本
+    await backfillChatMessagingSamples(context);
 
-  // 6) 註冊 Settings（lazy import）
+    // 5) 初始化 SmartBackupManager
+    _smartBackupManager = new SmartBackupManager(context);
+    await _smartBackupManager.start();
+
+    // 6) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
+    updateStatusBarItems(context, true);
+    // 啟動背景輪詢偵測同步變更
+    startBackgroundPolling(context);
+
+    // 7) 註冊 Settings（lazy import）
   const showSettings = vscode.commands.registerCommand('statusBarHelper.showSettings', async () => {
     const { SettingsPanel } = await import('./SettingsPanel.js');
     SettingsPanel.createOrShow(context.extensionUri, context);
@@ -1567,4 +1658,8 @@ export function deactivate() {
   // 安全收掉所有仍在跑的 VM
   for (const [cmd] of RUNTIMES) { abortByCommand(cmd, { type: 'deactivate', at: Date.now() }); }
   if (_pollTimer) { try { clearTimeout(_pollTimer); } catch {}; _pollTimer = null; }
+  if (_smartBackupManager) {
+    _smartBackupManager.stop();
+    _smartBackupManager = null;
+  }
 }

@@ -84,10 +84,184 @@ Security & Resource Management:
         - Accessible design with proper ARIA labels and keyboard navigation
         -->
         <style>
-    /* ==========================================================================
-       Global Layout & Design Tokens
-       ========================================================================== */
+      /* ==========================================================================
+      Global Layout & Design Tokens
+      ========================================================================== */
+
+      /* [copilot] please write your css here */
+
     :root { --ctrl-h: 24px; }
+
+    /* === Modal Overlay & Modal === */
+    .sb-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .sb-modal {
+  width: 760px !important;
+  max-width: 98vw !important;
+      max-height: 90vh;
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-editorGroup-border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,.5);
+      color: var(--vscode-editor-foreground);
+    }
+    .sb-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--vscode-editorGroup-border);
+      padding: 14px 20px 10px 20px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .sb-modal-header--compact {
+      padding-top: 10px;
+      padding-bottom: 8px;
+    }
+    .sb-modal-title {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .sb-modal-close {
+      background: transparent;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--vscode-editor-foreground);
+      margin-left: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background .15s;
+    }
+    .sb-modal-close:hover {
+      background: var(--vscode-editorGroup-border);
+    }
+    .sb-modal-body {
+      padding: 18px 20px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      flex: 1;
+      overflow: auto;
+    }
+    .sb-modal-body--compact {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+
+    /* === Modal Button === */
+    .sb-btn.sb-btn-primary {
+      background: linear-gradient(135deg, #007acc, #0099ff);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      font-weight: 500;
+      border-radius: 6px;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0,122,204,0.15);
+      padding: 0 16px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+    .sb-btn.sb-btn-primary:hover {
+      background: linear-gradient(135deg, #0066cc, #007acc);
+    }
+    .sb-btn.sb-btn-sm {
+      height: 28px;
+      font-size: 13px;
+      padding: 0 12px;
+      border-radius: 5px;
+    }
+
+    /* === Modal Table === */
+    .sb-table-container {
+      overflow-x: auto;
+      border-radius: 6px;
+      background: var(--vscode-sideBar-background);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .sb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: none;
+    }
+    .sb-table--bordered {
+      border-spacing: 0;
+      width: 100%;
+    }
+    .sb-table--bordered th {
+      color: var(--vscode-descriptionForeground);
+      font-size: 13px;
+      padding: 8px 12px 8px 12px;
+      border-bottom: 2px solid var(--vscode-editorGroup-border);
+      position: sticky;
+      top: 0;
+      background: var(--vscode-sideBar-background);
+      z-index: 1;
+      font-weight: 600;
+      text-align: left;
+    }
+    .sb-table--bordered th.sb-th-right, .sb-table--bordered td.sb-td-right {
+      text-align: right;
+    }
+    .sb-table--bordered th.sb-th-center, .sb-table--bordered td.sb-td-center {
+      text-align: center;
+    }
+    .sb-table--bordered td {
+  padding: 8px 12px 8px 12px;
+  border-bottom: 2px solid var(--vscode-editorGroup-border);
+  vertical-align: middle;
+  background: none;
+  font-size: 13px;
+  transition: background .12s;
+    }
+    .sb-table--bordered tbody tr:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
+    .sb-th-right, .sb-td-right {
+      text-align: right;
+    }
+    .sb-th-center, .sb-td-center {
+      text-align: center;
+    }
+    /* 欄寬可依需求微調 */
+    .sb-table--bordered th, .sb-table--bordered td {
+  min-width: 80px;
+  border-right: none !important;
+    }
+
+    /* === Modal Icon Button === */
+    .sb-icon-btn {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--vscode-editor-foreground);
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      transition: background .15s, color .15s;
+    }
+    .sb-icon-btn:hover {
+      background: var(--vscode-editorGroup-border);
+      color: var(--vscode-button-background);
+    }
 
     /* 全螢幕佈局，防止內容溢出 */
     html, body { height: 100vh; margin:0; padding:0; overflow:hidden; display:flex; flex-direction:column; font-size:var(--vscode-font-size); }
@@ -560,7 +734,7 @@ Security & Resource Management:
       vertical-align: middle; /* 與文字垂直對齊 */
     }
     .badge--accent {
-      background: var(--vscode-testing-iconPassed);
+      background: var(--testing-iconPassed);
       color: var(--vscode-sideBar-background);
     }
 
@@ -649,8 +823,280 @@ Security & Resource Management:
   #ss-table td:nth-child(3){ width:300px; max-width:300px; }
   #ss-table td:nth-child(5){ width:60px; }
   #ss-table td:nth-child(6){ width:50px; }
+
+    .sb-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .sb-modal {
+    width: 520px;
+    max-width: 96vw;
+    max-height: 90vh;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    color: var(--vscode-editor-foreground);
+  }
+  .sb-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--vscode-editorGroup-border);
+    padding: 14px 20px 10px 20px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .sb-modal-title {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .sb-modal-close {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--vscode-editor-foreground);
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+  .sb-modal-close:hover {
+    background: var(--vscode-editorGroup-border);
+  }
+  .sb-modal-body {
+    padding: 18px 20px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    overflow: auto;
+  }
+  .sb-btn.sb-btn-primary {
+    background: linear-gradient(135deg, #007acc, #0099ff);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    font-weight: 500;
+    border-radius: 6px;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,122,204,0.15);
+    padding: 0 16px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    margin-bottom: 0;
+  }
+  .sb-btn.sb-btn-primary:hover {
+    background: linear-gradient(135deg, #0066cc, #007acc);
+  }
+  .sb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: none;
+  }
+  .sb-table th, .sb-table td {
+    padding: 6px 8px;
+    border: none;
+    background: none;
+  }
+  .sb-table thead tr {
+    background: var(--vscode-sideBar-background);
+  }
+  .sb-icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--vscode-editor-foreground);
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+  .sb-icon-btn:hover {
+    background: var(--vscode-editorGroup-border);
+  }
+    /* Simple Preview Dialog Styles */
+    #preview-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #preview-dialog-overlay.hidden {
+        display: none;
+    }
+
+    #preview-dialog {
+        background: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 8px;
+        width: 90%;
+        max-width: 1100px;
+        max-height: 85%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    }
+
+    .preview-header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--vscode-panel-border); background:var(--vscode-sideBar-background); }
+    .preview-header h3 { font-size:14px; font-weight:600; }
+
+    .preview-header h3 {
+        margin: 0;
+        color: var(--vscode-foreground);
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        color: var(--vscode-icon-foreground);
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn:hover {
+        background: var(--vscode-toolbar-hoverBackground);
+        border-radius: 4px;
+    }
+
+    .preview-body { flex:1; overflow:hidden; padding:12px 18px 10px 18px; display:flex; flex-direction:column; }
+    .import-options { margin-bottom:8px; }
+    .import-options.hidden { display:none; }
+    .options-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .options-title { font-weight:600; font-size:12px; letter-spacing:.5px; opacity:.9; }
+    .options-actions { display:flex; align-items:center; gap:8px; }
+    .mini-btn { padding:2px 6px; font-size:11px; line-height:1; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border); border-radius:3px; cursor:pointer; }
+    .mini-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
+    #import-options-summary { font-size:11px; opacity:.75; }
+    .summary.hidden { display:none; }
+    .options-body { transition:height .18s ease; }
+    .grid-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px 32px; }
+    .group { margin:0; }
+    .group-title { font-weight:600; margin:0 0 2px; font-size:12px; }
+    .radio-line { display:block; cursor:pointer; font-size:12px; line-height:1.3; }
+    .radio-desc { font-size:11px; line-height:1.35; margin:0 0 6px 22px; opacity:.72; }
+    .radio-desc .hint { opacity:.65; }
+    #conflict-policy-wrapper.hidden { display:none; }
+    .thin-sep { border:none; border-top:1px solid var(--vscode-panel-border); margin:4px 0 8px; }
+
+    .selection-controls {
+        margin-bottom: 10px;
+    }
+
+    .selection-controls button {
+        margin-right: 10px;
+        padding: 6px 12px;
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-border);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+
+    .selection-controls button:hover {
+        background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .preview-table-container { flex:1; min-height:220px; overflow:auto; border:1px solid var(--vscode-panel-border); border-radius:4px; margin-bottom:12px; }
+
+    .preview-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .preview-table th,
+    .preview-table td {
+        padding: 8px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--vscode-panel-border);
+        font-size: 0.9em;
+    }
+
+    .preview-table th {
+        background: var(--vscode-sideBar-background);
+        color: var(--vscode-descriptionForeground);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .preview-table tr:hover {
+        background: var(--vscode-list-hoverBackground);
+    }
+
+    .preview-table input[type="checkbox"] {
+        margin: 0;
+    }
+
+    .preview-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        padding: 8px 4px 0 4px;
+        position: sticky;
+        bottom: 0;
+        background: var(--vscode-editor-background);
+        border-top: 1px solid var(--vscode-panel-border);
+        margin-top: auto;
+    }
+
+    .preview-actions button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+
+    #preview-confirm {
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+    }
+
+    #preview-confirm:hover {
+        background: var(--vscode-button-hoverBackground);
+    }
+
+    #preview-cancel {
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        border: 1px solid var(--vscode-button-border);
+    }
+
+    #preview-cancel:hover {
+        background: var(--vscode-button-secondaryHoverBackground);
+    }
+
   </style>
-    </head>
+  </head>
+    <!-- [copilot] please write your html here -->
     <body>
         <div id="list-view-wrapper">
             <div id="list-view">
@@ -720,6 +1166,15 @@ Security & Resource Management:
                         <tbody id="items-list-body"></tbody>
                     </table>
                 </div>
+                <div id="backup-status-root" style="margin:0; padding:0;">
+                  <div style="border-top:1px solid var(--vscode-editorGroup-border); margin:0 0 4px 0;"></div>
+                  <div class="backup-status-container" role="region" aria-label="智慧備份狀態" tabindex="0" style="min-width:220px; margin:0 0 0 auto; display:flex; align-items:center; gap:18px; justify-content:flex-end; padding:2px 0 0 0;">
+                    <button class="backup-manage-btn" title="${t('backupManagement', '備份管理')}" aria-label="${t('backupManagement', '備份管理')}" style="display:flex; align-items:center; gap:6px; min-width:110px; justify-content:center; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; padding:0 14px; height:28px; cursor:pointer;">
+                      <i class="codicon codicon-folder"></i>
+                      <span style="flex:1; text-align:center;" id="backup-manage-label">${t('backupManagement', '備份管理')}</span>
+                    </button>
+                  </div>
+              </div>
             </div>
 
             <div id="data-view">
@@ -783,9 +1238,121 @@ Security & Resource Management:
             </div>
         </div>
 
-        <script src="{{monacoUri}}/loader.js"></script>
+            <div id="backup-mgmt-overlay" class="sb-modal-overlay" style="display:none;" tabindex="-1">
+      <div class="sb-modal">
+        <div class="sb-modal-header sb-modal-header--compact">
+          <span class="sb-modal-title" id="backup-mgmt-title"></span>
+          <button class="sb-modal-close" id="backup-mgmt-close" title="Close" aria-label="Close">
+            <span class="codicon codicon-close"></span>
+          </button>
+        </div>
+        <div class="sb-modal-body sb-modal-body--compact">
+          <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:10px;">
+            <button class="sb-btn sb-btn-primary sb-btn-sm" id="backup-create-btn">
+              <span class="codicon codicon-save"></span>
+              <span id="immediate-backup-label"></span>
+            </button>
+          </div>
+          <div class="sb-table-container">
+            <table class="sb-table sb-table--bordered">
+              <thead>
+                <tr>
+                  <th class="sb-th-center" id="th-index" style="width:36px;min-width:24px;max-width:40px;">#</th>
+                  <th id="th-backup-time" style="min-width:140px; max-width:180px; white-space:nowrap;"> </th>
+                  <th id="th-relative-time" style="width:70px; min-width:60px; max-width:80px; white-space:nowrap;"></th>
+                  <th class="sb-th-right" id="th-file-size" style="width:90px; min-width:60px; max-width:100px; white-space:nowrap;"></th>
+                  <th class="sb-th-right" id="th-item-count" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                  <th class="sb-th-center" id="th-restore" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                  <th class="sb-th-center" id="th-delete" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                </tr>
+              </thead>
+              <tbody id="backup-table-body"></tbody>
+            </table>
+          </div>
+          <div class="sb-backup-hint" style="display:inline-block; min-width:220px; text-align:right; width:100%;margin-top: 5px;">
+            <span id="backup-hint-label"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 確認視窗 mock -->
+      <div id="backup-confirm-overlay" style="display:none; position:fixed; z-index:1100; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.18); align-items:center; justify-content:center;">
+        <div style="background:var(--vscode-editor-background); color:var(--vscode-editor-foreground); min-width:320px; border-radius:8px; box-shadow:0 2px 16px #0003; padding:0; display:flex; flex-direction:column;">
+          <div style="padding:18px 22px 10px 22px; font-size:15px; font-weight:500;">確認操作</div>
+          <div id="backup-confirm-msg" style="padding:0 22px 18px 22px; font-size:13px;">確定要還原此備份？（2025-08-16 14:30）</div>
+          <div style="display:flex; gap:12px; justify-content:flex-end; padding:0 18px 16px 18px;">
+            <button id="backup-confirm-ok" style="background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">確定</button>
+            <button id="backup-confirm-cancel" style="background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simple Import/Export Preview Dialog -->
+    <div id="preview-dialog-overlay" class="hidden">
+        <div id="preview-dialog">
+            <div class="preview-header">
+                <h3 id="preview-title">Preview</h3>
+                <button id="preview-close" class="close-btn" title="Close">&times;</button>
+            </div>
+            <div class="preview-body">
+              <div id="import-options-section" class="import-options hidden">
+                <div class="options-header">
+                  <span class="options-title" id="import-options-title">匯入選項</span>
+                  <div class="options-actions">
+                    <span id="import-options-summary" class="summary hidden"></span>
+                    <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
+                  </div>
+                </div>
+                <div id="import-options-body" class="options-body">
+                  <div class="grid-two">
+                    <div class="group">
+                      <div class="group-title" id="merge-strategy-title">合併策略</div>
+                      <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong id="merge-replace-label">Replace（取代）</strong></label>
+                      <div class="radio-desc" data-for="mergeReplace" id="merge-replace-desc">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
+                      <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong id="merge-append-label">Append（新增）</strong></label>
+                      <div class="radio-desc" data-for="mergeAppend" id="merge-append-desc">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
+                    </div>
+                    <div id="conflict-policy-wrapper" class="group hidden">
+                      <div class="group-title" id="conflict-policy-title">衝突處理</div>
+                      <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong id="conflict-skip-label">Skip（略過）</strong></label>
+                      <div class="radio-desc" data-for="conflictSkip" id="conflict-skip-desc">忽略重複 command。</div>
+                      <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong id="conflict-newid-label">newId（重新命名）</strong></label>
+                      <div class="radio-desc" data-for="conflictNewId" id="conflict-newid-desc">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
+                    </div>
+                  </div>
+                </div>
+                <hr class="thin-sep" />
+            </div>
+            <div class="selection-controls">
+                <button id="select-all-preview" type="button">全選</button>
+                <button id="deselect-all-preview" type="button">全部取消選擇</button>
+            </div>
+            <div class="preview-table-container">
+                <table id="preview-table" class="preview-table">
+                    <thead>
+                        <tr>
+                          <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
+                          <th id="preview-th-text">Text</th>
+                          <th id="preview-th-command">Command</th>
+                          <th id="preview-th-tooltip">Tooltip</th>
+                        </tr>
+                      </thead>
+                      <tbody id="preview-tbody"></tbody>
+                  </table>
+              </div>
+        <div class="preview-actions">
+          <button id="preview-confirm" type="button"></button>
+          <button id="preview-cancel" type="button"></button>
+        </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
     <script>
+      // [copilot] please write your javascript here
       /*
       ============================================================================
       Status Bar Helper Settings Panel - JavaScript Architecture
@@ -818,7 +1385,7 @@ Security & Resource Management:
       - Safe postMessage parameter validation
       - No eval() or Function() constructor usage
       */
-      
+
       // VS Code API 取得與全域暴露
       const vscode = acquireVsCodeApi();
       // expose globally for later overlay scripts to reuse instead of reacquiring
@@ -828,6 +1395,16 @@ Security & Resource Management:
     // Internationalization (I18n) System
     // ============================================================================
     let nls = {};
+    // 24h 相對時間格式
+    // 請務必放在 renderBackupTable function 定義之前
+    function formatRelativeTime(date) {
+      const now = new Date();
+      const diff = Math.floor((now - date) / 1000);
+      if (diff < 60) return t('justNow', 'just now');
+      if (diff < 3600) return t('minutesAgo', '{0}m ago').replace('{0}', Math.floor(diff/60));
+      if (diff < 86400) return t('hoursAgo', '{0}h ago').replace('{0}', Math.floor(diff/3600));
+      return t('daysAgo', '{0}d ago').replace('{0}', Math.floor(diff/86400));
+    }
     
     /**
      * 國際化文字取得函數
@@ -838,51 +1415,261 @@ Security & Resource Management:
     function t(key, defaultValue) {
         return nls[key] || defaultValue || key;
     }
+
+    // ========== 備份管理表格渲染 ==========
+    /**
+     * 渲染備份管理表格
+     * @param {Array|"loading"} backups 備份資料陣列或 'loading'
+     */
+    function renderBackupTable(backups) {
+      const tbody = document.getElementById('backup-table-body');
+      if (!tbody) return;
+      if (backups === 'loading') {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; opacity:.7">${t('loading', 'Loading…')}</td></tr>`;
+        return;
+      }
+      if (!Array.isArray(backups) || !backups.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; opacity:.7">${t('noBackups', 'No backups found')}</td></tr>`;
+        return;
+      }
+      // 依時間新到舊排序
+      const sorted = backups.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      tbody.innerHTML = '';
+      sorted.forEach((b, i) => {
+        // index 欄位
+        const idx = i + 1;
+        // Backup Time 欄位（本地化）
+        const timeStr = b.timestamp ? new Date(b.timestamp).toLocaleString() : '';
+        // Time 欄位（相對時間）
+        const rel = b.timestamp ? formatRelativeTime(new Date(b.timestamp)) : '';
+        // 檔案大小
+        const size = b.sizeStr;
+        // 項目數
+        const count = b.count;
+        tbody.innerHTML += `
+          <tr>
+            <td class="sb-th-center" style="width:36px;min-width:24px;max-width:40px;white-space:nowrap;">${idx}</td>
+            <td style="min-width:140px;max-width:180px;white-space:nowrap;">${escapeHtml(timeStr)}</td>
+            <td style="width:70px;min-width:60px;max-width:80px;white-space:nowrap;">${escapeHtml(rel)}</td>
+            <td class="sb-th-right" style="width:90px;min-width:60px;max-width:100px;white-space:nowrap;">${escapeHtml(size)}</td>
+            <td class="sb-th-right" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">${escapeHtml(String(count))}</td>
+            <td class="sb-th-center" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">
+              <button class="sb-icon-btn restore-btn" data-id="${escapeHtml(b.id||'')}" data-timestr="${escapeHtml(timeStr)}" title="${t('restore','Restore')}"><i class="codicon codicon-history"></i></button>
+            </td>
+            <td class="sb-th-center" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">
+              <button class="sb-icon-btn delete-btn backup-delete-btn" data-index="${i}" data-id="${escapeHtml(b.id||'')}" data-timestr="${escapeHtml(timeStr)}" title="${t('delete','Delete')}"><i class="codicon codicon-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+
+      // Restore 按鈕事件委派
+      tbody.querySelectorAll('.restore-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+          const backupId = btn.getAttribute('data-id');
+          const timeStr = btn.getAttribute('data-timestr');
+          if (!backupId) return;
+          const confirmMsg = t('confirmRestoreBackup', '確定要還原此備份？') + (timeStr ? `（${timeStr}）` : '');
+          const choice = await showChoiceDialog(t('restore', '還原'), confirmMsg, [t('restore', '還原'), t('cancel', '取消')]);
+          if (choice === t('restore', '還原')) {
+            const onlyId = backupId ? backupId.split('/').pop() : backupId;
+            vscode.postMessage({ command: 'backup:restore', backupId: onlyId });
+          }
+        };
+      });
+  }
+
+
+    // ========== Toast 訊息顯示 ==========
+    function showToast(msg, type) {
+      let toast = document.getElementById('sb-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'sb-toast';
+        toast.style.position = 'fixed';
+        toast.style.bottom = '32px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.zIndex = '9999';
+        toast.style.padding = '10px 24px';
+        toast.style.borderRadius = '6px';
+        toast.style.fontSize = '15px';
+        toast.style.color = '#fff';
+        toast.style.background = type === 'success' ? '#4caf50' : '#e53935';
+        toast.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 2000);
+    }
+
     
     /**
      * 更新 UI 中的靜態文字為本地化版本
      * 應在 NLS 資料載入後和語言切換時調用
      */
     function updateUITexts() {
-        // Update static texts
-        document.title = t('title', 'StatusBar Helper Settings');
-        
-        // Update main sections
-        const statusBarTitle = document.querySelector('#list-view .list-title span');
-        if (statusBarTitle) statusBarTitle.textContent = t('statusBarItems', 'Status Bar Items');
-        
-        const storedDataTitle = document.querySelector('#data-view .data-title span');
-        if (storedDataTitle) storedDataTitle.textContent = t('storedData', 'Stored Data');
-        
+            // Update static texts
+            document.title = t('title', 'StatusBar Helper Settings');
+
+            // Update main sections
+            const statusBarTitle = document.querySelector('#list-view .list-title span');
+            if (statusBarTitle) statusBarTitle.textContent = t('statusBarItems', 'Status Bar Items');
+
+            const storedDataTitle = document.querySelector('#data-view .data-title span');
+            if (storedDataTitle) storedDataTitle.textContent = t('storedData', 'Stored Data');
+
+            // Backup status (多國語系)
+            const backupStatusRoot = document.getElementById('backup-status-root');
+            if (backupStatusRoot) {
+              const btn = backupStatusRoot.querySelector('.backup-manage-btn');
+              if (btn) {
+                const label = btn.querySelector('#backup-manage-label');
+                const txt = t('backupManage', 'Backup Management');
+                btn.title = txt;
+                btn.setAttribute('aria-label', txt);
+                btn.querySelector('i')?.setAttribute('title', txt);
+                btn.querySelector('i')?.setAttribute('aria-label', txt);
+                if(label) label.textContent = txt;
+              }
+            }
+
+            const mgmtBtn = document.querySelector('.backup-manage-btn');
+            const overlay = document.getElementById('backup-mgmt-overlay');
+            const closeBtn = document.getElementById('backup-mgmt-close');
+            if(mgmtBtn && overlay && closeBtn){
+              mgmtBtn.addEventListener('click', ()=>{
+                overlay.style.display='flex';
+                setTimeout(()=>{ overlay.focus(); }, 10);
+                // 顯示 loading 狀態
+                renderBackupTable('loading');
+                // 更新表頭多國語系（只在開啟時呼叫）
+                // 發送請求給 extension host
+                window.vscode.postMessage({ command: 'backup:list' });
+              });
+            // ========== 備份管理表格渲染 ==========
+            // ========== 立即備份按鈕事件 ==========
+            const backupCreateBtn = document.getElementById('backup-create-btn');
+            if (backupCreateBtn) {
+              backupCreateBtn.addEventListener('click', () => {
+                if(backupCreateBtn.disabled) return; // 防止重複點擊
+                const temp = backupCreateBtn.innerHTML;
+                backupCreateBtn.disabled = true;
+                backupCreateBtn.innerHTML = '<span class="codicon codicon-loading codicon-modifier-spin"></span>';
+                setTimeout(() => {
+                  backupCreateBtn.innerHTML = temp;
+                  backupCreateBtn.disabled = false;
+                  window.vscode.postMessage({ command: 'backup:create' });
+                }, 1500);
+              });
+            }
+
+            // ========================
+            // Backup Management - Delete（只保留一次事件）
+            // ========================
+            document.getElementById('backup-table-body')?.addEventListener('click', async e => {
+              const btn = e.target.closest('button.backup-delete-btn');
+              if (!btn) return;
+              const idx = +btn.dataset.index;
+              if (Number.isNaN(idx) || !Array.isArray(window.__backups) || !window.__backups[idx]) return;
+              const b = window.__backups[idx];
+              const timeStr = b.timestamp ? new Date(b.timestamp).toLocaleString() : '';
+              const confirm = await showChoiceDialog(
+                t('deleteBackupTitle', 'Delete Backup'),
+                t('deleteBackupMessage', 'Are you sure you want to delete the backup from {time}?').replace('{time}', timeStr),
+                [t('delete','Delete'), t('cancel','Cancel')]
+              );
+              if (confirm === t('delete','Delete')) {
+                vscode.postMessage({ command: 'backup:delete', backupId: (b.id ? b.id.split('/').pop() : b.id) });
+                setTimeout(() => vscode.postMessage({ command: 'backup:list' }), 300);
+              }
+            });
+
+            // 備份管理 modal 多國語系標題/按鈕/提示動態渲染
+            function updateBackupMgmtTexts() {
+              console.log('updateBackupMgmtTexts');
+              const set = (id, key, def) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = t(key, def);
+              };
+              set('backup-mgmt-title', 'backupManagement', '備份管理');
+              set('immediate-backup-label', 'immediateBackup', '立即備份');
+              set('backup-hint-label', 'backupHint', '所有備份僅儲存在本機，請定期自行備份重要資料。');
+              set('th-index', 'index', '#');
+              set('th-backup-time', 'backupTime', '備份時間');
+              set('th-relative-time', 'relativeTime', t('relativeTime', 'Time'));
+              set('th-file-size', 'fileSize', '檔案大小');
+              set('th-item-count', 'itemCount', '數量');
+              set('th-restore', 'restore', '還原');
+              set('th-delete', 'delete', '刪除');
+            }
+            updateBackupMgmtTexts();
+            // ========== 備份刪除事件 ==========
+            document.addEventListener('click', async (e) => {
+              const btn = e.target.closest('.sb-icon-btn.delete-btn');
+              if (!btn) return;
+              const backupId = btn.getAttribute('data-id');
+              const timeStr = btn.getAttribute('data-timestr') || '';
+              // 多國語系標題與訊息
+              const title = t('deleteBackupTitle', 'Delete Backup');
+              const msg = t('deleteBackupMessage', 'Are you sure you want to delete the backup from {time}?').replace('{time}', timeStr);
+              // 按鈕 key 固定用 delete/cancel，顯示用翻譯
+              const btns = [
+                { key: 'delete', label: t('delete','Delete') },
+                { key: 'cancel', label: t('cancel','Cancel') }
+              ];
+              const confirm = await showChoiceDialog(title, msg, btns.map(b=>b.label));
+              if (confirm === btns[0].label) {
+              vscode.postMessage({ command: 'backup:delete', backupId: (backupId ? backupId.split('/').pop() : backupId) });
+              }
+            });
+            closeBtn.addEventListener('click', ()=>{
+          overlay.style.display='none';
+        });
+            overlay.addEventListener('mousedown', e=>{
+          if(e.target===overlay) {
+            overlay.style.display='none';
+          }
+        });
+            overlay.addEventListener('keydown', e=>{
+      if(e.key==='Escape') {
+        overlay.style.display='none';
+      }
+    });
+        }
+
         // Update input placeholders and titles
         const filterInput = document.getElementById('filter-input');
         if (filterInput) {
             filterInput.placeholder = t('filterItems', 'Filter items…');
             filterInput.parentElement.title = t('filterItems', 'Filter items…');
         }
-        
+
         const dataFilterInput = document.getElementById('data-filter-input');
         if (dataFilterInput) {
             dataFilterInput.placeholder = t('filterByKeyPath', 'Filter by key/path…');
         }
-        
+
         // Update button texts
         const importBtn = document.getElementById('import-btn');
         if (importBtn) importBtn.textContent = t('import', 'Import');
-        
+
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.textContent = t('export', 'Export');
-        
+
         const restoreBtn = document.getElementById('restore-btn');
         if (restoreBtn) restoreBtn.textContent = t('restoreSamples', 'Restore Samples');
-        
-  const addNewBtn = document.getElementById('add-new-item-btn');
-  if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
-  const scriptStoreBtn = document.getElementById('script-store-btn');
-  if (scriptStoreBtn) { 
-    scriptStoreBtn.childNodes[0].nodeValue = t('scriptStore', 'Script Store'); 
-    scriptStoreBtn.title = t('scriptStore', 'Script Store'); 
-  }
+
+        const addNewBtn = document.getElementById('add-new-item-btn');
+        if (addNewBtn) addNewBtn.textContent = t('addNewItem', 'Add New Item');
+        const scriptStoreBtn = document.getElementById('script-store-btn');
+        if (scriptStoreBtn) { 
+          scriptStoreBtn.childNodes[0].nodeValue = t('scriptStore', 'Script Store'); 
+          scriptStoreBtn.title = t('scriptStore', 'Script Store'); 
+        }
         
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
@@ -944,8 +1731,8 @@ Security & Resource Management:
 
         const copyExportBtn = document.getElementById('copy-export-btn');
         if (copyExportBtn) copyExportBtn.textContent = t('copyToClipboard', 'Copy to Clipboard');
-  // Also refresh Script Store localized texts if overlay already mounted
-  if (document.getElementById('script-store-overlay')) updateScriptStoreTexts();
+        // Also refresh Script Store localized texts if overlay already mounted
+        if (document.getElementById('script-store-overlay')) updateScriptStoreTexts();
         
         // Update table headers
         const headers = document.querySelectorAll('table.list-table th');
@@ -1098,33 +1885,33 @@ Security & Resource Management:
         messageEl.textContent = message;
         buttonsEl.innerHTML = ''; // Clear existing buttons
 
-        overlay.classList.remove('hidden');
+  overlay.style.zIndex = 3001; // 高於 modal
+  overlay.classList.remove('hidden');
 
-        return new Promise((resolve) => {
-            const listeners = [];
-
-            buttons.forEach(btnText => {
-                const btn = document.createElement('button');
-                btn.textContent = btnText;
-                if (btnText === 'Cancel' || btnText === 'Discard') {
-                    btn.classList.add('secondary');
-                }
-                const listener = () => {
-                    overlay.classList.add('hidden');
-                    cleanup();
-                    resolve(btnText);
-                };
-                btn.addEventListener('click', listener);
-                buttonsEl.appendChild(btn);
-                listeners.push({ btn, listener });
-            });
-
-            const cleanup = () => {
-                listeners.forEach(({ btn, listener }) => {
-                    btn.removeEventListener('click', listener);
-                });
-            };
+    return new Promise((resolve) => {
+      const listeners = [];
+      buttons.forEach((btnText, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = btnText;
+        if (btnText === t('cancel','Cancel') || btnText === t('discard','Discard')) {
+          btn.classList.add('secondary');
+        }
+        const listener = () => {
+          overlay.classList.add('hidden');
+          overlay.style.zIndex = '';
+          cleanup();
+          resolve(btnText);
+        };
+        btn.addEventListener('click', listener);
+        buttonsEl.appendChild(btn);
+        listeners.push({ btn, listener });
+      });
+      const cleanup = () => {
+        listeners.forEach(({ btn, listener }) => {
+          btn.removeEventListener('click', listener);
         });
+      };
+    });
     }
 
     /* ---------- Formatters ---------- */
@@ -1336,7 +2123,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       if (dataRefreshInterval) clearInterval(dataRefreshInterval);
       dataRefreshInterval = setInterval(refreshStoredData, 1500);
       vscode.postMessage({ command: 'vm:refresh' });
-  updateLastSyncDisplay();
+      updateLastSyncDisplay();
     }
 
     /**
@@ -1364,16 +2151,15 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       const tbody = document.getElementById('items-list-body');
       tbody.innerHTML = '';
       const q = filterText.trim().toLowerCase();
-  // escapeHtml 已提升為全域函式（見上方定義）
 
       const filteredItems = items.filter(item => {
-        const label = item.text.replace(/^\$\(([^)]+)\) /, '');
-  const tagMatch = Array.isArray(item.tags) && item.tags.some(t => t.toLowerCase().includes(q));
-  return !q || label.toLowerCase().includes(q) || (item.tooltip||'').toLowerCase().includes(q) || (item.command||'').toLowerCase().includes(q) || tagMatch;
-      });
+      const label = item.text.replace(/^\$\(([^)]+)\) /, '');
+      const tagMatch = Array.isArray(item.tags) && item.tags.some(t => t.toLowerCase().includes(q));
+      return !q || label.toLowerCase().includes(q) || (item.tooltip||'').toLowerCase().includes(q) || (item.command||'').toLowerCase().includes(q) || tagMatch;
+          });
 
       if (!filteredItems.length) {
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; opacity:.7">${q ? t('noMatchingItems', 'No matching items') : t('noItemsToDisplay', 'No items to display')}</td></tr>`;
         return;
       }
 
@@ -1878,6 +2664,9 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         const closeBtn = document.getElementById('preview-close');
         const confirmBtn = document.getElementById('preview-confirm');
         const cancelBtn = document.getElementById('preview-cancel');
+        // 多國語系按鈕
+        if (confirmBtn) confirmBtn.textContent = t('confirm', '確認');
+        if (cancelBtn) cancelBtn.textContent = t('cancel', '取消');
         const selectAllBtn = document.getElementById('select-all-preview');
         const deselectAllBtn = document.getElementById('deselect-all-preview');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
@@ -1970,7 +2759,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
         currentPreviewData = items;
         currentPreviewType = 'export';
-        showPreviewDialog('選擇要匯出的項目', items);
+        showPreviewDialog(t('selectItemsToExport','選擇要匯出的項目'), items);
     }
 
     function showImportPreview(importItems) {
@@ -1981,19 +2770,39 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
         currentPreviewData = importItems;
         currentPreviewType = 'import';
-        showPreviewDialog('選擇要匯入的項目', importItems);
+        showPreviewDialog(t('selectTheProjectToImport','選擇要匯入的項目'), importItems);
     }
 
   function showPreviewDialog(title, itemsToShow) {
-    const overlay = document.getElementById('preview-dialog-overlay');
-    const titleEl = document.getElementById('preview-title');
-    const tbody = document.getElementById('preview-tbody');
-    const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const importOptions = document.getElementById('import-options-section');
-    const conflictWrapper = document.getElementById('conflict-policy-wrapper');
-    const mergeAppendRadio = document.getElementById('mergeAppend');
-    const mergeReplaceRadio = document.getElementById('mergeReplace');
-    const summaryEl = document.getElementById('import-options-summary');
+  const overlay = document.getElementById('preview-dialog-overlay');
+  const titleEl = document.getElementById('preview-title');
+  const tbody = document.getElementById('preview-tbody');
+  const selectAllCheckbox = document.getElementById('select-all-checkbox');
+  const importOptions = document.getElementById('import-options-section');
+  const conflictWrapper = document.getElementById('conflict-policy-wrapper');
+  const mergeAppendRadio = document.getElementById('mergeAppend');
+  const mergeReplaceRadio = document.getElementById('mergeReplace');
+  const summaryEl = document.getElementById('import-options-summary');
+  // 多國語系欄位
+  document.getElementById('preview-title').textContent = t(currentPreviewType==='import' ? 'selectItemsToImport' : 'selectItemsToExport', currentPreviewType==='import' ? '選擇要匯入的項目' : 'Select Items to Export');
+  document.getElementById('import-options-title').textContent = t('importOptions', 'Import Options');
+  document.getElementById('merge-strategy-title').textContent = t('mergeStrategy', 'Merge Strategy');
+  document.getElementById('merge-replace-label').textContent = t('replace', 'Replace');
+  document.getElementById('merge-replace-desc').textContent = t('replaceDesc', '覆蓋同名 command；未選的舊項目保留。重複直接覆蓋。');
+  document.getElementById('merge-append-label').textContent = t('append', 'Append');
+  document.getElementById('merge-append-desc').textContent = t('appendDesc', '只新增不存在的項目。重複依衝突處理。');
+  document.getElementById('conflict-policy-title').textContent = t('conflictPolicy', 'Conflict Policy');
+  document.getElementById('conflict-skip-label').textContent = t('skip', 'Skip');
+  document.getElementById('conflict-skip-desc').textContent = t('skipDesc', '忽略重複 command。');
+  document.getElementById('conflict-newid-label').textContent = t('newId', 'New ID');
+  document.getElementById('conflict-newid-desc').textContent = t('newIdDesc', '重複加時間戳記重命名。原有不變。');
+  document.getElementById('select-all-preview').textContent = t('selectAll', 'Select All');
+  document.getElementById('deselect-all-preview').textContent = t('deselectAll', 'Deselect All');
+  document.getElementById('preview-th-text').textContent = t('text', 'Text');
+  document.getElementById('preview-th-command').textContent = t('command', 'Command');
+  document.getElementById('preview-th-tooltip').textContent = t('tooltip', 'Tooltip');
+  document.getElementById('preview-confirm').textContent = t(currentPreviewType==='import' ? 'import' : 'confirm', currentPreviewType==='import' ? 'Import' : 'Confirm');
+  document.getElementById('preview-cancel').textContent = t('cancel', 'Cancel');
 
         if (!overlay || !titleEl || !tbody) {
             console.error('Preview dialog elements not found');
@@ -2176,6 +2985,30 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         case 'sync:refreshTime': {
           window.__lastSyncAt = msg.lastSyncAt || null;
           updateLastSyncDisplay();
+          break;
+        }
+        case 'backup:create:result':{
+          if (msg.success) {
+            showToast(t('backupCreateSuccess', '備份建立成功'), 'success');
+            window.vscode.postMessage({ command: 'backup:list' });
+          } else {
+            showToast(msg.message || t('backupCreateFailed', '建立備份失敗'), 'error');
+          }
+          break
+        }
+        case 'backup:list':{
+          let backups = Array.isArray(msg.backups) ? msg.backups : [];
+          window.__backups = backups;
+          renderBackupTable(window.__backups);
+          break
+        }
+        case 'backup:restore:result':{
+          if (msg.success) {
+            showToast('備份還原成功', 'success');
+            renderListView();
+          } else {
+            showToast(msg.message || '還原備份失敗', 'error');
+          }
           break;
         }
       }
@@ -2460,7 +3293,8 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
               let list = ssCatalog.slice();
               if (q) {
                 const fuzzy = (text, pat) => {
-                  if(!text) return false; let ti=0, pi=0; const t=text.toLowerCase(); const p=pat.toLowerCase(); while(ti<t.length && pi<p.length){ if(t[ti]===p[pi]) pi++; ti++; } return pi===p.length; };
+                  if(!text) return false; let ti=0, pi=0; const t=text.toLowerCase(); const p=pat.toLowerCase(); while(ti<t.length && pi<p.length-1){ if(t[ti]===p[pi]) pi++; ti++; } return pi===p.length;
+                };
                 list = list.filter(e => {
                   const hay = [e.text, e.command, e.tooltip||'', (e.tags||[]).join(' ')];
                   return hay.some(h => h && (h.toLowerCase().includes(q) || fuzzy(h, q)));
@@ -2664,7 +3498,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
                 <div class="split-pre" data-collapse="${collapse?1:0}"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
               </div>`;
             }
-  async function showDiff(cmd, showUpdateButton = false){
+    async function showDiff(cmd, showUpdateButton = false){
       currentDiffCommand = cmd;
       const layer = document.getElementById('ss-diff-layer');
       const body = document.getElementById('ss-diff-body');
@@ -2740,7 +3574,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             document.getElementById('ss-diff-cancel').addEventListener('click', closeDiff);
             document.getElementById('ss-diff-layer').addEventListener('click', e=>{ if(e.target.classList.contains('ss-diff-backdrop')) closeDiff(); });
             window.addEventListener('keydown', e=>{ if(e.key==='Escape' && document.getElementById('ss-diff-layer').style.display==='block') closeDiff(); });
-            updateScriptStoreTexts();
             // custom confirm (sandbox disallows native confirm)
             const confirmLayer = document.getElementById('ss-confirm-layer');
             const confirmTitle = document.getElementById('ss-confirm-title');
@@ -2819,226 +3652,6 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             // expose open function used by main button
           })();
         </script>
-
-        <!-- Simple Import/Export Preview Dialog -->
-        <div id="preview-dialog-overlay" class="hidden">
-            <div id="preview-dialog">
-                <div class="preview-header">
-                    <h3 id="preview-title">Preview</h3>
-                    <button id="preview-close" class="close-btn" title="Close">&times;</button>
-                </div>
-        <div class="preview-body">
-          <div id="import-options-section" class="import-options hidden">
-            <div class="options-header">
-              <span class="options-title" id="import-options-title">匯入選項</span>
-              <div class="options-actions">
-                <span id="import-options-summary" class="summary hidden"></span>
-                <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
-              </div>
-            </div>
-            <div id="import-options-body" class="options-body">
-              <div class="grid-two">
-                <div class="group">
-                  <div class="group-title" id="merge-strategy-title">合併策略</div>
-                  <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong id="merge-replace-label">Replace（取代）</strong></label>
-                  <div class="radio-desc" data-for="mergeReplace" id="merge-replace-desc">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
-                  <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong id="merge-append-label">Append（新增）</strong></label>
-                  <div class="radio-desc" data-for="mergeAppend" id="merge-append-desc">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
-                </div>
-                <div id="conflict-policy-wrapper" class="group hidden">
-                  <div class="group-title" id="conflict-policy-title">衝突處理</div>
-                  <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong id="conflict-skip-label">Skip（略過）</strong></label>
-                  <div class="radio-desc" data-for="conflictSkip" id="conflict-skip-desc">忽略重複 command。</div>
-                  <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong id="conflict-newid-label">newId（重新命名）</strong></label>
-                  <div class="radio-desc" data-for="conflictNewId" id="conflict-newid-desc">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
-                </div>
-              </div>
-            </div>
-            <hr class="thin-sep" />
-          </div>
-                    <div class="selection-controls">
-                        <button id="select-all-preview" type="button">全選</button>
-                        <button id="deselect-all-preview" type="button">全部取消選擇</button>
-                    </div>
-                    <div class="preview-table-container">
-                        <table id="preview-table" class="preview-table">
-                            <thead>
-                <tr>
-                  <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
-                  <th id="preview-th-text">Text</th>
-                  <th id="preview-th-command">Command</th>
-                  <th id="preview-th-tooltip">Tooltip</th>
-                </tr>
-                            </thead>
-                            <tbody id="preview-tbody"></tbody>
-                        </table>
-                    </div>
-                    <div class="preview-actions">
-                        <button id="preview-confirm" type="button">確認</button>
-                        <button id="preview-cancel" type="button">取消</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <style>
-            /* Simple Preview Dialog Styles */
-            #preview-dialog-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 1000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            #preview-dialog-overlay.hidden {
-                display: none;
-            }
-
-            #preview-dialog {
-                background: var(--vscode-editor-background);
-                border: 1px solid var(--vscode-panel-border);
-                border-radius: 8px;
-                width: 90%;
-                max-width: 1100px;
-                max-height: 85%;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-                box-shadow: 0 6px 18px rgba(0,0,0,0.4);
-            }
-
-            .preview-header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--vscode-panel-border); background:var(--vscode-sideBar-background); }
-            .preview-header h3 { font-size:14px; font-weight:600; }
-
-            .preview-header h3 {
-                margin: 0;
-                color: var(--vscode-foreground);
-            }
-
-            .close-btn {
-                background: none;
-                border: none;
-                font-size: 1.5em;
-                color: var(--vscode-icon-foreground);
-                cursor: pointer;
-                padding: 0;
-                width: 30px;
-                height: 30px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .close-btn:hover {
-                background: var(--vscode-toolbar-hoverBackground);
-                border-radius: 4px;
-            }
-
-            .preview-body { flex:1; overflow:hidden; padding:12px 18px 10px 18px; display:flex; flex-direction:column; }
-            .import-options { margin-bottom:8px; }
-            .import-options.hidden { display:none; }
-            .options-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-            .options-title { font-weight:600; font-size:12px; letter-spacing:.5px; opacity:.9; }
-            .options-actions { display:flex; align-items:center; gap:8px; }
-            .mini-btn { padding:2px 6px; font-size:11px; line-height:1; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border); border-radius:3px; cursor:pointer; }
-            .mini-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
-            #import-options-summary { font-size:11px; opacity:.75; }
-            .summary.hidden { display:none; }
-            .options-body { transition:height .18s ease; }
-            .grid-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px 32px; }
-            .group { margin:0; }
-            .group-title { font-weight:600; margin:0 0 2px; font-size:12px; }
-            .radio-line { display:block; cursor:pointer; font-size:12px; line-height:1.3; }
-            .radio-desc { font-size:11px; line-height:1.35; margin:0 0 6px 22px; opacity:.72; }
-            .radio-desc .hint { opacity:.65; }
-            #conflict-policy-wrapper.hidden { display:none; }
-            .thin-sep { border:none; border-top:1px solid var(--vscode-panel-border); margin:4px 0 8px; }
-
-            .selection-controls {
-                margin-bottom: 10px;
-            }
-
-            .selection-controls button {
-                margin-right: 10px;
-                padding: 6px 12px;
-                background: var(--vscode-button-secondaryBackground);
-                color: var(--vscode-button-secondaryForeground);
-                border: 1px solid var(--vscode-button-border);
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 0.9em;
-            }
-
-            .selection-controls button:hover {
-                background: var(--vscode-button-secondaryHoverBackground);
-            }
-
-            .preview-table-container { flex:1; min-height:220px; overflow:auto; border:1px solid var(--vscode-panel-border); border-radius:4px; margin-bottom:12px; }
-
-            .preview-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-
-            .preview-table th,
-            .preview-table td {
-                padding: 8px 10px;
-                text-align: left;
-                border-bottom: 1px solid var(--vscode-panel-border);
-                font-size: 0.9em;
-            }
-
-            .preview-table th {
-                background: var(--vscode-sideBar-background);
-                color: var(--vscode-descriptionForeground);
-                position: sticky;
-                top: 0;
-                z-index: 1;
-            }
-
-            .preview-table tr:hover {
-                background: var(--vscode-list-hoverBackground);
-            }
-
-            .preview-table input[type="checkbox"] {
-                margin: 0;
-            }
-
-            .preview-actions { display:flex; gap:10px; justify-content:flex-end; padding:8px 4px 0 4px; position:sticky; bottom:0; background:var(--vscode-editor-background); border-top:1px solid var(--vscode-panel-border); margin-top:auto; }
-
-            .preview-actions button {
-                padding: 8px 16px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 0.9em;
-            }
-
-            #preview-confirm {
-                background: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-            }
-
-            #preview-confirm:hover {
-                background: var(--vscode-button-hoverBackground);
-            }
-
-            #preview-cancel {
-                background: var(--vscode-button-secondaryBackground);
-                color: var(--vscode-button-secondaryForeground);
-                border: 1px solid var(--vscode-button-border);
-            }
-
-            #preview-cancel:hover {
-                background: var(--vscode-button-secondaryHoverBackground);
-            }
-        </style>
 
     </body>
 </html>

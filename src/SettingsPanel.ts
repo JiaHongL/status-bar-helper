@@ -61,6 +61,7 @@ import {
   SbhItem
 } from './globalStateManager';
 import { localize } from './nls';
+import { BACKUP_DIR } from './utils/backup';
 
 /**
  * Settings Panel - 主要的設定介面管理類別
@@ -122,9 +123,82 @@ export class SettingsPanel {
     // ============================================================================
     // Webview ↔ Host 通訊協定處理
     // ============================================================================
-    this._panel.webview.onDidReceiveMessage(
-      async (message) => {
-        switch (message.command) {
+    this._panel.webview.onDidReceiveMessage(async (message) => {
+      switch (message.command) {
+          // === 備份管理：還原備份 ===
+          case 'backup:restore': {
+            try {
+              const backupId = message.backupId;
+              // 僅允許還原 smart-backup-*.json
+              if (typeof backupId === 'string' && backupId.startsWith('smart-backup-') && backupId.endsWith('.json')) {
+                const path = require('path');
+                const filePath = path.join(SettingsPanel.extensionContext!.globalStorageUri.fsPath, BACKUP_DIR, backupId);
+                const result: any = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'restore', args: [filePath] });
+                if (result && typeof result === 'object' && result.ok) {
+                  this._panel.webview.postMessage({ command: 'backup:restore:result', success: true });
+                  this._sendStateToWebview();
+                  await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+                } else {
+                  this._panel.webview.postMessage({ command: 'backup:restore:result', success: false, message: (result && typeof result === 'object' && result.error) ? result.error : 'Restore failed' });
+                }
+              } else {
+                this._panel.webview.postMessage({ command: 'backup:restore:result', success: false, message: 'Invalid backup id' });
+              }
+            } catch (e:any) {
+              this._panel.webview.postMessage({ command: 'backup:restore:result', success: false, message: e?.message || String(e) });
+            }
+            return;
+          }
+          // === 備份管理：取得備份清單 ===
+          case 'backup:list': {
+            try {
+              const list = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'listHistory', args: [] }) as { ok: boolean, data?: any[], error?: string };
+              const backups = (list && list.ok && Array.isArray(list.data)) ? list.data.map((item: any) => ({
+                id: item.file,
+                timeStr: item.timestamp ? new Date(item.timestamp).toLocaleString() : '',
+                timestamp: item.timestamp,
+                sizeStr: item.size ? this.formatSize(item.size) : '',
+                count: item.itemsCount || 0
+              })) : [];
+              this._panel.webview.postMessage({ command: 'backup:list', backups });
+            } catch (e:any) {
+              this._panel.webview.postMessage({ command: 'backup:list', backups: [], error: e?.message || String(e) });
+            }
+            return;
+          }
+          // === 備份管理：刪除備份 ===
+          case 'backup:delete': {
+            try {
+              const backupId = message.backupId;
+              // 僅允許刪除 smart-backup-*.json
+              if (typeof backupId === 'string' && backupId.startsWith('smart-backup-') && backupId.endsWith('.json')) {
+                await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'delete', args: [backupId] });
+              }
+              // 回傳最新清單
+              const list = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'listHistory', args: [] }) as { ok: boolean, data?: any[], error?: string };
+              const backups = (list && list.ok && Array.isArray(list.data)) ? list.data.map((item: any, idx: number) => ({
+                id: item.file,
+                timeStr: item.timestamp ? new Date(item.timestamp).toLocaleString() : '',
+                timestamp: item.timestamp,
+                sizeStr: item.size ? this.formatSize(item.size) : '',
+                count: item.itemsCount || 0
+              })) : [];
+              this._panel.webview.postMessage({ command: 'backup:list', backups });
+            } catch (e:any) {
+              this._panel.webview.postMessage({ command: 'backup:list', backups: [], error: e?.message || String(e) });
+            }
+            return;
+          }
+          // === 備份管理：建立手動備份 ===
+          case 'backup:create': {
+            try {
+              const result = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'createBackup', args: [] }) as { ok: boolean, error?: string };
+              this._panel.webview.postMessage({ command: 'backup:create:result', success: !!(result && result.ok), message: result && result.ok ? '' : (result?.error || '建立備份失敗') });
+            } catch (e:any) {
+              this._panel.webview.postMessage({ command: 'backup:create:result', success: false, message: e?.message || String(e) });
+            }
+            return;
+          }
           // Script Store RPC 橋接 - 轉發到主 extension 的 bridge 系統
           case 'scriptStore:req': {
             const { reqId, fn, args } = message;
@@ -328,10 +402,8 @@ export class SettingsPanel {
             return;
           }
 
-
-          // === Stored Data（Webview → 主進程 RPC）===
           case 'data:refresh': {
-            const rows = await this._collectStoredRows();
+            let rows = await this._collectStoredRows();
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
@@ -344,7 +416,7 @@ export class SettingsPanel {
                 await this._callBridge('files', 'remove', row.scope, row.keyPath);
               }
             } catch {}
-            const rows = await this._collectStoredRows();
+            let rows = await this._collectStoredRows();
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
@@ -364,18 +436,23 @@ export class SettingsPanel {
               try {
                 const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
                 const fnRm = scope === 'global' ? 'removeGlobal' : 'removeWorkspace';
-                const keys: string[] = await this._callBridge('storage', fnKeys);
+                let keys: string[] = await this._callBridge('storage', fnKeys);
                 for (const k of keys) { await this._callBridge('storage', fnRm, k); }
               } catch {}
               try {
-                await this._callBridge('files', 'clearAll', scope);
+                const allFiles = await this._callBridge('files', 'listStats', scope, '');
+                for (const f of allFiles) {
+                  const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
+                  if (rel.includes(BACKUP_DIR)) { continue; }
+                  await this._callBridge('files', 'remove', scope, rel);
+                }
               } catch {}
             }
-            const rows = await this._collectStoredRows();
+            let rows = await this._collectStoredRows();
+            rows = rows.filter(row =>!row.keyPath.includes(BACKUP_DIR));
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
             return;
           }
-
         }
       },
       null,
@@ -670,8 +747,13 @@ export class SettingsPanel {
       } catch {}
     }
 
-    return rows;
+    return rows?.filter(row =>!row.keyPath.includes(BACKUP_DIR));
   }
-}
 
-// (buildDefaultItems removed – defaults now provided only via JSON + future Script Store)
+  private formatSize(bytes: number): string {
+    if (bytes < 1024) { return bytes + ' B'; }
+    if (bytes < 1024 * 1024) { return (bytes / 1024).toFixed(1) + ' KB'; }
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  }
+  
+}
