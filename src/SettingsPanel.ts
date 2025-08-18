@@ -199,6 +199,10 @@ export class SettingsPanel {
             }
             return;
           }
+          case 'backup:getStatus':{
+            const result = await vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'backup', fn: 'getStatus', args: [] }) as { ok: boolean, data?: any, error?: string };
+            this._panel.webview.postMessage({ command: 'backup:getStatus:result', message: result.data || '' });
+          }
           // Script Store RPC 橋接 - 轉發到主 extension 的 bridge 系統
           case 'scriptStore:req': {
             const { reqId, fn, args } = message;

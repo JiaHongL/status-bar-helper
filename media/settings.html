@@ -1169,9 +1169,9 @@ Security & Resource Management:
                 <div id="backup-status-root" style="margin:0; padding:0;">
                   <div style="border-top:1px solid var(--vscode-editorGroup-border); margin:0 0 4px 0;"></div>
                   <div class="backup-status-container" role="region" aria-label="智慧備份狀態" tabindex="0" style="min-width:220px; margin:0 0 0 auto; display:flex; align-items:center; gap:18px; justify-content:flex-end; padding:2px 0 0 0;">
-                    <button class="backup-manage-btn" title="${t('backupManagement', '備份管理')}" aria-label="${t('backupManagement', '備份管理')}" style="display:flex; align-items:center; gap:6px; min-width:110px; justify-content:center; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; padding:0 14px; height:28px; cursor:pointer;">
+                    <button class="backup-manage-btn" style="display:flex; align-items:center; gap:6px; min-width:110px; justify-content:center; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; padding:0 14px; height:28px; cursor:pointer;">
                       <i class="codicon codicon-folder"></i>
-                      <span style="flex:1; text-align:center;" id="backup-manage-label">${t('backupManagement', '備份管理')}</span>
+                      <span style="flex:1; text-align:center;" id="backup-manage-label">備份管理</span>
                     </button>
                   </div>
               </div>
@@ -1674,8 +1674,8 @@ Security & Resource Management:
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) clearAllBtn.textContent = t('clearAll', 'Clear All');
 
-        const advancedIEBtn = document.getElementById('advanced-import-export-btn');
-        if (advancedIEBtn) advancedIEBtn.textContent = t('advancedImportExport', 'Advanced I/E');
+        const backupManageLabel = document.getElementById('backup-manage-label');
+        if (backupManageLabel) backupManageLabel.textContent = t('backupManagement', '備份管理');
 
         // Update modal elements
         const modalTitle = document.getElementById('modal-title');
