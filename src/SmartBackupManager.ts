@@ -20,12 +20,12 @@ const GS_KEYS = {
   changeTimestamps: 'smartBackup.changeTimestamps', // number[]
 };
 
-// 最長多久一定要檢查一次（避免完全不檢查）— 調到 24 小時
-const HARD_MAX_CHECK_MIN = 1440; // 24 小時
-// 最小排程間隔（避免太頻繁）
-const MIN_INTERVAL_MIN   = 60;   // 60 分鐘
-// 合理上限（也給 48 小時）
-const MAX_INTERVAL_MIN   = 2880; // 48 小時
+/** 最長多久一定要檢查一次（避免完全不檢查）— 調到 36 小時 */
+const HARD_MAX_CHECK_MIN = 60 * 36;
+/** 最小排程間隔（避免太頻繁）- 60 分鐘 */
+const MIN_INTERVAL_MIN   = 60;
+/** 合理上限 - 5 天 */
+const MAX_INTERVAL_MIN   = 5 * 60 * 24;
 
 export class SmartBackupManager {
   private timer: NodeJS.Timeout | null = null; // 定時器
@@ -63,12 +63,10 @@ export class SmartBackupManager {
 
     // 一開啟就檢查一次；若今天沒有備份，強制備份
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const backedUpToday = !!this.lastBackupTime && this.lastBackupTime >= startOfToday;
+    const backedUpToday = !!this.lastBackupTime && this.isSameLocalDate(this.lastBackupTime, now);
 
     // 立即檢查一次（forceBackup = 今天尚未備份）
-    await this.checkAndBackup(!backedUpToday);
+    await this.checkAndBackup({ forceBackup: !backedUpToday, skipIfBackedUpToday: backedUpToday, reason: 'startup' });
 
     // 若前面已檢查，內部會自動依狀態排程；以下為硬性保險再補一層（可留可去）
     const hardMaxMs = HARD_MAX_CHECK_MIN * 60 * 1000;
@@ -160,14 +158,31 @@ export class SmartBackupManager {
   }
 
   // 檢查是否有變更，若有則執行備份；forceBackup = true 時，今日尚未備份會強制備份一次
-  private async checkAndBackup(forceBackup: boolean = false) {
+  private async checkAndBackup(arg: boolean | {
+    forceBackup?: boolean;
+    skipIfBackedUpToday?: boolean;
+    reason?: 'startup' | 'focus' | 'timer';
+  } = false) {
+    const opts = typeof arg === 'boolean' ? { forceBackup: arg } : (arg || {});
+    const forceBackup = !!opts.forceBackup;
+    const skipIfBackedUpToday = !!opts.skipIfBackedUpToday;
+
     try {
-      const items = loadFromGlobal(this.context); // 取當前設定
+      const items = loadFromGlobal(this.context);
       const signature = this.computeSignature(items);
       const now = new Date();
       const hasChanged = signature !== this.changeSignature;
 
-      // 只有真的有變更時才計入變更頻率；強制備份不計入 changeCount
+      // 啟動時若今天已有備份 → 直接跳過備份（但仍會計算/排程下一次）
+      if (skipIfBackedUpToday && this.lastBackupTime && this.isSameLocalDate(this.lastBackupTime, now)) {
+        // 不變更 changeCount、不備份，只排程下一次
+        this.currentInterval = this.calculateNextInterval(this.currentInterval, false, this.changeCount);
+        this.schedule(this.currentInterval);
+        this.persistState();
+        return;
+      }
+
+      // 只有真的有變更時才計入變更頻率
       if (hasChanged) {
         const nowMs = Date.now();
         const dayAgo = nowMs - 24 * 60 * 60 * 1000;
@@ -179,32 +194,24 @@ export class SmartBackupManager {
         this.changeSignature = signature;
       }
 
-      // 判斷是否要執行備份：
-      // - 有變更 → 一定備份
-      // - 沒變更但被要求 forceBackup（今天尚未備份）→ 也備份一次
+      // 有變更 → 備份；或強制備份（但啟動時被上面 guard 擋住就不會進來）
       if (hasChanged || forceBackup) {
         await this.doBackup(items, hasChanged ? signature : this.changeSignature || signature);
         this.lastBackupTime = now;
         this.retryCount = 0;
-
-        // 成功備份後再清理舊備份
         await cleanupOldBackups(this.basePath);
       }
 
-      // 動態調整下一次的間隔（只考慮 hasChanged；強制備份不影響節奏）
       this.currentInterval = this.calculateNextInterval(this.currentInterval, hasChanged, this.changeCount);
       this.schedule(this.currentInterval);
 
     } catch (e: any) {
       this.error = e?.message || String(e);
       this.retryCount++;
-
       if (this.retryCount <= 3) {
-        // 錯誤時 30 分鐘後重試，並同步 currentInterval 以利對外顯示
         this.currentInterval = 30;
         this.schedule(30);
       } else {
-        // 超過 3 次錯誤 → 停止備份，等下次變更或聚焦事件再恢復
         this.stop();
       }
     } finally {
@@ -261,7 +268,7 @@ export class SmartBackupManager {
     } else {
       // 沒變更：逐步拉長，最多 48 小時
       const next = Math.round(current * 1.8);
-      return Math.min(Math.max(next, 720), MAX_INTERVAL_MIN); // 至少 12h，最多 48h
+      return Math.min(Math.max(next, 720), MAX_INTERVAL_MIN); // 至少 12h，最多 5 天
     }
   }
 
@@ -271,6 +278,12 @@ export class SmartBackupManager {
     if (this.changeCount >= 3) return 'medium';
     if (this.changeCount >= 1) return 'low';
     return 'minimal';
+  }
+
+  private isSameLocalDate(a: Date, b: Date) {
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
   }
 
   // 對外提供目前狀態（用 fireAt 呈現更精準的 nextCheckTime）

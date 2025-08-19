@@ -3595,6 +3595,11 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             }
             function openScriptStore(){
               overlay.style.display='flex';
+              searchEl.value = '';
+              statusEl.value = 'all';
+              tagEl.value = '';
+              statusEl.addEventListener('change', ()=>{ render(); });
+              tagEl.addEventListener('input', ()=>{ render(); });
               // 永遠重新抓 catalog（避免使用者在外部編輯後因 ssLoaded=true 而不更新狀態）
               fetchCatalog();
             }
