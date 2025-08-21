@@ -2,7 +2,7 @@
   "name": "status-bar-helper",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -45,6 +45,8 @@
   },
   "activationEvents": [
     "onStartupFinished",
+    "onView:sbh.container",
+    "onView:statusBarHelper.primary",
     "onCommand:statusBarHelper.showSettings"
   ],
   "main": "./out/extension.js",
@@ -69,6 +71,24 @@
           "description": "%cfg.items.desc%"
         }
       }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sbhContainer",
+          "title": "Status Bar Helper",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "sbhContainer": [
+        {
+          "id": "statusBarHelper.sidebar",
+          "name": "Status Bar Helper",
+          "type": "webview"
+        }
+      ]
     }
   },
   "scripts": {

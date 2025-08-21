@@ -2049,6 +2049,56 @@ interface StatusBarHelper {
       /** Clear all files in the given scope */
       clearAll(scope: 'global' | 'workspace'): Promise<void>;
     };
+    sidebar: {
+      /**
+      * Open (or replace) the Sidebar webview.
+      *
+      * Behavior
+      * - If a session is already active, it is replaced and that session’s handlers
+      *   are fired with onClose('replaced') (new session’s handler is NOT called).
+      * - When focus is false, the HTML is loaded silently without switching
+      *   focus to the Sidebar.
+      * - You can pass onClose to bind a per-session hook that runs when THIS
+      *   session is closed or replaced.
+      *
+      * @param spec Either a raw HTML string, or an object with:
+      *   - html     HTML content to load (default: blank page)
+      *   - focus    Whether to focus the sidebar after loading (default: true)
+      *   - onClose  Per-session handler: (reason: 'closed' | 'replaced') => void
+      */
+      open(spec: {
+        html?: string;
+        focus?: boolean;
+        onClose?: (reason: CloseReason) => void;
+      } | string): Promise<void>;
+
+      /**
+       * Send a message from extension → Sidebar webview
+       * @param msg Arbitrary JSON-serializable object
+       * @returns Promise<boolean> whether the message was delivered
+       */
+      postMessage(msg: any): Promise<boolean>;
+
+      /**
+       * Listen for messages from Sidebar webview → extension
+       * @param handler Callback invoked when webview posts a message
+       * @returns Disposable to unregister the handler
+       */
+      onMessage(handler: (msg: any) => void): { dispose(): void };
+
+      /**
+       * Close the Sidebar view programmatically.
+       * Triggers onClose('closed').
+       */
+      close(): Promise<void>;
+        
+      /**
+       * Listen for Sidebar being closed (by user or replaced by another open).
+       * @param handler Callback invoked on close
+       * @returns Disposable to unregister the handler
+       */
+      onClose(handler: () => void): { dispose(): void };
+    };
     vm: {
       /**
        * Stop the current script's VM from inside the script

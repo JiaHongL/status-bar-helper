@@ -60,6 +60,9 @@ import {
 } from './globalStateManager';
 import { SmartBackupManager } from './SmartBackupManager';
 import { BACKUP_DIR } from './utils/backup';
+import { SidebarManager } from './SidebarManager';
+
+const sidebarMgr = new SidebarManager();
 
 let _smartBackupManager: SmartBackupManager | null = null;
 
@@ -448,6 +451,14 @@ function buildSbh() {
         listStats:  (scope: 'global'|'workspace', rel?: string) => call('files', 'listStats', scope, rel ?? ''),
         remove:     (scope: 'global'|'workspace', rel: string) => call('files', 'remove', scope, rel),
         clearAll:   (scope: 'global'|'workspace') => call('files', 'clearAll', scope),
+      },
+      // 側邊欄操作
+      sidebar: {
+        open:       (spec: any) => sidebarMgr.open(spec),
+        postMessage:(msg: any) => sidebarMgr.postMessage(msg),
+        onMessage:  (handler: (m:any)=>void) => sidebarMgr.onMessage(handler),
+        close:      () => sidebarMgr.close(),
+        onClose:    (handler: ()=>void) => sidebarMgr.onClose(handler),
       },
       // vm 會在 runScriptInVm 執行時注入
       vm: {} as any,
@@ -1587,6 +1598,13 @@ export async function activate(context: vscode.ExtensionContext) {
     updateStatusBarItems(context, true);
     // 啟動背景輪詢偵測同步變更
     startBackgroundPolling(context);
+
+    // 註冊 sidebar view
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider('statusBarHelper.sidebar', {
+        resolveWebviewView(view) { sidebarMgr.bind(view); }
+      })
+    );
 
     // 7) 註冊 Settings（lazy import）
   const showSettings = vscode.commands.registerCommand('statusBarHelper.showSettings', async () => {
