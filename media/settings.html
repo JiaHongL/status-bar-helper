@@ -1472,7 +1472,7 @@ Security & Resource Management:
           const confirmMsg = t('confirmRestoreBackup', '確定要還原此備份？') + (timeStr ? `（${timeStr}）` : '');
           const choice = await showChoiceDialog(t('restore', '還原'), confirmMsg, [t('restore', '還原'), t('cancel', '取消')]);
           if (choice === t('restore', '還原')) {
-            const onlyId = backupId ? backupId.split('/').pop() : backupId;
+            const onlyId = backupId ? backupId.split(/[/\\]/).pop() : backupId;
             vscode.postMessage({ command: 'backup:restore', backupId: onlyId });
           }
         };
@@ -1583,14 +1583,13 @@ Security & Resource Management:
                 [t('delete','Delete'), t('cancel','Cancel')]
               );
               if (confirm === t('delete','Delete')) {
-                vscode.postMessage({ command: 'backup:delete', backupId: (b.id ? b.id.split('/').pop() : b.id) });
+                vscode.postMessage({ command: 'backup:delete', backupId: (b.id ? b.id.split(/[/\\]/).pop() : b.id) });
                 setTimeout(() => vscode.postMessage({ command: 'backup:list' }), 300);
               }
             });
 
             // 備份管理 modal 多國語系標題/按鈕/提示動態渲染
             function updateBackupMgmtTexts() {
-              console.log('updateBackupMgmtTexts');
               const set = (id, key, def) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = t(key, def);
@@ -1623,7 +1622,7 @@ Security & Resource Management:
               ];
               const confirm = await showChoiceDialog(title, msg, btns.map(b=>b.label));
               if (confirm === btns[0].label) {
-              vscode.postMessage({ command: 'backup:delete', backupId: (backupId ? backupId.split('/').pop() : backupId) });
+              vscode.postMessage({ command: 'backup:delete', backupId: (backupId ? backupId.split(/[/\\]/).pop() : backupId) });
               }
             });
             closeBtn.addEventListener('click', ()=>{
