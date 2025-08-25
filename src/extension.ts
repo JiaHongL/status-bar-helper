@@ -61,6 +61,7 @@ import {
 import { SmartBackupManager } from './SmartBackupManager';
 import { BACKUP_DIR } from './utils/backup';
 import { SidebarManager } from './SidebarManager';
+import { addSecretKey, loadSecretKeys, removeSecretKey } from './secretKeyManager';
 
 const sidebarMgr = new SidebarManager();
 
@@ -451,6 +452,13 @@ function buildSbh() {
         listStats:  (scope: 'global'|'workspace', rel?: string) => call('files', 'listStats', scope, rel ?? ''),
         remove:     (scope: 'global'|'workspace', rel: string) => call('files', 'remove', scope, rel),
         clearAll:   (scope: 'global'|'workspace') => call('files', 'clearAll', scope),
+      },
+      // 密碼管理
+      secret: {
+        get:    (key: string) => call('secret', 'get', key),
+        set:    (key: string, value: string) => call('secret', 'set', key, value),
+        delete: (key: string) => call('secret', 'delete', key),
+        keys:   () => call('secret', 'keys'),  
       },
       // 側邊欄操作
       sidebar: {
@@ -1527,6 +1535,40 @@ function registerBridge(context: vscode.ExtensionContext) {
         }
 
         throw new Error('Unknown files fn');
+      }
+
+      // ---------- secret ----------
+      if (ns === 'secret') {
+        try {
+          const [key, value] = args || [];
+          switch (fn) {
+            case 'get': {
+              if (typeof key !== 'string' || !key.trim()) throw new Error('invalid key');
+              const v = await context.secrets.get(key);
+              return { ok: true, data: v ?? undefined };
+            }
+            case 'set': {
+              if (typeof key !== 'string' || !key.trim()) throw new Error('invalid key');
+              await context.secrets.store(key, String(value ?? ''));
+              await addSecretKey(context, key);              // ← 登記
+              return { ok: true, data: true };
+            }
+            case 'delete': {
+              if (typeof key !== 'string' || !key.trim()) throw new Error('invalid key');
+              await context.secrets.delete(key);
+              await removeSecretKey(context, key);           // ← 移除登記
+              return { ok: true, data: true };
+            }
+            case 'keys': {
+              const list = loadSecretKeys(context);          // ← 取得清單（不含值）
+              return { ok: true, data: list };
+            }
+            default:
+              throw new Error('unknown fn: ' + fn);
+          }
+        } catch (e:any) {
+          return { ok: false, error: e?.message || String(e) };
+        }
       }
 
       // ---------- vm state ----------    //（若你尚未加過）

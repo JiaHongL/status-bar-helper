@@ -412,10 +412,12 @@ export class SettingsPanel {
             return;
           }
           case 'data:delete': {
-            const row = message.row as { kind: 'file' | 'kv'; scope: 'global' | 'workspace'; keyPath: string };
+            const row = message.row as { kind: 'file' | 'kv' | 'secret'; scope: 'global' | 'workspace'; keyPath: string };
             try {
               if (row.kind === 'kv') {
                 await this._callBridge('storage', row.scope === 'global' ? 'removeGlobal' : 'removeWorkspace', row.keyPath);
+              } else if(row.kind === 'secret') {
+                await this._callBridge('secret', 'delete', row.keyPath);
               } else {
                 await this._callBridge('files', 'remove', row.scope, row.keyPath);
               }
@@ -452,6 +454,12 @@ export class SettingsPanel {
                 }
               } catch {}
             }
+            try {
+              const secretKeys: string[] = await this._callBridge('secret', 'keys');
+              for (const k of secretKeys) {
+                await this._callBridge('secret', 'delete', k);
+              }
+            } catch {}
             let rows = await this._collectStoredRows();
             rows = rows.filter(row =>!row.keyPath.includes(BACKUP_DIR));
             this._panel.webview.postMessage({ command: 'data:setRows', rows });
@@ -723,21 +731,24 @@ export class SettingsPanel {
   }
 
   // === 收集 Stored Data（files + kv）===
-  private async _collectStoredRows(): Promise<Array<{kind:'file'|'kv'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}>> {
-    const rows: Array<{kind:'file'|'kv'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}> = [];
+  private async _collectStoredRows(): Promise<Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}>> {
+    const rows: Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}> = [];
 
+    // 1) files (global/workspace)
     for (const scope of ['global','workspace'] as const) {
       try {
-        const list: Array<{rel:string; name:string; size:number}> = await this._callBridge('files','listStats', scope, '');
+        const list: Array<{rel:string; name:string; size:number}> =
+          await this._callBridge('files','listStats', scope, '');
         list.forEach(f => {
           const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
-          if (!rel) { return; }
+          if (!rel) return;
           const ext = /\.json$/i.test(rel) ? 'json' : /\.txt$/i.test(rel) ? 'text' : 'bytes';
           rows.push({ kind:'file', scope, ext, keyPath: rel, size: Number(f.size || 0) });
         });
       } catch {}
     }
 
+    // 2) key-value storage (global/workspace)
     const jsonSize = (v:any) => Buffer.byteLength(JSON.stringify(v ?? null), 'utf8');
     for (const scope of ['global','workspace'] as const) {
       const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
@@ -751,8 +762,17 @@ export class SettingsPanel {
       } catch {}
     }
 
-    return rows?.filter(row =>!row.keyPath.includes(BACKUP_DIR));
+    // 3) secret storage（只列 key，不取值；scope 固定 global）
+    try {
+      const secretKeys: string[] = await this._callBridge('secret', 'keys');
+      for (const k of secretKeys) {
+        rows.push({ kind:'secret', scope:'global', ext:'bytes', keyPath:k, size: 1 });// size 不明
+      }
+    } catch {}
+
+    return rows?.filter(row => !row.keyPath.includes(BACKUP_DIR));
   }
+
 
   private formatSize(bytes: number): string {
     if (bytes < 1024) { return bytes + ' B'; }

@@ -693,7 +693,7 @@ Security & Resource Management:
     .icon-item:hover{ background:var(--vscode-list-hoverBackground); }
 
     .mono{ font-family:var(--vscode-editor-font-family,monospace); }
-    .type-cell{ display:flex; align-items:center; gap:6px; }
+    .type-cell{ display:flex; align-items:center; gap:9px; padding: 4px 8px; }
     .type-badge{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:4px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); }
 
     .running-dot { display: inline-flex; align-items: center; gap: 6px; line-height: 1; color: var(--vscode-foreground); font-weight: 500; }
@@ -1195,6 +1195,7 @@ Security & Resource Management:
                         <select id="data-type-filter">
                             <option value="all">All</option>
                             <option value="global-storage">Global Storage</option>
+                            <option value="secret-storage">Secret Storage</option>
                             <option value="workspace-storage">Workspace Storage</option>
                             <option value="global-files">Global Files</option>
                             <option value="workspace-files">Workspace Files</option>
@@ -1752,12 +1753,13 @@ Security & Resource Management:
             if (options.length >= 8) {
                 options[0].textContent = t('filterAll', 'All');
                 options[1].textContent = t('filterGlobalStorage', 'Global Storage');
-                options[2].textContent = t('filterWorkspaceStorage', 'Workspace Storage');
-                options[3].textContent = t('filterGlobalFiles', 'Global Files');
-                options[4].textContent = t('filterWorkspaceFiles', 'Workspace Files');
-                options[5].textContent = t('filterTextFiles', 'Text Files');
-                options[6].textContent = t('filterJsonFiles', 'JSON Files');
-                options[7].textContent = t('filterBinaryFiles', 'Binary Files');
+                options[2].textContent = t('filterSecretStorage', 'Secret Storage');
+                options[3].textContent = t('filterWorkspaceStorage', 'Workspace Storage');
+                options[4].textContent = t('filterGlobalFiles', 'Global Files');
+                options[5].textContent = t('filterWorkspaceFiles', 'Workspace Files');
+                options[6].textContent = t('filterTextFiles', 'Text Files');
+                options[7].textContent = t('filterJsonFiles', 'JSON Files');
+                options[8].textContent = t('filterBinaryFiles', 'Binary Files');
             }
         }
         
@@ -1915,7 +1917,7 @@ Security & Resource Management:
 
     /* ---------- Formatters ---------- */
     function formatBytes(n){ if (!Number.isFinite(n)) return '0 B'; const u = ['B','KB','MB','GB']; let i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; } return `${Math.round(n*10)/10} ${u[i]}`; }
-    const typeIcon = (row) => { if (row.kind === 'kv') return 'database'; if (row.ext === 'text') return 'file-text'; if (row.ext === 'json') return 'file-code'; return 'file-binary'; };
+    const typeIcon = (row) => { if (row.kind === 'secret') return 'lock'; if (row.kind === 'kv') return 'database'; if (row.ext === 'text') return 'file-text'; if (row.ext === 'json') return 'file-code'; return 'file-binary'; };
     // Global HTML escaper used by list + preview dialogs
     function escapeHtml(str = '') {
       return str.replace(/[&<>'"']/g, ch => ({
@@ -2048,6 +2050,18 @@ interface StatusBarHelper {
       /** Clear all files in the given scope */
       clearAll(scope: 'global' | 'workspace'): Promise<void>;
     };
+    /** Secret storage for sensitive data (encrypted) */
+    secret: {
+      /** Get a value from secret storage */
+      get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
+      /** Set a value in secret storage */
+      set<T>(key: string, value: T): Promise<void>;
+      /** Delete a value from secret storage */
+      delete(key: string): Promise<void>;
+      /** Get all keys in secret storage */
+      keys(): Promise<string[]>;
+    };
+    /** Sidebar webview management */
     sidebar: {
       /**
       * Open (or replace) the Sidebar webview.
@@ -2170,7 +2184,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       renderListView();
       refreshStoredData();
       if (dataRefreshInterval) clearInterval(dataRefreshInterval);
-      dataRefreshInterval = setInterval(refreshStoredData, 1500);
+      dataRefreshInterval = setInterval(refreshStoredData, 3000);
       vscode.postMessage({ command: 'vm:refresh' });
       updateLastSyncDisplay();
     }
@@ -2329,6 +2343,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       if (dataTypeFilter !== 'all') {
         filteredRows = filteredRows.filter(r => {
           switch (dataTypeFilter) {
+            case 'secret-storage': return r.kind === 'secret';
             case 'global-storage': return r.kind === 'kv' && r.scope === 'global';
             case 'workspace-storage': return r.kind === 'kv' && r.scope === 'workspace';
             case 'global-files': return r.kind === 'file' && r.scope === 'global';
@@ -2353,9 +2368,14 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         const originalIndex = storedRows.indexOf(r);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="type-cell"><span class="type-badge"><i class="codicon codicon-${typeIcon(r)}"></i></span><span>${r.kind==='kv'?`${r.scope} storage`:`${r.scope} ${r.ext}`}</span></td>
+          <td class="type-cell">
+            <span class="type-badge">
+              <i class="codicon codicon-${typeIcon(r)}"></i>
+            </span>
+            <span>${r.kind==='secret' ? 'secret storage' : r.kind==='kv'?`${r.scope} storage`:`${r.scope} ${r.ext}`}</span>
+          </td>
           <td class="mono">${r.keyPath}</td>
-          <td>${formatBytes(r.size)}</td>
+          <td>${ r.kind==='secret' ? '***' : formatBytes(r.size) }</td>
           <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}" title="${t('delete','Delete')}" aria-label="${t('delete','Delete')}"><i class="codicon codicon-trash"></i></button></td>
         `;
         tbody.appendChild(tr);

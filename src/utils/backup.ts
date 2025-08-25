@@ -32,7 +32,7 @@ export interface SmartBackupContent {
 export const BACKUP_DIR = 'sbh-backups_mefbv8rlaf1peg_mefc0k4t9sy1fy';
 const BACKUP_PREFIX = 'smart-backup-'; // 備份檔名前綴
 const BACKUP_SUFFIX = '.json';         // 備份檔名副檔名
-const MAX_BACKUPS = 10;                // 最多保留幾份備份
+const MAX_BACKUPS = 14;                // 最多保留幾份備份
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 備份總容量上限 (50MB)
 
 // 確保備份目錄存在，不存在就建立

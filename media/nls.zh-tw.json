@@ -48,6 +48,7 @@
   "noData": "沒有資料",
   "filterAll": "全部",
   "filterGlobalStorage": "全域儲存",
+  "filterSecretStorage": "安全儲存",
   "filterWorkspaceStorage": "工作區儲存",
   "filterGlobalFiles": "全域檔案",
   "filterWorkspaceFiles": "工作區檔案",

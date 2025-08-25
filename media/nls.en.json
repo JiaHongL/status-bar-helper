@@ -48,6 +48,7 @@
   "noData": "No data",
   "filterAll": "All",
   "filterGlobalStorage": "Global Storage",
+  "filterSecretStorage": "Secret Storage",
   "filterWorkspaceStorage": "Workspace Storage",
   "filterGlobalFiles": "Global Files",
   "filterWorkspaceFiles": "Workspace Files",
