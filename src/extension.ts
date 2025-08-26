@@ -132,10 +132,10 @@ function _calcAdaptiveInterval(isPanelOpen: boolean, stable: number): number {
 // ─────────────────────────────────────────────────────────────
 const fsp = fs.promises;
 const KV_PREFIX = 'sbh.kv.';
-const STORAGE_KEY_LIMIT   =  2 * 1024 * 1024;  // 2MB
+const STORAGE_KEY_LIMIT   =  5 * 1024 * 1024;  // 5MB
 const STORAGE_TOTAL_LIMIT = 200 * 1024 * 1024; // 200MB
-const JSON_SIZE_LIMIT     =  10 * 1024 * 1024; // 10MB
-const TEXT_SIZE_LIMIT     =  10 * 1024 * 1024; // 10MB
+const JSON_SIZE_LIMIT     =  15 * 1024 * 1024; // 15MB
+const TEXT_SIZE_LIMIT     =  15 * 1024 * 1024; // 15MB
 const FILE_SIZE_LIMIT     = 50 * 1024 * 1024; // 50MB
 
 const utf8Bytes = (v: any): number => {

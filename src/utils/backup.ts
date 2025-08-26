@@ -32,8 +32,8 @@ export interface SmartBackupContent {
 export const BACKUP_DIR = 'sbh-backups_mefbv8rlaf1peg_mefc0k4t9sy1fy';
 const BACKUP_PREFIX = 'smart-backup-'; // 備份檔名前綴
 const BACKUP_SUFFIX = '.json';         // 備份檔名副檔名
-const MAX_BACKUPS = 14;                // 最多保留幾份備份
-const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 備份總容量上限 (50MB)
+const MAX_BACKUPS = 20;                // 最多保留幾份備份
+const MAX_TOTAL_SIZE = 60 * 1024 * 1024; // 備份總容量上限 (60MB)
 
 // 確保備份目錄存在，不存在就建立
 export async function ensureBackupDir(basePath: string) {
@@ -105,7 +105,6 @@ export async function cleanupOldBackups(basePath: string) {
   // 只保留最新 MAX_BACKUPS 筆
   const keep = metas.slice(0, MAX_BACKUPS);
   const toDelete = metas.slice(MAX_BACKUPS);
-
   // 刪除超過數量的
   for (const meta of toDelete) {
     await unlink(meta.file);
