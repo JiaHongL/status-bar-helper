@@ -2439,7 +2439,7 @@ Security & Resource Management:
             const s=stripComments(code);
             return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s);
           };
-          vscode.postMessage({ command: 'stopByCommand', itemCommand: itemToRun.command });
+          vscode.postMessage({ command: 'stopByCommand', itemCommand: cmd });
           setTimeout(() => {
             vscode.postMessage({ command: usesVsCode(code) ? 'runScriptTrusted' : 'runScript', code, itemCommand: cmd });
           }, 200);
