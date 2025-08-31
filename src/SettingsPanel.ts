@@ -109,10 +109,10 @@ export class SettingsPanel {
    * @param extensionUri Extension 的 URI（用於載入資源）
    */
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
-    // 啟動執行狀態定時更新（每1.5秒向 webview 發送最新的執行狀態）
+    // 啟動執行狀態定時更新（每2.5秒向 webview 發送最新的執行狀態）
     this.sendRunningSetIntervalId = setInterval(()=>{
       this._sendRunningToWebview();
-    }, 1500);
+    }, 2500);
 
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -438,31 +438,50 @@ export class SettingsPanel {
             return;
           }
           case 'data:clearAll': {
-            for (const scope of ['global', 'workspace'] as const) {
+            const rows = message.rows as Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; keyPath:string}> | undefined;
+            if (Array.isArray(rows) && rows.length) {
+              // 只刪目前列表裡的資料
+              for (const r of rows) {
+                // safety：不要動到備份資料夾
+                if (r.keyPath && r.keyPath.includes(BACKUP_DIR)) continue;
+                try {
+                  if (r.kind === 'kv') {
+                    await this._callBridge('storage',
+                      r.scope === 'global' ? 'removeGlobal' : 'removeWorkspace',
+                      r.keyPath);
+                  } else if (r.kind === 'secret') {
+                    await this._callBridge('secret', 'delete', r.keyPath);
+                  } else { // file
+                    await this._callBridge('files', 'remove', r.scope, r.keyPath);
+                  }
+                } catch {}
+              }
+            } else {
+              // 沒帶 rows：維持舊版「全部清除」行為（相容性）
+              for (const scope of ['global', 'workspace'] as const) {
+                try {
+                  const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
+                  const fnRm = scope === 'global' ? 'removeGlobal' : 'removeWorkspace';
+                  let keys: string[] = await this._callBridge('storage', fnKeys);
+                  for (const k of keys) { await this._callBridge('storage', fnRm, k); }
+                } catch {}
+                try {
+                  const allFiles = await this._callBridge('files', 'listStats', scope, '');
+                  for (const f of allFiles) {
+                    const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
+                    if (rel.includes(BACKUP_DIR)) { continue; }
+                    await this._callBridge('files', 'remove', scope, rel);
+                  }
+                } catch {}
+              }
               try {
-                const fnKeys = scope === 'global' ? 'keysGlobal' : 'keysWorkspace';
-                const fnRm = scope === 'global' ? 'removeGlobal' : 'removeWorkspace';
-                let keys: string[] = await this._callBridge('storage', fnKeys);
-                for (const k of keys) { await this._callBridge('storage', fnRm, k); }
-              } catch {}
-              try {
-                const allFiles = await this._callBridge('files', 'listStats', scope, '');
-                for (const f of allFiles) {
-                  const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
-                  if (rel.includes(BACKUP_DIR)) { continue; }
-                  await this._callBridge('files', 'remove', scope, rel);
-                }
+                const secretKeys: string[] = await this._callBridge('secret', 'keys');
+                for (const k of secretKeys) { await this._callBridge('secret', 'delete', k); }
               } catch {}
             }
-            try {
-              const secretKeys: string[] = await this._callBridge('secret', 'keys');
-              for (const k of secretKeys) {
-                await this._callBridge('secret', 'delete', k);
-              }
-            } catch {}
-            let rows = await this._collectStoredRows();
-            rows = rows.filter(row =>!row.keyPath.includes(BACKUP_DIR));
-            this._panel.webview.postMessage({ command: 'data:setRows', rows });
+            let rows2 = await this._collectStoredRows();
+            rows2 = rows2.filter(row =>!row.keyPath.includes(BACKUP_DIR));
+            this._panel.webview.postMessage({ command: 'data:setRows', rows2 });
             return;
           }
         }
@@ -545,7 +564,7 @@ export class SettingsPanel {
   private _sendStateToWebview() {
     const items = SettingsPanel.extensionContext ? loadFromGlobal(SettingsPanel.extensionContext) : [];
 
-    let typeDefs: { node: any[], vscode: string } | null = null;
+    let typeDefs: { node: any[], vscode: string, sbh: string } | null = null;
     try {
       const nodeTypeDefsDir = path.join(this._extensionUri.fsPath, 'out', 'typedefs', 'node');
       const nodeTypeDefs = this._readTypeDefinitions(nodeTypeDefsDir, nodeTypeDefsDir);
@@ -553,7 +572,10 @@ export class SettingsPanel {
       const vscodeDtsPath = path.join(this._extensionUri.fsPath, 'out', 'typedefs', 'vscode', 'index.d.ts');
       const vscodeDtsContent = fs.readFileSync(vscodeDtsPath, 'utf8');
 
-      typeDefs = { node: nodeTypeDefs, vscode: vscodeDtsContent };
+      const sbhDtsPath = path.join(this._extensionUri.fsPath, 'out', 'typedefs', 'status-bar-helper', 'sbh.d.ts');
+      const sbhDtsContent = fs.readFileSync(sbhDtsPath, 'utf8');
+
+      typeDefs = { node: nodeTypeDefs, vscode: vscodeDtsContent, sbh: sbhDtsContent };
     } catch (error) {
       console.error('Error reading type definitions:', error);
       vscode.window.showErrorMessage(localize('err.typedefs.load', 'Error loading script editor type definitions. Autocomplete may not work correctly.'));

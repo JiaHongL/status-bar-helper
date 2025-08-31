@@ -694,7 +694,7 @@ Security & Resource Management:
     .icon-item:hover{ background:var(--vscode-list-hoverBackground); }
 
     .mono{ font-family:var(--vscode-editor-font-family,monospace); }
-    .type-cell{ display:flex; align-items:center; gap:9px; padding: 4px 8px; }
+    .type-cell{ display:flex; align-items:center; gap:9px; padding: 4px 8px; height:28px; }
     .type-badge{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:4px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-icon-foreground); }
 
     .running-dot { display: inline-flex; align-items: center; gap: 6px; line-height: 1; color: var(--vscode-foreground); font-weight: 500; }
@@ -1845,7 +1845,7 @@ Security & Resource Management:
     const editView = document.getElementById('edit-view');
 
     /* ---------- Responsive Compact Mode ---------- */
-    const COMPACT_BREAKPOINT = 860; // px
+    const COMPACT_BREAKPOINT = 1000; // px
     let lastCompact = null;
     function evaluateCompact(){
       const w = window.innerWidth;
@@ -1982,184 +1982,8 @@ Security & Resource Management:
         if(typeDefs){
           if(typeDefs.node){ typeDefs.node.forEach(lib => monaco.languages.typescript.javascriptDefaults.addExtraLib(lib.content, lib.path)); }
           if(typeDefs.vscode){ monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDefs.vscode, 'file:///vscode.d.ts'); }
+          if(typeDefs.sbh){ monaco.languages.typescript.javascriptDefaults.addExtraLib(typeDefs.sbh, 'file:///sbh.d.ts');  }
         }
-        const sbhTypeDefs = `
-/**
- * StatusBarHelper API definition
- * Provides persistent storage (global/workspace) and file operations for custom scripts
- */
-interface StatusBarHelper {
-  v1: {
-    /** Global and workspace storage management */
-    storage: {
-      /** Global storage (shared across all workspaces) */
-      global: {
-        /** Get a value from global storage */
-        get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
-        /** Set a value in global storage */
-        set<T>(key: string, value: T): Promise<void>;
-        /** Remove a value from global storage */
-        remove(key: string): Promise<void>;
-        /** Get all keys in global storage */
-        keys(): Promise<string[]>;
-      };
-      /** Workspace storage (only available when a workspace is open) */
-      workspace: {
-        /** Get a value from workspace storage */
-        get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
-        /** Set a value in workspace storage */
-        set<T>(key: string, value: T): Promise<void>;
-        /** Remove a value from workspace storage */
-        remove(key: string): Promise<void>;
-        /** Get all keys in workspace storage */
-        keys(): Promise<string[]>;
-      };
-    };
-    /** File operations for reading/writing files in global/workspace storage */
-    files: {
-      /** Get absolute paths for global/workspace storage folders */
-      dirs(): Promise<{ global: string; workspace: string | null }>;
-
-      /** Read a UTF-8 text file */
-      readText(scope: 'global' | 'workspace', relativePath: string): Promise<string>;
-      /** Write a UTF-8 text file (overwrites existing) */
-      writeText(scope: 'global' | 'workspace', relativePath: string, content: string): Promise<void>;
-
-      /** Read a JSON file */
-      readJSON<T>(scope: 'global' | 'workspace', relativePath: string): Promise<T>;
-      /** Write a JSON file */
-      writeJSON(scope: 'global' | 'workspace', relativePath: string, data: any): Promise<void>;
-
-      /** Read binary file as Uint8Array */
-      readBytes(scope: 'global' | 'workspace', relativePath: string): Promise<Uint8Array>;
-      /**
-       * Write binary file
-       * @param data Can be Uint8Array, ArrayBuffer, or base64 string
-       */
-      writeBytes(scope: 'global' | 'workspace', relativePath: string, data: Uint8Array | ArrayBuffer | string): Promise<void>;
-
-      /** Check if a file or directory exists */
-      exists(scope: 'global' | 'workspace', relativePath: string): Promise<boolean>;
-
-      /** List files and directories in a folder */
-      list(scope: 'global' | 'workspace', relativePath?: string): Promise<{ name: string; type: 'directory' | 'file' }[]>;
-      /** List files with stats (size and relative path) */
-      listStats(scope: 'global' | 'workspace', relativePath?: string): Promise<{ name: string; type: 'file'; size: number; rel: string }[]>;
-
-      /** Remove a file or directory */
-      remove(scope: 'global' | 'workspace', relativePath: string): Promise<void>;
-      /** Clear all files in the given scope */
-      clearAll(scope: 'global' | 'workspace'): Promise<void>;
-    };
-    /** Secret storage for sensitive data (encrypted) */
-    secret: {
-      /** Get a value from secret storage */
-      get<T>(key: string, defaultValue?: T): Promise<T | undefined>;
-      /** Set a value in secret storage */
-      set<T>(key: string, value: T): Promise<void>;
-      /** Delete a value from secret storage */
-      delete(key: string): Promise<void>;
-      /** Get all keys in secret storage */
-      keys(): Promise<string[]>;
-    };
-    /** Sidebar webview management */
-    sidebar: {
-      /**
-      * Open (or replace) the Sidebar webview.
-      *
-      * Behavior
-      * - If a session is already active, it is replaced and that session’s handlers
-      *   are fired with onClose('replaced') (new session’s handler is NOT called).
-      * - When focus is false, the HTML is loaded silently without switching
-      *   focus to the Sidebar.
-      * - You can pass onClose to bind a per-session hook that runs when THIS
-      *   session is closed or replaced.
-      *
-      * @param spec Either a raw HTML string, or an object with:
-      *   - html     HTML content to load (default: blank page)
-      *   - focus    Whether to focus the sidebar after loading (default: true)
-      *   - onClose  Per-session handler: (reason: 'closed' | 'replaced') => void
-      */
-      open(spec: {
-        html?: string;
-        focus?: boolean;
-        onClose?: (reason: CloseReason) => void;
-      } | string): Promise<void>;
-
-      /**
-       * Send a message from extension → Sidebar webview
-       * @param msg Arbitrary JSON-serializable object
-       * @returns Promise<boolean> whether the message was delivered
-       */
-      postMessage(msg: any): Promise<boolean>;
-
-      /**
-       * Listen for messages from Sidebar webview → extension
-       * @param handler Callback invoked when webview posts a message
-       * @returns Disposable to unregister the handler
-       */
-      onMessage(handler: (msg: any) => void): { dispose(): void };
-
-      /**
-       * Close the Sidebar view programmatically.
-       * Triggers onClose('closed').
-       */
-      close(): Promise<void>;
-        
-      /**
-       * Listen for Sidebar being closed (by user or replaced by another open).
-       * @param handler Callback invoked on close
-       * @returns Disposable to unregister the handler
-       */
-      onClose(handler: () => void): { dispose(): void };
-    };
-    vm: {
-      /**
-       * Stop the current script's VM from inside the script
-       * @param reason Optional reason object or string
-       */
-      stop(reason?: any): void;
-      /**
-       * Listen for when this VM is stopped externally
-       */
-      onStop(cb: (reason?: any) => void): void;
-      /**
-       * Get the reason for stopping the VM
-       */
-      reason(): any;
-      /**
-       * Stop the VM by command
-       * @param cmd Optional the command to stop; if not provided, it is equivalent to stopping itself.
-       * @param reason Optional reason object or string
-       */
-      stopByCommand(cmd?: string, reason?: any): void;
-      /**
-      * Open (start) another script by its command id if not already running, then optionally send an initial payload.
-      * If it is already running and payload is provided, the payload is sent as a message.
-      * @param cmdId Target command id registered in statusBarHelper.items
-      * @param payload Optional initial payload message
-      */
-      open(cmdId: string, payload?: any): Promise<void>;
-      /**
-      * Send a message to another running VM (or queue until it registers onMessage).
-      * @param targetCmdId Target VM command id
-      * @param message Arbitrary serializable data
-      */
-      sendMessage(targetCmdId: string, message: any): void;
-      /**
-      * Listen for messages coming from other VMs. Returns an unsubscribe function.
-      */
-      onMessage(handler: (fromCmdId: string, message: any) => void): () => void;
-    };
-  };
-}
-
-// Global API aliases
-declare const statusBarHelper: StatusBarHelper; // Main API
-declare const sbh: StatusBarHelper;             // Short alias
-declare const SBH: StatusBarHelper;             // Uppercase alias
-`;
-        monaco.languages.typescript.javascriptDefaults.addExtraLib(sbhTypeDefs, 'file:///sbh.d.ts');
       });
     }
 
@@ -2185,7 +2009,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
       renderListView();
       refreshStoredData();
       if (dataRefreshInterval) clearInterval(dataRefreshInterval);
-      dataRefreshInterval = setInterval(refreshStoredData, 3000);
+      dataRefreshInterval = setInterval(refreshStoredData, 2500);
       vscode.postMessage({ command: 'vm:refresh' });
       updateLastSyncDisplay();
     }
@@ -2359,6 +2183,9 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
 
       // 按照大小從大到小排序
       filteredRows = filteredRows.slice().sort((a, b) => b.size - a.size);
+
+      // 讓「清除目前列表」能拿到當前可見資料
+      window.__visibleDataRows = filteredRows;
 
       if (!filteredRows.length) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; opacity:.7">${q || dataTypeFilter !== 'all' ? t('noMatchingData', 'No matching data') : t('noData', 'No data')}</td></tr>`;
@@ -2612,7 +2439,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
             const s=stripComments(code);
             return /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) || /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s);
           };
-          vscode.postMessage({ command: usesVsCode(code) ? 'runScriptTrusted' : 'runScript', code, itemCommand: cmd });
+          vscode.postMessage({ command: 'stopByCommand', itemCommand: itemToRun.command });
+          setTimeout(() => {
+            vscode.postMessage({ command: usesVsCode(code) ? 'runScriptTrusted' : 'runScript', code, itemCommand: cmd });
+          }, 200);
         }
         else if (btn.id === 'stop-btn') {
           const cmd  = item.command;
@@ -2682,7 +2512,10 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         saveAndPostSettings();
       } else if (target.classList.contains('run-now-item')) {
         const itemToRun = items[index];
-        vscode.postMessage({ command: 'runScriptTrusted', code: itemToRun.script, itemCommand: itemToRun.command });
+        vscode.postMessage({ command: 'stopByCommand', itemCommand: itemToRun.command });
+        setTimeout(() => {
+          vscode.postMessage({ command: 'runScriptTrusted', code: itemToRun.script, itemCommand: itemToRun.command });
+        }, 200);
       } else if (target.classList.contains('stop-item')) {
         const itemToStop = items[index];
         vscode.postMessage({ command: 'stopByCommand', itemCommand: itemToStop.command });
@@ -2979,12 +2812,42 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
         // Initialize clear all button
         const clearAllBtn = document.getElementById('clear-all-btn');
         if (clearAllBtn) {
-            clearAllBtn.onclick = async () => {
-                if (await showChoiceDialog(t('clearAllConfirm', 'Clear All Data'), t('clearAllMessage', 'Are you sure you want to clear all stored data? This cannot be undone.'), [t('clearAll', 'Clear All'), t('cancel', 'Cancel')]) === t('clearAll', 'Clear All')) {
-                    vscode.postMessage({ command: 'data:clearAll' });
-                }
-            };
+          // 改按鈕文字：清除目前列表
+          clearAllBtn.textContent = t('clearFiltered', '清除目前列表');
+
+          clearAllBtn.onclick = async () => {
+            // 由前端維護的「目前畫面上可見的資料列」
+            const visible = Array.isArray(window.__visibleDataRows)
+              ? window.__visibleDataRows.slice()
+              : [];
+
+            if (!visible.length) {
+              await showChoiceDialog(
+                t('nothingToDelete','沒有可刪除的資料'),
+                t('nothingToDeleteDesc','目前列表為空。'),
+                [t('ok','好')]
+              );
+              return;
+            }
+
+            const msg = t(
+              'clearFilteredMessage',
+              '將刪除目前列表中的 {0} 筆資料。此動作無法復原。'
+            ).replace('{0}', String(visible.length));
+
+            const picked = await showChoiceDialog(
+              t('clearFilteredConfirm','刪除目前列表？'),
+              msg,
+              [t('delete','刪除'), t('cancel','取消')]
+            );
+
+            if (picked === t('delete','刪除')) {
+              // 後端相容：若有 rows 僅刪除這些，否則清空全部
+              vscode.postMessage({ command: 'data:clearAll', rows: visible });
+            }
+          };
         }
+
     }
 
     // Initialize after DOM is ready
@@ -3110,7 +2973,7 @@ declare const SBH: StatusBarHelper;             // Uppercase alias
   const abs = new Date(window.__lastSyncAt).toLocaleString();
   el.title = `Last sync at ${abs}`;
     }
-    setInterval(updateLastSyncDisplay, 15000);
+    setInterval(updateLastSyncDisplay, 5 * 60 * 1000);
 
     vscode.postMessage({ command: 'getSettings' });
         </script>

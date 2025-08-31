@@ -148,5 +148,11 @@
   "skipDesc": "Ignore duplicate commands.",
   "newId": "New ID",
   "newIdDesc": "Rename duplicates with a timestamp. Originals remain unchanged.",
-  "selectTheProjectToImport": "Select the project to import"
+  "selectTheProjectToImport": "Select the project to import",
+  "clearFiltered": "Clear Visible",
+  "clearFilteredConfirm": "Delete Visible Items?",
+  "clearFilteredMessage": "This will delete {0} items currently listed. This cannot be undone.",
+  "nothingToDelete": "Nothing to delete",
+  "nothingToDeleteDesc": "The current list is empty.",
+  "ok": "OK"
 }

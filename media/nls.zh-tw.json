@@ -148,5 +148,11 @@
   "skipDesc": "忽略重複 command。",
   "newId": "重新命名",
   "newIdDesc": "重複加時間戳記重命名。原有不變。",
-  "selectTheProjectToImport":"選擇要匯入的項目"
+  "selectTheProjectToImport":"選擇要匯入的項目",
+  "clearFiltered": "清除目前列表",
+  "clearFilteredConfirm": "刪除目前列表？",
+  "clearFilteredMessage": "將刪除目前列表中的 {0} 筆資料。此動作無法復原。",
+  "nothingToDelete": "沒有可刪除的資料",
+  "nothingToDeleteDesc": "目前列表為空。",
+  "ok": "好"
 }

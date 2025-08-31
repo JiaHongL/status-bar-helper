@@ -2,7 +2,7 @@
   "name": "status-bar-helper",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -94,7 +94,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "npm run copy-files && tsc -p ./",
-    "copy-files": "cpx \"node_modules/@types/{node,vscode}/**/*\" out/typedefs && cpx \"package.nls*.json\" out",
+    "copy-files": "cpx \"node_modules/@types/{node,vscode}/**/*\" out/typedefs && cpx \"types/**/*\" out/typedefs && cpx \"package.nls*.json\" out",
     "watch": "tsc -watch -p ./",
     "build": "vsce package",
     "publish:patch": "vsce publish patch",
