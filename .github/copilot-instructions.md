@@ -25,12 +25,14 @@ Instruction Change Log:
 
 ## Project quick facts
 - Name: **status-bar-helper**（VS Code Extension）
+- Version: **1.7.4**（最新穩定版）
 - Stack: **TypeScript** + VS Code API（`vscode`），Node.js（`vm` 沙箱）
 - Build: `npm run compile`（`tsc` + `cpx` 複製 typedefs / nls），Package: `npm run build`（`vsce package`）
 - Test: `@vscode/test-electron`；（尚未定義 npm test 腳本，可補 `vscode-test` 例行測）
 - Activation: `onStartupFinished`、`statusBarHelper.showSettings`
 - Commands: `statusBarHelper.showSettings`、`statusBarHelper._bridge`、`statusBarHelper._abortByCommand`、`statusBarHelper._refreshStatusBar`
 - Capabilities: 不支援 **Untrusted** 與 **Virtual** 工作區（`capabilities.untrustedWorkspaces/virtualWorkspaces` 均為 false）
+- **TypeScript 支援**: 完整的 API 類型定義 `types/status-bar-helper/sbh.d.ts`
 
 ## Coding style
 - TypeScript **strict** 開啟；**避免 `any`**；型別窄化優先
@@ -43,12 +45,15 @@ Instruction Change Log:
 - **可釋放資源**：任何 `Disposable`、計時器（`setTimeout/Interval`）都必須被追蹤，**在中止/結束時釋放**。
 - **Message Bus**：VM 與 Host 透過 `statusBarHelper._bridge` 溝通；請使用既有封裝，避免旁路。
 - **Storage 與 File API**：一律走 `sbh.v1.storage` 與 `sbh.v1.fs`，**禁止直接以 VM 存取擴充資料夾**。
+- **SecretStorage API**：機密資料透過 `sbh.v1.secrets` 存取，所有操作需使用者確認，禁止硬編碼敏感資料。
+- **SidebarManager API**：透過 `sbh.v1.sidebar` 控制側邊欄，支援 HTML 內容載入、聚焦控制、生命週期管理。
 - **Path 安全**：檔案操作不得使用絕對路徑或 `..` 越界；所有路徑須經過 base path 解析。
 - **GlobalState 為單一事實來源**：使用
   - `GLOBAL_MANIFEST_KEY`：狀態列項目清單（text/tooltip/hidden/enableOnInit）
   - `GLOBAL_ITEMS_KEY`：`command -> script` 映射
   - `MIGRATION_FLAG_KEY`：自 settings.json 遷移旗標  
   修改這些資料時，**務必一併更新**面板 UI（postMessage）與 status bar。
+- **Smart Backup 智慧備份**：採用變更偵測機制，6小時最小間隔，僅在實際變更時執行備份，與同步機制共用 signature 計算。
 - **Import/Export 資料完整性**：
   - JSON 必須為 SbhItem[] 陣列格式，**嚴格保持欄位順序與未知欄位**
   - 支援 Replace/Append 合併策略，衝突時可 skip 或 newId

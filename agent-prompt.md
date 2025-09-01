@@ -1,6 +1,12 @@
 # Status Bar Helper 專案專用 Agent Prompt (單一版)
-
-你現在是 VS Code 擴充套件「status-bar-helper」的專屬工程助理。所有回答必須符合下列規範，並輸出可立即採取行動的內容。
+8. 錯誤回傳：Bridge 統一 `{ ok:false, error }`（僅 message，不傳遞整個 Error 物件）；Webview 不直接信任 host 物件引用。
+9. Monaco typedef 必與 VM / Bridge API 同步（在 `settings.html` 注入的 sbhTypeDefs 與 `types/status-bar-helper/sbh.d.ts`）。
+10. UI：<1100px 隱藏 last sync 文字；<860px `body.compact`；拖曳禁止針對執行中項目；running badge = host VM union。所有操作按鈕採用 VS Code Codicons（列表 24x24px，編輯頁 28x28px，Script Store 22x22px）。編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本）。Diff 視窗採用底部按鈕佈局（取消/更新）。
+11. `enableOnInit` 只在首次 activation 且未執行過執行一次；靠 `_runOnceExecutedCommands` 防重入。
+12. Script Store：catalog 遠端優先（3s timeout / 256KB 限制 / 失敗 fallback 本地），記憶體 5 分鐘 cache；狀態判斷 hash = sha256(script|text|tooltip|tags)；單 script 32KB 限制；拒絕 `eval(` / `new Function` / 過量 `process.env.` (>5)。批次安裝必須原子回滾。NEW 徽章系統：自動載入 catalog 並顯示新腳本計數徽章。狀態排序：新增 > 可更新 > 已安裝。
+13. **SecretStorage 安全規範**：機密資料僅透過 `sbh.v1.secrets` API 存取，所有操作需使用者確認，禁止腳本硬編碼敏感資料。
+14. **Smart Backup 智慧備份**：採用與同步相同的變更偵測機制，6小時最小間隔，僅在實際變更時執行備份。
+15. **SidebarManager 管理**：獨立 webview 生命週期，支援 HTML 內容載入、聚焦控制、替換防抖，透過 `sbh.v1.sidebar` API 提供腳本控制。 VS Code 擴充套件「status-bar-helper」的專屬工程助理。所有回答必須符合下列規範，並輸出可立即採取行動的內容。
 
 <!--
 Maintenance Notes
@@ -23,10 +29,14 @@ Change Log:
 
 ## 核心檔 & 職責
 
-- `src/extension.ts`：VM sandbox 建立、Runtime 管理、Bridge 指令、Status Bar items lifecycle、自適應背景輪詢（20s→45s→90s→180s→300s→600s）、import/export host 端處理。
+- `src/extension.ts`：VM sandbox 建立、Runtime 管理、Bridge 指令、Status Bar items lifecycle、自適應背景輪詢（20s→45s→90s→180s→300s→600s）、import/export host 端處理、SecretStorage 管理、智慧備份調度。
 - `src/SettingsPanel.ts`：Webview Panel 控制器（狀態同步、訊息路由、類型定義注入、Smart/Trusted Run、Stored Data 檢視）。
+- `src/SidebarManager.ts`：獨立側邊欄管理（webview 生命週期、HTML 內容載入、聚焦控制、替換防抖）。
+- `src/SmartBackupManager.ts`：智慧型定時備份（變更偵測、動態間隔調整、原子性操作）。
+- `src/secretKeyManager.ts`：機密儲存管理（SecretStorage 封裝、使用者確認機制）。
 - `media/settings.html`：UI（items list + drag reorder、running badge、last sync indicator、Monaco 初始化、import/export modal、responsive/compact 規則）。
-- 支援：`globalStateManager.ts`（GLOBAL_MANIFEST_KEY / GLOBAL_ITEMS_KEY）、`utils/importExport.ts`（parse/diff/apply）。
+- `types/status-bar-helper/sbh.d.ts`：完整的 TypeScript API 定義（storage、files、secrets、sidebar、vm 等）。
+- 支援：`globalStateManager.ts`（GLOBAL_MANIFEST_KEY / GLOBAL_ITEMS_KEY）、`utils/importExport.ts`（parse/diff/apply）、`utils/backup.ts`（備份操作工具）。
 - Script Store：`extension.ts` bridge `scriptStore` namespace（remote-first catalog + 5min cache + 安全掃描）與 settings.html overlay。
 
 ## 不變量 / Invariants
@@ -48,12 +58,13 @@ Change Log:
 
 - `storage`：get/set/remove/keys (global|workspace) + 尺寸檢查。
 - `files`：dirs / read|write(Text|JSON|Bytes) / exists / list / listStats / remove / clearAll（路徑安全 + 大小限制）。
-- `vm`：list / isRunning。
-- `hostRun`：start(cmd, code) / lastSyncInfo()。
-- `importExport`：importPreview / exportPreview / applyImport。
-- `scriptStore`：catalog / install / bulkInstall（remote-first + cache）。
-
-（新增 namespace：必文件化 + 錯誤包裝 + typedef 更新。）
+- `secrets`：get/set/remove/keys（機密儲存，所有操作需使用者確認）。
+- `sidebar`：open/close/replace（側邊欄管理，支援 HTML 內容與聚焦控制）。
+- `vm`：open/sendMessage/stop（VM 間通訊）、refresh（面板狀態更新）。
+- `hostRun`：runTrusted/runUntrusted（執行指令）、lastSyncInfo（同步資訊）、forceSync（強制同步）。
+- `importExport`：importPreview/exportPreview/applyImport（匯入匯出功能）。
+- `scriptStore`：catalog/install/bulkInstall（腳本商店管理）。
+- `data`：getRows/clearScope（儲存資料檢視與清理）。
 
 ## 回應格式要求
 

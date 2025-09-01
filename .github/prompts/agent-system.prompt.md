@@ -32,12 +32,21 @@ Constraints:
   - Monaco typedef（`settings.html` 注入）需與新增/修改的 VM / Bridge API 同步。
   - UI：<1100px 隱藏 last sync 文案；<860px `body.compact`；Running badge = host VM union；拖曳禁止執行中項目。**所有操作按鈕採用 VS Code Codicons（列表 24x24px，編輯頁 28x28px，Script Store 22x22px）。編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本）。Diff 視窗採用底部按鈕佈局（取消/更新）**。
   - `enableOnInit` 僅首次 activation 執行一次（靠 `_runOnceExecutedCommands`）。
+  - Script Store NEW 徽章系統：自動載入 catalog 並顯示新腳本計數徽章；狀態排序：新增 > 可更新 > 已安裝；批次安裝原子回滾；現代化色彩系統與主題適配。
+  - **SecretStorage 安全**：機密資料僅透過 `sbh.v1.secrets` API 存取，所有操作需使用者確認，禁止硬編碼敏感資料。
+  - **Smart Backup 智慧備份**：採用變更偵測機制，6小時最小間隔，僅在實際變更時執行備份，與同步共用 signature。
+  - **SidebarManager 管理**：獨立 webview 生命週期，支援 HTML 載入、聚焦控制、替換防抖，透過 `sbh.v1.sidebar` API 控制。
+  - **TypeScript 完整支援**：`types/status-bar-helper/sbh.d.ts` 提供完整 API 定義，VM 注入時必須與 bridge 同步。
 - 不得：提升限制/引入第三方模組/繞過橋接直接存取檔案或 VS Code 物件。
 
 Reference Files:
-- `src/extension.ts`（Runtime + Bridge + Polling + Import/Export host）
+- `src/extension.ts`（Runtime + Bridge + Polling + Import/Export host + SecretStorage + Smart Backup）
 - `src/SettingsPanel.ts`（Panel 控制器 / webview message handling / smart run）
+- `src/SidebarManager.ts`（側邊欄管理 / 獨立 webview 生命週期）
+- `src/SmartBackupManager.ts`（智慧備份 / 變更偵測 / 間隔調整）
+- `src/secretKeyManager.ts`（機密儲存管理 / 使用者確認機制）
 - `media/settings.html`（UI + Monaco + typedef + message 協定）
+- `types/status-bar-helper/sbh.d.ts`（完整 TypeScript API 定義）
 - `core-modules.instructions.md`（核心契約與檢查表）
 
 Expected Answer Structure (任何功能/修改請遵循)：

@@ -32,6 +32,7 @@ Change Log:
 - 中止（任何來源）必須清理：timers、disposables、`RUNTIMES`、`MESSAGE_HANDLERS`、`MESSAGE_QUEUES`（維持無殘留）。
 - VM 中計時器與 `Disposable` 採 Proxy 攔截，自動追蹤；新增 API/功能時不可繞過這層。
 - 禁止任意 `eval/new Function`；僅允許 Node 內建模組（`require.resolve(m) === m` 的情況）。新增模組白名單時需審視安全性。
+- **TypeScript 類型定義**：`types/status-bar-helper/sbh.d.ts` 提供完整的 API 型別定義，VM 注入時必須與實際 bridge API 保持同步。
 
 ### VM Messaging Bus
 - `dispatchMessage(target, from, message)`：若目標尚無 handler → queue；第一個 handler 註冊時 flush。
@@ -97,6 +98,8 @@ UI 規則：
 - I/O 僅經 Bridge；`files.*` 必須走 `inside()` 解析；禁止直接在 VM 使用 `fs` 寫入 extension 根目錄（目前 sandbox 提供 `fs` 但用者需自律—若未來加強可收窄）。
 - 尺寸：KV 單鍵 2MB / KV 總量 200MB / JSON/Text 10MB / Binary 50MB；修改需同步文件與錯誤訊息文字、避免靜默差異。
 - 避免在 Webview 放長輪詢：host 已有 background polling；如需主動刷新 sync 資訊 → 呼叫 `forceImmediatePoll()`（新增 hostRun API）。
+- **SecretStorage 安全規範**：機密資料僅限透過 `sbh.v1.secrets` API 存取，不得在腳本中硬編碼金鑰或密碼，所有機密操作需使用者確認。
+- **SidebarManager 隔離**：側邊欄內容與主面板完全隔離，各自維護獨立的 webview 生命週期與訊息處理。
 
 ## 8. UI Icon Interface & Edit View Standards
 - **Icon Button Specifications**: All action buttons use VS Code Codicons with consistent sizing (24x24px for list view, 28x28px for edit page, 22x22px for Script Store).
@@ -108,6 +111,15 @@ UI 規則：
 - **Status Sorting**: Script Store entries sorted by priority: New > Update > Installed.
 - **Accessibility**: All icon buttons include complete `title` and `aria-label` attributes.
 - **Internationalization**: All UI text uses `t()` function with corresponding nls file entries.
+
+## 9. Smart Backup & SidebarManager Integration
+- **Smart Backup Manager**: 智慧型定時備份採用變更偵測機制，6小時最小間隔，僅在實際變更時執行備份，避免重複備份造成儲存負擔。
+- **Backup Signature**: 使用與同步相同的 `computeItemsSignature` 進行變更偵測，確保備份觸發條件與遠端同步一致。
+- **SidebarManager Lifecycle**: 獨立的 webview 生命週期管理，支援 `open/close/replace` 操作，自動處理 onClose 回調與防抖機制。
+- **Sidebar API Integration**: 透過 `sbh.v1.sidebar` 提供腳本中的側邊欄控制能力，支援 HTML 內容載入與聚焦控制。
+- **SecretStorage Bridge**: `sbh.v1.secrets` API 提供安全的機密儲存功能，所有操作需使用者確認，避免腳本直接存取敏感資料。
+
+---
 
 ## 9. Modification Checklist (PR 自查)
 | 類型 | 檢查項 |
