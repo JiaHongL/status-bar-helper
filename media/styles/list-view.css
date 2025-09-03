@@ -1,0 +1,308 @@
+/* ==========================================================================
+   List View - Status Bar Items Management Panel
+   ========================================================================== */
+
+/* Panel Headers & Search Components */
+.list-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.list-title { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  font-weight: 600; 
+  margin-right: auto; 
+}
+
+.list-title i { 
+  opacity: .8; 
+}
+
+/* Search Input Styling */
+.search-wrap {
+  flex: 1; 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  min-width: 180px; 
+  max-width: 420px;
+  background: var(--vscode-input-background); 
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px; 
+  height: 28px; 
+  padding: 0 8px;
+}
+
+#filter-input { 
+  all: unset; 
+  flex: 1; 
+  height: 100%; 
+  font-size: .95em; 
+  color: var(--vscode-input-foreground); 
+}
+
+/* Action Button Container */
+.actions { 
+  display: flex; 
+  gap: 8px; 
+}
+
+.actions button { 
+  height: 28px; 
+  padding: 0 10px; 
+}
+
+/* Button Color System */
+/* Primary Actions - Main brand actions */
+#add-new-item-btn {
+  background: linear-gradient(135deg, #28a745, #34ce57);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.25);
+  transition: all 0.2s ease;
+}
+
+#add-new-item-btn:hover {
+  background: linear-gradient(135deg, #218838, #28a745);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(40, 167, 69, 0.35);
+}
+
+#script-store-btn {
+  background: linear-gradient(135deg, #007acc, #0099ff);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 122, 204, 0.25);
+  transition: all 0.2s ease;
+}
+
+#script-store-btn:hover {
+  background: linear-gradient(135deg, #0066cc, #007acc);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 122, 204, 0.35);
+}
+
+/* Secondary Actions - Utility functions */
+#import-btn, #export-btn {
+  background: var(--vscode-button-secondaryBackground, #525252);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+
+#import-btn:hover, #export-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, #5a5a5a);
+  transform: translateY(-1px);
+}
+
+/* Light theme optimizations for buttons */
+body.vscode-light #add-new-item-btn {
+  background: linear-gradient(135deg, #218838, #28a745);
+  box-shadow: 0 2px 4px rgba(33, 136, 56, 0.3);
+}
+
+body.vscode-light #add-new-item-btn:hover {
+  background: linear-gradient(135deg, #1e7e34, #218838);
+}
+
+body.vscode-light #script-store-btn {
+  background: linear-gradient(135deg, #0056b3, #007acc);
+  box-shadow: 0 2px 4px rgba(0, 86, 179, 0.3);
+}
+
+body.vscode-light #script-store-btn:hover {
+  background: linear-gradient(135deg, #004085, #0056b3);
+}
+
+/* Last sync indicator */
+.last-sync { 
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+  font-size: 11px; 
+  opacity: .7; 
+  margin-left: 10px; 
+  padding: 2px 6px; 
+  border-radius: 4px; 
+  line-height: 1; 
+  white-space: nowrap; 
+  background: var(--vscode-editorGroup-border); 
+}
+
+.last-sync .codicon { 
+  font-size: 14px; 
+  opacity: .8; 
+}
+
+.last-sync.fresh { 
+  opacity: .95; 
+}
+
+.last-sync.stale { 
+  opacity: .5; 
+}
+
+/* Table Layout */
+.list-table-container { 
+  flex-grow: 1; 
+  overflow-y: auto; 
+}
+
+table.list-table { 
+  width: 100%; 
+  border-collapse: collapse; 
+}
+
+table.list-table th {
+  text-align: left; 
+  color: var(--vscode-descriptionForeground); 
+  font-size: .9em; 
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  position: sticky; 
+  top: 0; 
+  background: var(--vscode-sideBar-background); 
+  z-index: 1;
+}
+
+table.list-table td {
+  padding: 0px 10px; 
+  border-bottom: 1px dotted var(--vscode-editorGroup-border); 
+  vertical-align: middle;
+}
+
+tr.item-row { 
+  height: 34px; 
+}
+
+table.list-table tr.item-row:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+/* Table Cell Content */
+.td-content-wrapper { 
+  height: 100%; 
+  display: flex; 
+  align-items: center; 
+}
+
+.td-content-wrapper.justify-center { 
+  justify-content: center; 
+}
+
+.td-content-wrapper.justify-end { 
+  justify-content: flex-end; 
+  gap: 6px; 
+}
+
+/* Drag Handle */
+.drag-handle { 
+  opacity: .55; 
+  cursor: grab; 
+}
+
+.drag-handle:hover { 
+  opacity: .9; 
+}
+
+/* Item Icon */
+.item-icon .codicon {
+  width: 22px; 
+  height: 22px; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-icon-foreground);
+}
+
+/* Item Details */
+.item-details { 
+  display: flex; 
+  flex-direction: row; 
+  gap: 8px; 
+  overflow: hidden; 
+  align-items: center; 
+}
+
+.item-label { 
+  font-weight: 600; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+}
+
+.item-tooltip { 
+  color: var(--vscode-descriptionForeground); 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  font-size: .9em; 
+}
+
+/* Hidden items styling */
+tr.is-hidden .item-label, 
+tr.is-hidden .item-tooltip { 
+  opacity: .55; 
+}
+
+/* Item Actions */
+.item-actions { 
+  display: flex; 
+  gap: 4px; 
+  align-items: center; 
+  white-space: nowrap; 
+  height: 34px; 
+}
+
+.item-actions .td-content-wrapper { 
+  height: 34px; 
+}
+
+/* Tags */
+.tags-cell { 
+  max-width: 180px; 
+}
+
+.tags { 
+  display: flex; 
+  gap: 4px; 
+  flex-wrap: wrap; 
+}
+
+.tag-badge { 
+  background: var(--vscode-editorGroup-border); 
+  color: var(--vscode-foreground); 
+  padding: 2px 6px; 
+  border-radius: 10px; 
+  font-size: 10px; 
+  line-height: 1; 
+  white-space: nowrap; 
+}
+
+/* Command Cell */
+.command-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.command-input {
+  flex-grow: 1;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  padding: 2px 6px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  border-radius: 3px;
+}

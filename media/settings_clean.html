@@ -71,18 +71,6 @@ Security & Resource Management:
         <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css">
         <link rel="stylesheet" href="{{codiconsUri}}">
         
-        <!-- CSS Modules -->
-        <link rel="stylesheet" href="{{stylesUri}}/base.css">
-        <link rel="stylesheet" href="{{stylesUri}}/layout.css">
-        <link rel="stylesheet" href="{{stylesUri}}/components.css">
-        <link rel="stylesheet" href="{{stylesUri}}/list-view.css">
-        <link rel="stylesheet" href="{{stylesUri}}/edit-page.css">
-        <link rel="stylesheet" href="{{stylesUri}}/data-view.css">
-        <link rel="stylesheet" href="{{stylesUri}}/modals.css">
-        <link rel="stylesheet" href="{{stylesUri}}/script-store.css">
-        <link rel="stylesheet" href="{{stylesUri}}/import-export.css">
-        <link rel="stylesheet" href="{{stylesUri}}/backup-manager.css">
-        
         <!-- 
         ==========================================================================
         CSS Framework - VS Code Theme Integration & Responsive Design
@@ -97,339 +85,256 @@ Security & Resource Management:
         -->
     </head>
     <body>
-      <!-- list view wrapper -->
-      <div id="list-view-wrapper">
-          <div id="list-view">
-              <div class="list-title-bar">
-                  <div class="list-title">
-                    <i class="codicon codicon-list-selection"></i>
-                    <span>Status Bar Items</span>
-                    <div id="last-sync-indicator" class="last-sync" style="display:none;" title="">
-                      <i class="codicon codicon-clock"></i>
-                      <span class="last-sync-text"></span>
+        <div id="list-view-wrapper">
+            <div id="list-view">
+                <div class="list-title-bar">
+                    <div class="list-title">
+                      <i class="codicon codicon-list-selection"></i>
+                      <span>Status Bar Items</span>
+                      <div id="last-sync-indicator" class="last-sync" style="display:none;" title="">
+                        <i class="codicon codicon-clock"></i>
+                        <span class="last-sync-text"></span>
+                      </div>
                     </div>
-                  </div>
-                  <div
-                      class="search-wrap"
-                      title="Filter items…"
-                  >
-                      <i class="codicon codicon-search"></i>
-                      <input
-                          id="filter-input"
-                          type="text"
-                          placeholder="Filter items…"
-                      >
-                  </div>
-                  <div class="actions">
-                      <button
-                        id="script-store-btn"
-                        type="button"
-                        title="Open Script Store"
-                      >
-                        Script Store
-                        <span id="script-store-new-badge" class="new-badge" style="display:none;"></span>
-                      </button>
-                      <button
-                          id="import-btn"
+                    <div
+                        class="search-wrap"
+                        title="Filter items…"
+                    >
+                        <i class="codicon codicon-search"></i>
+                        <input
+                            id="filter-input"
+                            type="text"
+                            placeholder="Filter items…"
+                        >
+                    </div>
+                    <div class="actions">
+                        <button
+                          id="script-store-btn"
                           type="button"
-                      >
-                          Import
-                      </button>
-                      <button
-                          id="export-btn"
-                          type="button"
-                      >
-                          Export
-                      </button>
-                      <button
-                          id="add-new-item-btn"
-                          type="button"
-                      >
-                          Add New Item
-                      </button>
-                  </div>
-              </div>
-              <div class="list-table-container">
-                  <table class="list-table">
-                      <thead>
-                          <tr>
-                              <th style="width: 24px;"></th>
-                              <th style="width: 30px; text-align:center;">Icon</th>
-                              <th>Label & Tooltip</th>
-                              <th style="width: 120px; text-align:center;">Running<span id="running-count" class="badge" title="Running scripts">0</span></th>
-                              <th style="width: 50px; text-align:center;">Visible</th>
-                              <th style="width: 100px; text-align:center;">Run at Startup</th>
-                              <th style="width: 50px; text-align:center;">CmdId</th>
-                              <th style="width: 120px; text-align:right;">Actions</th>
-                          </tr>
-                      </thead>
-                      <tbody id="items-list-body"></tbody>
-                  </table>
-              </div>
-              <div id="backup-status-root" style="margin:0; padding:0;">
-                <div style="border-top:1px solid var(--vscode-editorGroup-border); margin:0 0 4px 0;"></div>
-                <div class="backup-status-container" role="region" aria-label="智慧備份狀態" tabindex="0" style="min-width:220px; margin:0 0 0 auto; display:flex; align-items:center; gap:18px; justify-content:flex-end; padding:2px 0 0 0;">
-                  <button class="backup-manage-btn" style="display:flex; align-items:center; gap:6px; min-width:110px; justify-content:center; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; padding:0 14px; height:28px; cursor:pointer;">
-                    <i class="codicon codicon-folder"></i>
-                    <span style="flex:1; text-align:center;" id="backup-manage-label">備份管理</span>
-                  </button>
+                          title="Open Script Store"
+                        >
+                          Script Store
+                          <span id="script-store-new-badge" class="new-badge" style="display:none;"></span>
+                        </button>
+                        <button
+                            id="import-btn"
+                            type="button"
+                        >
+                            Import
+                        </button>
+                        <button
+                            id="export-btn"
+                            type="button"
+                        >
+                            Export
+                        </button>
+                        <button
+                            id="add-new-item-btn"
+                            type="button"
+                        >
+                            Add New Item
+                        </button>
+                    </div>
                 </div>
-            </div>
-          </div>
-
-          <div id="data-view">
-              <div class="data-title-bar">
-                  <div class="data-title">
-                      <i class="codicon codicon-database"></i>
-                      <span>Stored Data</span>
-                  </div>
-                  <div class="data-search-wrap">
-                      <i class="codicon codicon-search"></i>
-                      <input
-                          id="data-filter-input"
-                          type="text"
-                          placeholder="Filter by key/path…"
-                      >
-                  </div>
-                  <div class="data-filter-wrap">
-                      <select id="data-type-filter">
-                          <option value="all">All</option>
-                          <option value="global-storage">Global Storage</option>
-                          <option value="secret-storage">Secret Storage</option>
-                          <option value="workspace-storage">Workspace Storage</option>
-                          <option value="global-files">Global Files</option>
-                          <option value="workspace-files">Workspace Files</option>
-                          <option value="text-files">Text Files</option>
-                          <option value="json-files">JSON Files</option>
-                          <option value="binary-files">Binary Files</option>
-                      </select>
-                  </div>
-                  <div class="data-actions">
-                      <button
-                          id="clear-all-btn"
-                          type="button"
-                      >
-                          Clear All
-                      </button>
-                  </div>
-              </div>
-              <div class="data-table-container">
-                  <table class="data-table">
-                      <thead>
-                          <tr>
-                              <th style="width:180px">Type</th>
-                              <th>Key / Path</th>
-                              <th style="width:120px">Size</th>
-                              <th style="width:100px; text-align:right;">Actions</th>
-                          </tr>
-                      </thead>
-                      <tbody id="data-table-body"></tbody>
-                  </table>
-              </div>
-          </div>
-      </div>
-
-      <!-- edit view -->
-      <div id="edit-view"></div>
-
-      <div id="confirm-dialog-overlay" class="hidden">
-          <div id="confirm-dialog">
-              <h3 id="confirm-title"></h3>
-              <p id="confirm-message"></p>
-              <div class="confirm-buttons"></div>
-          </div>
-      </div>
-
-      <!-- Backup Management -->
-      <div id="backup-mgmt-overlay" class="sb-modal-overlay" style="display:none;" tabindex="-1">
-        <div class="sb-modal">
-          <div class="sb-modal-header sb-modal-header--compact">
-            <span class="sb-modal-title" id="backup-mgmt-title"></span>
-            <button class="sb-modal-close" id="backup-mgmt-close" title="Close" aria-label="Close">
-              <span class="codicon codicon-close"></span>
-            </button>
-          </div>
-          <div class="sb-modal-body sb-modal-body--compact">
-            <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:10px;">
-              <button class="sb-btn sb-btn-primary sb-btn-sm" id="backup-create-btn">
-                <span class="codicon codicon-save"></span>
-                <span id="immediate-backup-label"></span>
-              </button>
-            </div>
-            <div class="sb-table-container">
-              <table class="sb-table sb-table--bordered">
-                <thead>
-                  <tr>
-                    <th class="sb-th-center" id="th-index" style="width:36px;min-width:24px;max-width:40px;">#</th>
-                    <th id="th-backup-time" style="min-width:140px; max-width:180px; white-space:nowrap;"> </th>
-                    <th id="th-relative-time" style="width:70px; min-width:60px; max-width:80px; white-space:nowrap;"></th>
-                    <th class="sb-th-right" id="th-file-size" style="width:90px; min-width:60px; max-width:100px; white-space:nowrap;"></th>
-                    <th class="sb-th-right" id="th-item-count" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
-                    <th class="sb-th-center" id="th-restore" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
-                    <th class="sb-th-center" id="th-delete" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
-                  </tr>
-                </thead>
-                <tbody id="backup-table-body"></tbody>
-              </table>
-            </div>
-            <div class="sb-backup-hint" style="display:inline-block; min-width:220px; text-align:right; width:100%;margin-top: 5px;">
-              <span id="backup-hint-label"></span>
-            </div>
-          </div>
-        </div>
-        <!-- 確認視窗 mock -->
-        <div id="backup-confirm-overlay" style="display:none; position:fixed; z-index:1100; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.18); align-items:center; justify-content:center;">
-          <div style="background:var(--vscode-editor-background); color:var(--vscode-editor-foreground); min-width:320px; border-radius:8px; box-shadow:0 2px 16px #0003; padding:0; display:flex; flex-direction:column;">
-            <div style="padding:18px 22px 10px 22px; font-size:15px; font-weight:500;">確認操作</div>
-            <div id="backup-confirm-msg" style="padding:0 22px 18px 22px; font-size:13px;">確定要還原此備份？（2025-08-16 14:30）</div>
-            <div style="display:flex; gap:12px; justify-content:flex-end; padding:0 18px 16px 18px;">
-              <button id="backup-confirm-ok" style="background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">確定</button>
-              <button id="backup-confirm-cancel" style="background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">取消</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Simple Import/Export Preview Dialog -->
-      <div id="preview-dialog-overlay" class="hidden">
-          <div id="preview-dialog">
-              <div class="preview-header">
-                  <h3 id="preview-title">Preview</h3>
-                  <button id="preview-close" class="close-btn" title="Close">&times;</button>
-              </div>
-              <div class="preview-body">
-                <div id="import-options-section" class="import-options hidden">
-                  <div class="options-header">
-                    <span class="options-title" id="import-options-title">匯入選項</span>
-                    <div class="options-actions">
-                      <span id="import-options-summary" class="summary hidden"></span>
-                      <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
-                    </div>
-                  </div>
-                  <div id="import-options-body" class="options-body">
-                    <div class="grid-two">
-                      <div class="group">
-                        <div class="group-title" id="merge-strategy-title">合併策略</div>
-                        <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong id="merge-replace-label">Replace（取代）</strong></label>
-                        <div class="radio-desc" data-for="mergeReplace" id="merge-replace-desc">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
-                        <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong id="merge-append-label">Append（新增）</strong></label>
-                        <div class="radio-desc" data-for="mergeAppend" id="merge-append-desc">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
-                      </div>
-                      <div id="conflict-policy-wrapper" class="group hidden">
-                        <div class="group-title" id="conflict-policy-title">衝突處理</div>
-                        <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong id="conflict-skip-label">Skip（略過）</strong></label>
-                        <div class="radio-desc" data-for="conflictSkip" id="conflict-skip-desc">忽略重複 command。</div>
-                        <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong id="conflict-newid-label">newId（重新命名）</strong></label>
-                        <div class="radio-desc" data-for="conflictNewId" id="conflict-newid-desc">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
-                      </div>
-                    </div>
-                  </div>
-                  <hr class="thin-sep" />
-              </div>
-              <div class="selection-controls">
-                  <button id="select-all-preview" type="button">全選</button>
-                  <button id="deselect-all-preview" type="button">全部取消選擇</button>
-              </div>
-              <div class="preview-table-container">
-                  <table id="preview-table" class="preview-table">
-                      <thead>
-                          <tr>
-                            <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
-                            <th id="preview-th-text">Text</th>
-                            <th id="preview-th-command">Command</th>
-                            <th id="preview-th-tooltip">Tooltip</th>
-                          </tr>
+                <div class="list-table-container">
+                    <table class="list-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 24px;"></th>
+                                <th style="width: 30px; text-align:center;">Icon</th>
+                                <th>Label & Tooltip</th>
+                                <th style="width: 120px; text-align:center;">Running<span id="running-count" class="badge" title="Running scripts">0</span></th>
+                                <th style="width: 50px; text-align:center;">Visible</th>
+                                <th style="width: 100px; text-align:center;">Run at Startup</th>
+                                <th style="width: 50px; text-align:center;">CmdId</th>
+                                <th style="width: 120px; text-align:right;">Actions</th>
+                            </tr>
                         </thead>
-                        <tbody id="preview-tbody"></tbody>
+                        <tbody id="items-list-body"></tbody>
                     </table>
                 </div>
-          <div class="preview-actions">
-            <button id="preview-confirm" type="button"></button>
-            <button id="preview-cancel" type="button"></button>
-          </div>
-              </div>
-          </div>
-      </div>
-
-    <!-- Script Store Overlay -->
-    <div id="script-store-overlay">
-      <div id="script-store-modal">
-        <div id="ss-header">
-          <h3>Script Store</h3>
-          <div id="ss-header-status" style="font-size:11px; opacity:.7;"></div>
-          <button id="ss-close" title="Close" class="codicon codicon-close"></button>
-        </div>
-        <div id="ss-body">
-          <div id="ss-filters">
-            <input type="text" id="ss-search" placeholder="Filter scripts…" />
-            <select id="ss-status-filter">
-              <option value="all">All</option>
-              <option value="new">New</option>
-              <option value="update">Update</option>
-              <option value="installed">Installed</option>
-            </select>
-            <input type="text" id="ss-tag-filter" placeholder="Tag filter (single)" />
-            <button id="ss-refresh" type="button" title="Refresh" aria-label="Refresh"><i class="codicon codicon-refresh"></i></button>
-          </div>
-          <div id="ss-main">
-            <div id="ss-left">
-              <div id="ss-table-wrap">
-                <table id="ss-table">
-                  <thead>
-                    <tr>
-                      <th style="width:26px;"></th>
-                      <th id="ss-col-label" style="width:160px;">Label</th>
-                      <th id="ss-col-tooltip" style="width:auto">Tooltip</th>
-                      <th id="ss-col-tags" style="width:140px;">Tags</th>
-                      <th id="ss-col-status" style="width:60px;">Status</th>
-                      <th id="ss-col-actions" style="width:50px;">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="ss-tbody"></tbody>
-                </table>
-                <div id="ss-empty" style="display:none;">No entries</div>
+                <div id="backup-status-root" style="margin:0; padding:0;">
+                  <div style="border-top:1px solid var(--vscode-editorGroup-border); margin:0 0 4px 0;"></div>
+                  <div class="backup-status-container" role="region" aria-label="智慧備份狀態" tabindex="0" style="min-width:220px; margin:0 0 0 auto; display:flex; align-items:center; gap:18px; justify-content:flex-end; padding:2px 0 0 0;">
+                    <button class="backup-manage-btn" style="display:flex; align-items:center; gap:6px; min-width:110px; justify-content:center; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; padding:0 14px; height:28px; cursor:pointer;">
+                      <i class="codicon codicon-folder"></i>
+                      <span style="flex:1; text-align:center;" id="backup-manage-label">備份管理</span>
+                    </button>
+                  </div>
               </div>
             </div>
-          </div>
+
+            <div id="data-view">
+                <div class="data-title-bar">
+                    <div class="data-title">
+                        <i class="codicon codicon-database"></i>
+                        <span>Stored Data</span>
+                    </div>
+                    <div class="data-search-wrap">
+                        <i class="codicon codicon-search"></i>
+                        <input
+                            id="data-filter-input"
+                            type="text"
+                            placeholder="Filter by key/path…"
+                        >
+                    </div>
+                    <div class="data-filter-wrap">
+                        <select id="data-type-filter">
+                            <option value="all">All</option>
+                            <option value="global-storage">Global Storage</option>
+                            <option value="secret-storage">Secret Storage</option>
+                            <option value="workspace-storage">Workspace Storage</option>
+                            <option value="global-files">Global Files</option>
+                            <option value="workspace-files">Workspace Files</option>
+                            <option value="text-files">Text Files</option>
+                            <option value="json-files">JSON Files</option>
+                            <option value="binary-files">Binary Files</option>
+                        </select>
+                    </div>
+                    <div class="data-actions">
+                        <button
+                            id="clear-all-btn"
+                            type="button"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width:180px">Type</th>
+                                <th>Key / Path</th>
+                                <th style="width:120px">Size</th>
+                                <th style="width:100px; text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-        <div id="ss-footer">
-          <div id="ss-error"></div>
-          <a id="ss-share-link" href="#" class="ss-share-link">
-            <span class="codicon codicon-github"></span>
-            <span class="ss-share-text">Share your script</span>
-          </a>
-          <div class="spacer"></div>
-          <button id="ss-bulk-install" type="button" disabled>Install Selected</button>
+
+        <div id="edit-view"></div>
+
+        <div id="confirm-dialog-overlay" class="hidden">
+            <div id="confirm-dialog">
+                <h3 id="confirm-title"></h3>
+                <p id="confirm-message"></p>
+                <div class="confirm-buttons"></div>
+            </div>
+        </div>
+
+            <div id="backup-mgmt-overlay" class="sb-modal-overlay" style="display:none;" tabindex="-1">
+      <div class="sb-modal">
+        <div class="sb-modal-header sb-modal-header--compact">
+          <span class="sb-modal-title" id="backup-mgmt-title"></span>
+          <button class="sb-modal-close" id="backup-mgmt-close" title="Close" aria-label="Close">
+            <span class="codicon codicon-close"></span>
+          </button>
+        </div>
+        <div class="sb-modal-body sb-modal-body--compact">
+          <div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:10px;">
+            <button class="sb-btn sb-btn-primary sb-btn-sm" id="backup-create-btn">
+              <span class="codicon codicon-save"></span>
+              <span id="immediate-backup-label"></span>
+            </button>
+          </div>
+          <div class="sb-table-container">
+            <table class="sb-table sb-table--bordered">
+              <thead>
+                <tr>
+                  <th class="sb-th-center" id="th-index" style="width:36px;min-width:24px;max-width:40px;">#</th>
+                  <th id="th-backup-time" style="min-width:140px; max-width:180px; white-space:nowrap;"> </th>
+                  <th id="th-relative-time" style="width:70px; min-width:60px; max-width:80px; white-space:nowrap;"></th>
+                  <th class="sb-th-right" id="th-file-size" style="width:90px; min-width:60px; max-width:100px; white-space:nowrap;"></th>
+                  <th class="sb-th-right" id="th-item-count" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                  <th class="sb-th-center" id="th-restore" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                  <th class="sb-th-center" id="th-delete" style="width:60px; min-width:40px; max-width:70px; white-space:nowrap;"></th>
+                </tr>
+              </thead>
+              <tbody id="backup-table-body"></tbody>
+            </table>
+          </div>
+          <div class="sb-backup-hint" style="display:inline-block; min-width:220px; text-align:right; width:100%;margin-top: 5px;">
+            <span id="backup-hint-label"></span>
+          </div>
         </div>
       </div>
-      <!-- Floating Diff Window Layer -->
-      <div id="ss-diff-layer" style="display:none;">
-        <div class="ss-diff-backdrop"></div>
-        <div id="ss-diff-window" class="ss-diff-window">
-          <div class="ss-diff-window-header ss-store-header-like" id="ss-diff-header">
-            <h3 id="ss-diff-window-title">Diff</h3>
-            <button id="ss-dw-close" class="codicon codicon-close" title="Close"></button>
-          </div>
-          <div id="ss-diff-body" class="ss-diff-window-body"></div>
-          <div id="ss-diff-actions" class="ss-diff-actions" style="display:none;">
-            <button id="ss-diff-cancel" type="button" data-i18n-text="cancel">Cancel</button>
-            <button id="ss-diff-update" type="button" class="primary" data-i18n-text="update">Update</button>
+
+      <!-- 確認視窗 mock -->
+      <div id="backup-confirm-overlay" style="display:none; position:fixed; z-index:1100; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.18); align-items:center; justify-content:center;">
+        <div style="background:var(--vscode-editor-background); color:var(--vscode-editor-foreground); min-width:320px; border-radius:8px; box-shadow:0 2px 16px #0003; padding:0; display:flex; flex-direction:column;">
+          <div style="padding:18px 22px 10px 22px; font-size:15px; font-weight:500;">確認操作</div>
+          <div id="backup-confirm-msg" style="padding:0 22px 18px 22px; font-size:13px;">確定要還原此備份？（2025-08-16 14:30）</div>
+          <div style="display:flex; gap:12px; justify-content:flex-end; padding:0 18px 16px 18px;">
+            <button id="backup-confirm-ok" style="background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">確定</button>
+            <button id="backup-confirm-cancel" style="background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:1px solid var(--vscode-button-border,transparent); border-radius:5px; font-size:13px; font-weight:500; padding:0 18px; height:28px; cursor:pointer;">取消</button>
           </div>
         </div>
       </div>
     </div>
-    
-    <!-- Confirm Layer -->
-    <div id="ss-confirm-layer">
-      <div class="backdrop"></div>
-      <div id="ss-confirm-box">
-        <h4 id="ss-confirm-title"></h4>
-        <div id="ss-confirm-message" style="font-size:12px; opacity:.85;"></div>
-        <div id="ss-confirm-actions">
-          <button type="button" id="ss-confirm-cancel"></button>
-          <button type="button" id="ss-confirm-ok" class="primary"></button>
+
+    <!-- Simple Import/Export Preview Dialog -->
+    <div id="preview-dialog-overlay" class="hidden">
+        <div id="preview-dialog">
+            <div class="preview-header">
+                <h3 id="preview-title">Preview</h3>
+                <button id="preview-close" class="close-btn" title="Close">&times;</button>
+            </div>
+            <div class="preview-body">
+              <div id="import-options-section" class="import-options hidden">
+                <div class="options-header">
+                  <span class="options-title" id="import-options-title">匯入選項</span>
+                  <div class="options-actions">
+                    <span id="import-options-summary" class="summary hidden"></span>
+                    <button id="toggle-import-options" type="button" class="mini-btn" title="折疊 / 展開">▲</button>
+                  </div>
+                </div>
+                <div id="import-options-body" class="options-body">
+                  <div class="grid-two">
+                    <div class="group">
+                      <div class="group-title" id="merge-strategy-title">合併策略</div>
+                      <label class="radio-line"><input type="radio" name="merge-strategy" value="replace" id="mergeReplace" checked> <strong id="merge-replace-label">Replace（取代）</strong></label>
+                      <div class="radio-desc" data-for="mergeReplace" id="merge-replace-desc">覆蓋同名 command；未選的舊項目保留。<span class="hint">重複直接覆蓋。</span></div>
+                      <label class="radio-line"><input type="radio" name="merge-strategy" value="append" id="mergeAppend"> <strong id="merge-append-label">Append（新增）</strong></label>
+                      <div class="radio-desc" data-for="mergeAppend" id="merge-append-desc">只新增不存在的項目。<span class="hint">重複依衝突處理。</span></div>
+                    </div>
+                    <div id="conflict-policy-wrapper" class="group hidden">
+                      <div class="group-title" id="conflict-policy-title">衝突處理</div>
+                      <label class="radio-line"><input type="radio" name="conflict-policy" value="skip" id="conflictSkip" checked> <strong id="conflict-skip-label">Skip（略過）</strong></label>
+                      <div class="radio-desc" data-for="conflictSkip" id="conflict-skip-desc">忽略重複 command。</div>
+                      <label class="radio-line"><input type="radio" name="conflict-policy" value="newId" id="conflictNewId"> <strong id="conflict-newid-label">newId（重新命名）</strong></label>
+                      <div class="radio-desc" data-for="conflictNewId" id="conflict-newid-desc">重複加時間戳記重命名。<span class="hint">原有不變。</span></div>
+                    </div>
+                  </div>
+                </div>
+                <hr class="thin-sep" />
+            </div>
+            <div class="selection-controls">
+                <button id="select-all-preview" type="button">全選</button>
+                <button id="deselect-all-preview" type="button">全部取消選擇</button>
+            </div>
+            <div class="preview-table-container">
+                <table id="preview-table" class="preview-table">
+                    <thead>
+                        <tr>
+                          <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
+                          <th id="preview-th-text">Text</th>
+                          <th id="preview-th-command">Command</th>
+                          <th id="preview-th-tooltip">Tooltip</th>
+                        </tr>
+                      </thead>
+                      <tbody id="preview-tbody"></tbody>
+                  </table>
+              </div>
+        <div class="preview-actions">
+          <button id="preview-confirm" type="button"></button>
+          <button id="preview-cancel" type="button"></button>
         </div>
-      </div>
+            </div>
+        </div>
     </div>
 
     <script src="{{monacoUri}}/loader.js"></script>
@@ -2059,6 +1964,85 @@ Security & Resource Management:
     vscode.postMessage({ command: 'getSettings' });
         </script>
 
+        <!-- Script Store Overlay -->
+        <div id="script-store-overlay">
+          <div id="script-store-modal">
+            <div id="ss-header">
+              <h3>Script Store</h3>
+              <div id="ss-header-status" style="font-size:11px; opacity:.7;"></div>
+              <button id="ss-close" title="Close" class="codicon codicon-close"></button>
+            </div>
+            <div id="ss-body">
+              <div id="ss-filters">
+                <input type="text" id="ss-search" placeholder="Filter scripts…" />
+                <select id="ss-status-filter">
+                  <option value="all">All</option>
+                  <option value="new">New</option>
+                  <option value="update">Update</option>
+                  <option value="installed">Installed</option>
+                </select>
+                <input type="text" id="ss-tag-filter" placeholder="Tag filter (single)" />
+                <button id="ss-refresh" type="button" title="Refresh" aria-label="Refresh"><i class="codicon codicon-refresh"></i></button>
+              </div>
+              <div id="ss-main">
+                <div id="ss-left">
+                  <div id="ss-table-wrap">
+                    <table id="ss-table">
+                      <thead>
+                        <tr>
+                          <th style="width:26px;"></th>
+                          <th id="ss-col-label" style="width:160px;">Label</th>
+                          <th id="ss-col-tooltip" style="width:auto">Tooltip</th>
+                          <th id="ss-col-tags" style="width:140px;">Tags</th>
+                          <th id="ss-col-status" style="width:60px;">Status</th>
+                          <th id="ss-col-actions" style="width:50px;">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="ss-tbody"></tbody>
+                    </table>
+                    <div id="ss-empty" style="display:none;">No entries</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="ss-footer">
+              <div id="ss-error"></div>
+              <a id="ss-share-link" href="#" class="ss-share-link">
+                <span class="codicon codicon-github"></span>
+                <span class="ss-share-text">Share your script</span>
+              </a>
+              <div class="spacer"></div>
+              <button id="ss-bulk-install" type="button" disabled>Install Selected</button>
+            </div>
+          </div>
+          <!-- Floating Diff Window Layer -->
+          <div id="ss-diff-layer" style="display:none;">
+            <div class="ss-diff-backdrop"></div>
+            <div id="ss-diff-window" class="ss-diff-window">
+              <div class="ss-diff-window-header ss-store-header-like" id="ss-diff-header">
+                <h3 id="ss-diff-window-title">Diff</h3>
+                <button id="ss-dw-close" class="codicon codicon-close" title="Close"></button>
+              </div>
+              <div id="ss-diff-body" class="ss-diff-window-body"></div>
+              <div id="ss-diff-actions" class="ss-diff-actions" style="display:none;">
+                <button id="ss-diff-cancel" type="button" data-i18n-text="cancel">Cancel</button>
+                <button id="ss-diff-update" type="button" class="primary" data-i18n-text="update">Update</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Confirm Layer -->
+        <div id="ss-confirm-layer">
+          <div class="backdrop"></div>
+          <div id="ss-confirm-box">
+            <h4 id="ss-confirm-title"></h4>
+            <div id="ss-confirm-message" style="font-size:12px; opacity:.85;"></div>
+            <div id="ss-confirm-actions">
+              <button type="button" id="ss-confirm-cancel"></button>
+              <button type="button" id="ss-confirm-ok" class="primary"></button>
+            </div>
+          </div>
+        </div>
         <script>
           /*
           ============================================================================

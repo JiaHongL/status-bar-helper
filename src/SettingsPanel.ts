@@ -443,7 +443,7 @@ export class SettingsPanel {
               // 只刪目前列表裡的資料
               for (const r of rows) {
                 // safety：不要動到備份資料夾
-                if (r.keyPath && r.keyPath.includes(BACKUP_DIR)) continue;
+                if (r.keyPath && r.keyPath.includes(BACKUP_DIR)) { continue; }
                 try {
                   if (r.kind === 'kv') {
                     await this._callBridge('storage',
@@ -679,9 +679,11 @@ export class SettingsPanel {
 
     const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css'));
+    const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
     htmlContent = htmlContent.replace(/{{codiconsUri}}/g, codiconsUri.toString());
+    htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
 
     return htmlContent;
   }
@@ -763,7 +765,7 @@ export class SettingsPanel {
           await this._callBridge('files','listStats', scope, '');
         list.forEach(f => {
           const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
-          if (!rel) return;
+          if (!rel) { return; }
           const ext = /\.json$/i.test(rel) ? 'json' : /\.txt$/i.test(rel) ? 'text' : 'bytes';
           rows.push({ kind:'file', scope, ext, keyPath: rel, size: Number(f.size || 0) });
         });

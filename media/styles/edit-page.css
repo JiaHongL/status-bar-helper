@@ -1,0 +1,228 @@
+/* ==========================================================================
+   Edit Page - Monaco Editor and Script Execution Interface
+   ========================================================================== */
+
+/* Edit View Layout */
+#edit-view { 
+  display: none; 
+  flex-grow: 1; 
+  height: 100%; 
+  flex-direction: column; 
+}
+
+.edit-item-container { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+}
+
+/* Controls Row */
+.controls-row {
+  display: flex;
+  gap: 6px; 
+  margin-bottom: 4px; 
+  align-items: center; 
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.field { 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  min-width: 0; 
+  flex-shrink: 0; 
+}
+
+.field:nth-child(1) { 
+  min-width: 220px; 
+}
+
+.field:nth-child(2) { 
+  min-width: 160px; 
+}
+
+.field:nth-child(3) { 
+  min-width: 240px; 
+  flex-grow: 1; 
+}
+
+.actions { 
+  display: flex; 
+  gap: 6px; 
+  align-items: center; 
+  white-space: nowrap; 
+  flex-wrap: nowrap; 
+  flex-shrink: 0; 
+}
+
+.actions button { 
+  height: var(--ctrl-h); 
+  padding: 0 10px; 
+}
+
+/* Special Edit Button Styling */
+#cancel-edit-btn.edit-icon-btn, 
+#stop-btn.edit-icon-btn { 
+  background: var(--vscode-button-secondaryBackground); 
+  color: var(--vscode-button-secondaryForeground); 
+}
+
+#cancel-edit-btn.edit-icon-btn:hover, 
+#stop-btn.edit-icon-btn:hover { 
+  background: var(--vscode-button-secondaryHoverBackground); 
+}
+
+/* Icon Field Dropdown */
+.icon-field { 
+  position: relative; 
+  z-index: 1; 
+}
+
+.icon-trigger { 
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+  padding: 0 6px; 
+  cursor: pointer; 
+  width: 100%; 
+}
+
+.icon-trigger .codicon { 
+  font-size: 1.1em; 
+}
+
+.icon-trigger span { 
+  flex: 1; 
+  color: var(--vscode-input-foreground); 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  line-height: calc(var(--ctrl-h) - 2px); 
+}
+
+.icon-dropdown { 
+  position: absolute; 
+  top: 100%; 
+  left: 0; 
+  width: 100%; 
+  background: var(--vscode-input-background); 
+  border: 1px solid var(--vscode-input-border); 
+  box-shadow: 0 2px 8px var(--vscode-editorGroup-border); 
+  z-index: 1000; 
+  display: none; 
+  padding: 6px; 
+}
+
+#icon-search { 
+  width: 100%; 
+  height: var(--ctrl-h); 
+  padding: 4px 6px; 
+  margin-bottom: 6px; 
+  box-sizing: border-box; 
+  background: var(--vscode-input-background); 
+  color: var(--vscode-input-foreground); 
+  border: 1px solid var(--vscode-input-border); 
+}
+
+.icon-list { 
+  max-height: 320px; 
+  overflow-y: auto; 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 4px; 
+}
+
+.icon-item { 
+  width: 32px; 
+  height: 32px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  border-radius: 3px; 
+  cursor: pointer; 
+}
+
+.icon-item.selected { 
+  background: var(--vscode-list-activeSelectionBackground); 
+}
+
+.icon-item:hover { 
+  background: var(--vscode-list-hoverBackground); 
+}
+
+/* Editor Container */
+.editor-container { 
+  flex-grow: 1; 
+  border: 1px solid var(--vscode-input-border); 
+  width: 100%; 
+  margin-top: 6px; 
+  min-height: 240px; 
+}
+
+/* Output Container */
+.output-container { 
+  margin-top: 6px; 
+  border: 1px solid var(--vscode-input-border); 
+  background: var(--vscode-editor-background); 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.output-header { 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  padding: 4px 8px; 
+  border-bottom: 1px solid var(--vscode-input-border); 
+  background: var(--vscode-sideBar-background); 
+  user-select: none; 
+  cursor: pointer; 
+}
+
+.output-header .title { 
+  font-size: .9em; 
+  opacity: .9; 
+}
+
+.output-header .chev { 
+  margin-left: auto; 
+  transition: transform .15s ease; 
+}
+
+.output-container.collapsed .chev { 
+  transform: rotate(-90deg); 
+}
+
+#run-output { 
+  margin: 0; 
+  padding: 8px; 
+  font-family: var(--vscode-editor-font-family, monospace); 
+  font-size: 12px; 
+  white-space: pre-wrap; 
+  word-break: break-word; 
+  overflow: auto; 
+  height: 160px; 
+  resize: vertical; 
+  min-height: 80px; 
+  max-height: 60vh; 
+}
+
+.output-container.collapsed #run-output {
+  display: none;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  resize: none !important;
+}
+
+.output-container.collapsed { 
+  height: auto !important; 
+  overflow: hidden; 
+}
+
+/* Hidden output fallback */
+#run-output[hidden] { 
+  display: none !important; 
+}

@@ -1,0 +1,451 @@
+/* ==========================================================================
+   Script Store - Catalog Browser and Installation Interface
+   ========================================================================== */
+
+/* Script Store Modal Layout */
+#script-store-overlay { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0, 0, 0, .45); 
+  display: none; 
+  align-items: center; 
+  justify-content: center; 
+  z-index: 2000; 
+}
+
+#script-store-modal { 
+  width: 1040px; 
+  max-width: 96%; 
+  max-height: 90vh; 
+  background: var(--vscode-editor-background); 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  border-radius: 8px; 
+  display: flex; 
+  flex-direction: column; 
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .5); 
+}
+
+/* Script Store Header */
+#ss-header { 
+  padding: 10px 14px; 
+  display: flex; 
+  gap: 12px; 
+  align-items: center; 
+  border-bottom: 1px solid var(--vscode-editorGroup-border); 
+}
+
+#ss-header h3 { 
+  margin: 0; 
+  font-size: 14px; 
+  font-weight: 600; 
+}
+
+#ss-close { 
+  margin-left: auto; 
+  background: transparent; 
+  border: 1px solid transparent; 
+  color: var(--vscode-foreground); 
+  cursor: pointer; 
+}
+
+/* Script Store Body */
+#ss-body { 
+  padding: 12px 14px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px; 
+  overflow: hidden; 
+}
+
+#ss-main { 
+  display: flex; 
+  flex: 1; 
+  min-height: 0; 
+  gap: 12px; 
+}
+
+#ss-left { 
+  flex: 1 1 55%; 
+  display: flex; 
+  flex-direction: column; 
+  min-height: 0; 
+}
+
+#ss-right { 
+  flex: 1 1 45%; 
+  display: flex; 
+  flex-direction: column; 
+  min-height: 0; 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  border-radius: 6px; 
+  overflow: hidden; 
+}
+
+/* Filters and Controls */
+#ss-filters { 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+#ss-filters input, 
+#ss-filters select { 
+  height: 26px; 
+  line-height: 24px; 
+  padding: 0 6px; 
+  box-sizing: border-box; 
+  background: var(--vscode-input-background); 
+  color: var(--vscode-input-foreground); 
+  border: 1px solid var(--vscode-input-border); 
+}
+
+#ss-refresh { 
+  margin-left: auto; 
+  height: 26px; 
+  width: 26px; 
+  padding: 0; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+}
+
+/* Script Store Table */
+#ss-table-wrap { 
+  flex: 1; 
+  overflow: auto; 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  min-height: 360px; 
+}
+
+table#ss-table { 
+  width: 100%; 
+  border-collapse: collapse; 
+}
+
+table#ss-table th, 
+table#ss-table td { 
+  padding: 6px 8px; 
+  border-bottom: 1px dotted var(--vscode-editorGroup-border); 
+  font-size: 12px; 
+  vertical-align: middle; 
+}
+
+table#ss-table th { 
+  position: sticky; 
+  top: 0; 
+  background: var(--vscode-sideBar-background); 
+  text-align: left; 
+}
+
+table#ss-table tbody tr:hover { 
+  background-color: var(--vscode-list-hoverBackground); 
+}
+
+/* Script Store column width constraints */
+#ss-table td:nth-child(2) { 
+  width: 155px; 
+  max-width: 155px; 
+}
+
+#ss-table td:nth-child(3) { 
+  width: 300px; 
+  max-width: 300px; 
+}
+
+#ss-table td:nth-child(5) { 
+  width: 60px; 
+}
+
+#ss-table td:nth-child(6) { 
+  width: 50px; 
+}
+
+/* Status Badges */
+.ss-status-badge { 
+  padding: 2px 6px; 
+  border-radius: 10px; 
+  font-size: 9px; 
+  text-transform: uppercase; 
+  letter-spacing: .3px; 
+  font-weight: 600; 
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.ss-status-update { 
+  background: linear-gradient(135deg, #ff9500, #ffad33); 
+  color: #ffffff; 
+  border: 1px solid rgba(255, 255, 255, 0.3); 
+}
+
+.ss-status-installed { 
+  background: linear-gradient(135deg, #28a745, #34ce57); 
+  color: #ffffff; 
+  border: 1px solid rgba(255, 255, 255, 0.3); 
+}
+
+.ss-status-new { 
+  background: linear-gradient(135deg, #007acc, #0099ff); 
+  color: #ffffff; 
+  border: 1px solid rgba(255, 255, 255, 0.3); 
+}
+
+.ss-status-badge:hover {
+  transform: translateY(-0.5px);
+  filter: brightness(1.05);
+}
+
+/* Light theme optimizations */
+body.vscode-light .ss-status-update {
+  background: linear-gradient(135deg, #e67700, #ff9500);
+  box-shadow: 0 1px 3px rgba(230, 119, 0, 0.25);
+}
+
+body.vscode-light .ss-status-installed {
+  background: linear-gradient(135deg, #218838, #28a745);
+  box-shadow: 0 1px 3px rgba(33, 136, 56, 0.25);
+}
+
+body.vscode-light .ss-status-new {
+  background: linear-gradient(135deg, #0056b3, #007acc);
+  box-shadow: 0 1px 3px rgba(0, 86, 179, 0.25);
+}
+
+/* Script Store Actions */
+.ss-actions { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 3px; 
+}
+
+.ss-actions button { 
+  height: 22px; 
+  width: 22px; 
+  padding: 0; 
+  font-size: 11px; 
+  flex: 0 0 auto; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+  border-radius: 4px; 
+}
+
+.ss-actions button .codicon { 
+  font-size: 12px; 
+}
+
+.ss-actions button.has-diff .codicon { 
+  color: var(--vscode-editorWarning-foreground, #ff8c00); 
+}
+
+/* Tag Badges */
+.ss-tag-badge { 
+  background: var(--vscode-editorGroup-border); 
+  padding: 2px 5px; 
+  border-radius: 6px; 
+  margin: 0 4px 4px 0; 
+  font-size: 10px; 
+  display: inline-block; 
+}
+
+/* Diff Viewer */
+#ss-diff-header { 
+  padding: 6px 10px; 
+  background: var(--vscode-sideBar-background); 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+  justify-content: space-between; 
+}
+
+#ss-diff-header h4 { 
+  margin: 0; 
+  font-size: 12px; 
+  font-weight: 600; 
+}
+
+#ss-diff-close { 
+  margin-left: auto; 
+  background: transparent; 
+  border: 1px solid transparent; 
+  cursor: pointer; 
+}
+
+#ss-diff-body { 
+  flex: 1; 
+  overflow: auto; 
+  font-size: 11px; 
+  line-height: 1.35; 
+  padding: 8px 10px; 
+  font-family: var(--vscode-editor-font-family, monospace); 
+}
+
+/* Script Diff Styles */
+.script-diff { 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  border-radius: 4px; 
+}
+
+.script-diff .split-pre { 
+  display: flex; 
+  gap: 10px; 
+}
+
+.script-diff .split-pre pre { 
+  flex: 1; 
+  font-size: 11px; 
+  line-height: 1.35; 
+  background: var(--vscode-editor-background); 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  padding: 6px 8px; 
+  overflow: auto; 
+}
+
+.script-diff .ln { 
+  white-space: pre-wrap; 
+  word-break: break-word; 
+}
+
+.script-diff .ln.added-line { 
+  background: rgba(0, 160, 0, .10); 
+}
+
+.script-diff .ln.removed-line { 
+  background: rgba(200, 0, 0, .10); 
+}
+
+.script-diff .ln.changed-line { 
+  background: rgba(255, 200, 0, .10); 
+}
+
+.script-diff .diff-del { 
+  background: rgba(200, 0, 0, .25); 
+  text-decoration: line-through; 
+}
+
+.script-diff .diff-add { 
+  background: rgba(0, 160, 0, .25); 
+}
+
+.script-diff.collapsed pre { 
+  max-height: 140px; 
+  overflow: hidden; 
+  position: relative; 
+}
+
+.script-diff.collapsed pre:after { 
+  content: '…'; 
+  position: absolute; 
+  left: 0; 
+  right: 0; 
+  bottom: 0; 
+  padding: 4px 8px; 
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--vscode-editor-background)); 
+}
+
+.script-diff-header { 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+  padding: 4px 6px; 
+  background: var(--vscode-sideBar-background); 
+  font-size: 11px; 
+}
+
+.script-diff-header button { 
+  height: 22px; 
+  padding: 0 8px; 
+}
+
+/* Field Diff Styles */
+.field-diff { 
+  margin-bottom: 8px; 
+}
+
+.field-diff.changed .before, 
+.field-diff.changed .after { 
+  background: rgba(255, 200, 0, .08); 
+  border: 1px solid var(--vscode-editorWarning-border, rgba(255, 200, 0, .2)); 
+}
+
+.field-diff .label { 
+  font-weight: 600; 
+  font-size: 11px; 
+  margin-bottom: 2px; 
+}
+
+.field-diff .pair { 
+  display: flex; 
+  gap: 6px; 
+}
+
+.field-diff .pair > div { 
+  flex: 1; 
+  border: 1px solid var(--vscode-editorGroup-border); 
+  padding: 4px 6px; 
+  border-radius: 4px; 
+  white-space: pre-wrap; 
+  word-break: break-word; 
+}
+
+/* Loading States */
+.mini-spinner { 
+  width: 14px; 
+  height: 14px; 
+  border: 2px solid var(--vscode-editorGroup-border); 
+  border-top-color: var(--vscode-progressBar-background, #0a84ff); 
+  border-radius: 50%; 
+  animation: sspin .8s linear infinite; 
+}
+
+@keyframes sspin { 
+  to { transform: rotate(360deg); } 
+}
+
+.loading-dim { 
+  opacity: .5; 
+  pointer-events: none; 
+}
+
+/* Footer */
+#ss-footer { 
+  padding: 8px 14px; 
+  border-top: 1px solid var(--vscode-editorGroup-border); 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+}
+
+#ss-footer .spacer { 
+  flex: 1; 
+}
+
+.ss-share-link { 
+  color: var(--vscode-textLink-foreground); 
+  text-decoration: none; 
+  font-size: 12px; 
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+}
+
+.ss-share-link:hover { 
+  text-decoration: underline; 
+}
+
+.ss-share-link .codicon { 
+  font-size: 12px; 
+}
+
+/* Empty State */
+#ss-empty { 
+  text-align: center; 
+  padding: 40px 0; 
+  opacity: .6; 
+}
+
+#ss-error { 
+  color: var(--vscode-errorForeground); 
+  font-size: 12px; 
+}
