@@ -119,21 +119,59 @@ media/
 - 差異視窗 `#ss-diff-layer` 樣式遺漏
 - CSS 檔案載入路徑配置
 
-### Phase 2: Confirmation 系統模組化 ⭐ 基礎工具模組
+### Phase 2: 多國語系模組化 ⭐ 基礎工具模組
+
 - [ ] 建立 JavaScript 目錄結構 (`components/`, `core/`, `utils/`)
-- [ ] 分析並定位確認對話框相關程式碼（行號範圍：1450-1550）
-- [ ] 創建 `utils/confirmation.js` 檔案
-- [ ] 提取 `showChoiceDialog` 函式
-- [ ] 提取 `showToast` 函式
-- [ ] 提取確認對話框 HTML 模板和樣式處理
-- [ ] 在 settings.html 中添加模組載入
-- [ ] 建立全域 API（`window.ConfirmationSystem`）
-- [ ] 測試各種確認對話框場景
-- [ ] 測試 Toast 訊息顯示
-- [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
+- [ ] **多國語系函式模組化**：
+  - [ ] 分析並定位多國語系相關程式碼（`nls` 物件使用、文字替換函式）
+  - [ ] 創建 `utils/i18n-helper.js` 檔案
+  - [ ] 提取 `getNlsText(key, ...args)` 函式 - 支援參數替換的國際化文字取得
+  - [ ] 提取 `formatText(template, ...args)` 函式 - 模板字串格式化工具
+  - [ ] 提取 `setLanguage(locale)` 函式 - 動態語言切換
+  - [ ] 提取 `initI18n(nlsData)` 函式 - 初始化多語系系統
+  - [ ] 建立全域 API（`window.I18nHelper`）
+- [ ] **在 settings.html 中整合**：
+  - [ ] 添加 `i18n-helper.js` 模組載入
+  - [ ] 初始化 I18nHelper 系統
+  - [ ] 測試模組載入順序
+- [ ] **全面測試**：
+  - [ ] 測試中英文介面切換
+  - [ ] 測試 `I18nHelper.getNlsText()` 正確取得文字
+  - [ ] 測試 `I18nHelper.formatText()` 參數替換
+  - [ ] 測試所有 UI 文字正確本地化
+  - [ ] 測試動態語言切換功能
+- [ ] **程式碼清理**：
+  - [ ] **確認新模組完全正常後**，逐步將 `nls[key]` 改為 `I18nHelper.getNlsText(key)`
+  - [ ] 清理重複的國際化處理程式碼
+  - [ ] 保持向後相容（暫時保留原 `nls` 物件）
 - [ ] **🔄 立即更新 REFACTOR_SPEC.md 進度**：將 `[ ]` 改為 `[x]`，更新「當前狀態」，記錄完成時間和問題
 
-### Phase 3: Script Store 模組化
+### Phase 3: 確認對話框系統模組化 ⭐ 基礎工具模組
+
+- [ ] **確認對話框系統模組化**：
+  - [ ] 分析並定位確認對話框相關程式碼（行號範圍：1450-1550）
+  - [ ] 創建 `utils/confirmation.js` 檔案
+  - [ ] 提取 `showChoiceDialog` 函式
+  - [ ] 提取 `showToast` 函式
+  - [ ] 提取確認對話框 HTML 模板和樣式處理
+  - [ ] **整合多國語系支援** - 使用 `I18nHelper` 處理對話框文字
+  - [ ] 建立全域 API（`window.ConfirmationSystem`）
+- [ ] **在 settings.html 中整合**：
+  - [ ] 添加 `confirmation.js` 模組載入
+  - [ ] 確保模組載入順序：i18n-helper.js → confirmation.js
+  - [ ] 建立模組間相依性管理
+- [ ] **全面測試**：
+  - [ ] 測試 `ConfirmationSystem.showChoiceDialog()` 正常顯示
+  - [ ] 測試 `ConfirmationSystem.showToast()` 正常顯示
+  - [ ] 測試確認對話框多語系文字正確
+  - [ ] 測試各種確認場景正常運作
+- [ ] **程式碼清理**：
+  - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
+  - [ ] 逐步將 `showChoiceDialog` 調用改為 `ConfirmationSystem.showChoiceDialog`
+  - [ ] 清理重複的對話框處理程式碼
+- [ ] **🔄 立即更新 REFACTOR_SPEC.md 進度**：將 `[ ]` 改為 `[x]`，更新「當前狀態」，記錄完成時間和問題
+
+### Phase 4: Script Store 模組化
 - [ ] 分析並定位 Script Store 相關程式碼區塊（行號範圍：3450-3595）
 - [ ] 創建 `components/script-store.js` 檔案
 - [ ] 提取 RPC 通訊層（`callHost`, `pending` Map, message listener）
@@ -141,7 +179,7 @@ media/
 - [ ] 提取 UI 渲染函式（`render`, `badge`, `fetchCatalog`, `syncBulkButton`）
 - [ ] 提取事件處理器（按鈕點擊、搜尋、篩選）
 - [ ] 提取 Diff 視窗功能（`showDiff`, `renderScriptDiff`, `closeDiff`）
-- [ ] **使用已模組化的 Confirmation 系統**（取代內建的 `showConfirm`）
+- [ ] **使用已模組化的 I18nHelper 和 ConfirmationSystem**（取代內建的 `showConfirm`）
 - [ ] 建立模組初始化機制（`window.ScriptStore = new ScriptStore(...)`）
 - [ ] 測試 Script Store 開啟/關閉
 - [ ] 測試搜尋和篩選功能
@@ -151,14 +189,14 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 4: Import 模組化
+### Phase 5: Import 模組化
 - [ ] 分析並定位 Import 相關程式碼（行號範圍：2400-2550）
 - [ ] 創建 `components/import.js` 檔案
 - [ ] 提取匯入預覽功能（`showImportPreview`, `showPreviewDialog`）
 - [ ] 提取選項控制（merge strategy, conflict policy）
 - [ ] 提取匯入預覽表格渲染和操作
 - [ ] 提取批次選擇控制（全選、取消選擇）
-- [ ] **使用已模組化的 Confirmation 系統**
+- [ ] **使用已模組化的 I18nHelper 和 ConfirmationSystem**
 - [ ] 在 settings.html 中添加模組載入
 - [ ] 建立模組初始化和事件綁定
 - [ ] 測試檔案選擇和讀取功能
@@ -168,7 +206,7 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 5: Export 模組化
+### Phase 6: Export 模組化
 - [ ] 分析並定位 Export 相關程式碼（行號範圍：2550-2650）
 - [ ] 創建 `components/export.js` 檔案
 - [ ] 提取匯出預覽功能（`showExportPreview`）
@@ -184,13 +222,13 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 6: Backup Manager 模組化
+### Phase 7: Backup Manager 模組化
 - [ ] 分析並定位備份管理相關程式碼（行號範圍：1700-1850）
 - [ ] 創建 `components/backup-manager.js` 檔案
 - [ ] 提取備份表格渲染（`renderBackupTable`）
 - [ ] 提取時間格式化（`formatRelativeTime`）
 - [ ] 提取備份操作（create, restore, delete）
-- [ ] **使用已模組化的 Confirmation 系統**（還原確認、刪除確認）
+- [ ] **使用已模組化的 I18nHelper 和 ConfirmationSystem**（還原確認、刪除確認）
 - [ ] 在 settings.html 中添加模組載入
 - [ ] 建立模組初始化和事件綁定
 - [ ] 測試備份列表顯示和刷新
@@ -200,7 +238,7 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 7: Main Page 模組化 (List View + Data View)
+### Phase 8: Main Page 模組化 (List View + Data View)
 - [ ] 分析並定位主頁面相關程式碼（行號範圍：2000-2400）
 - [ ] 創建 `components/main-page.js` 檔案
 - [ ] 提取頁面切換控制（`showListView`, `showEditView`）
@@ -223,7 +261,7 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 8: Edit Page 模組化
+### Phase 9: Edit Page 模組化
 - [ ] 分析並定位編輯頁面相關程式碼（行號範圍：3200-3450）
 - [ ] 創建 `components/edit-page.js` 檔案
 - [ ] 提取 Monaco 編輯器初始化邏輯
@@ -243,7 +281,7 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 9: 核心系統整合
+### Phase 10: 核心系統整合
 - [ ] 創建 `core/app-controller.js` 主要應用控制器
 - [ ] 提取 postMessage 通訊邏輯
 - [ ] 提取全域狀態管理（items, nls, runningStates）
@@ -269,7 +307,9 @@ media/
 ### JavaScript 程式碼映射
 
 | 功能模組 | 原始行號範圍 | 目標檔案 | 主要函式 | 狀態 |
+| 功能模組 | 原始行號範圍 | 目標檔案 | 主要函式 | 狀態 |
 |---------|-------------|---------|----------|------|
+| **多國語系系統** ⭐ | 分散各處 | `utils/i18n-helper.js` | `getNlsText`, `formatText`, `setLanguage`, `initI18n` | 待處理 |
 | **Confirmation 系統** ⭐ | 1450-1550 | `utils/confirmation.js` | `showChoiceDialog`, `showToast` | 待處理 |
 | **Script Store RPC** | 3450-3500 | `components/script-store.js` | `callHost`, `pending` Map, message listener | 待處理 |
 | **Script Store UI** | 3500-3550 | `components/script-store.js` | `render`, `badge`, `fetchCatalog`, `syncBulkButton` | 待處理 |
