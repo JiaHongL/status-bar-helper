@@ -146,7 +146,7 @@ media/
   - [ ] 保持向後相容（暫時保留原 `nls` 物件）
 - [ ] **🔄 立即更新 REFACTOR_SPEC.md 進度**：將 `[ ]` 改為 `[x]`，更新「當前狀態」，記錄完成時間和問題
 
-### Phase 3: 確認對話框系統模組化 ✅ **COMPLETED**
+### Phase 3: 確認對話框系統模組化 ✅ **COMPLETED** + 🧩 **WEB COMPONENTS EXPERIMENT**
 
 - [x] **確認對話框系統模組化**：
   - [x] 分析並定位確認對話框相關程式碼（行號範圍：1450-1550）
@@ -169,22 +169,45 @@ media/
   - [x] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
   - [x] 保持向後相容（全域 showChoiceDialog 和 showToast 函式）
   - [x] 清理重複的對話框處理程式碼
+- [x] **🧩 Web Components 實驗**：
+  - [x] 創建 `components/confirmation-dialog.js` Web Component 版本
+  - [x] 實作完整的 `<confirmation-dialog>` 自訂元件
+  - [x] Shadow DOM 封裝與 CSS 隔離
+  - [x] 保持 100% API 相容性（傳統模組 vs Web Components）
+  - [x] 建立測試頁面 `test-confirmation-webcomponent.html`
+  - [x] 設計模式切換機制（localStorage + URL 參數）
+  - [x] 整合到 SettingsPanel.ts 與 settings.html
 
-**完成時間**: 2025-09-05 (初步完成), 2025-09-06 (修復 webview 路徑問題)
-**實際耗時**: 1.5 小時
+**完成時間**: 2025-09-05 (初步完成), 2025-09-06 (修復 webview 路徑問題 + Web Components 實驗)
+**實際耗時**: 2.5 小時 (包含 Web Components 架構設計)
 **主要成果**:
 - 成功創建 `utils/confirmation.js` 模組，提供完整的確認對話框系統
+- **🧩 創新突破：Web Components 版本** `components/confirmation-dialog.js`
 - 整合 I18nHelper 支援，確保多語系文字正確處理
 - 提供向後相容的全域函式，現有程式碼無需修改
 - 支援快捷方法如 `confirmDelete()` 和 `confirm()`
 - 完整的 Toast 訊息系統，支援 success/error/warning/info 類型
+- **Shadow DOM 完美封裝**：CSS 隔離、事件邊界、生命週期管理
+- **雙模式架構**：可選擇傳統模組或 Web Components（localStorage 控制）
 - 將 settings.html 進一步精簡約 60 行程式碼
+
+**Web Components 技術亮點**:
+- 完整的 `<confirmation-dialog>` 自訂元件實作
+- Shadow DOM + CSS 變數整合 VS Code 主題
+- 屬性驅動的狀態管理（visible, title, message, type）
+- 事件驅動的結果回傳（dialog-closed 自訂事件）
+- 100% API 相容性：`showChoiceDialog()`, `showToast()`, `ConfirmationSystem.*`
+- 智慧按鈕樣式（primary/danger 自動檢測）
+- Toast 動畫效果（slideIn/slideOut）
+- I18nHelper 整合的本地化支援
 
 **解決的問題**:
 - VS Code webview 環境中模組路徑解析問題
 - 無限重試迴圈導致的性能問題
 - `showChoiceDialog is not defined` 錯誤
 - 模組載入競態條件問題
+- **CSS 樣式衝突問題**（Shadow DOM 完美解決）
+- **組件封裝邊界問題**（Web Components 原生支援）
 
 ### Phase 4: Script Store 模組化
 - [ ] 分析並定位 Script Store 相關程式碼區塊（行號範圍：3450-3595）

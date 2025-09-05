@@ -787,6 +787,8 @@ Security & Resource Management:
     <!-- JavaScript Modules -->
     <script src="{{i18nHelperUri}}"></script>
     <script src="{{confirmationUri}}"></script>
+    <!-- Web Components (experimental) -->
+    <script src="{{confirmationDialogUri}}"></script>
     
     <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
@@ -831,6 +833,33 @@ Security & Resource Management:
       if (!window.vscode) {
         window.vscode = vscode;
       }
+
+      // ============================================================================
+      // Web Components Mode Toggle (Experimental)
+      // ============================================================================
+      
+      // 檢查是否啟用 Web Components 模式（可以從 localStorage 或 URL 參數控制）
+      const USE_WEB_COMPONENTS = localStorage.getItem('sbh-use-web-components') === 'true' ||
+                                new URLSearchParams(window.location.search).get('webcomponents') === 'true';
+      
+      if (USE_WEB_COMPONENTS) {
+        console.log('[Phase 3.5] 🧩 Using Web Components mode for Confirmation System');
+        
+        // 使用 Web Components 版本的 ConfirmationSystem
+        // Web Component 已經暴露相同的全域 API，所以不需要額外設定
+      } else {
+        console.log('[Phase 3] 📦 Using traditional module for Confirmation System');
+        
+        // 使用傳統模組，已經在 confirmation.js 中載入
+      }
+      
+      // 提供切換函式供開發者測試
+      window.toggleWebComponents = function() {
+        const current = localStorage.getItem('sbh-use-web-components') === 'true';
+        localStorage.setItem('sbh-use-web-components', (!current).toString());
+        console.log(`Web Components mode ${!current ? 'enabled' : 'disabled'}. Please reload to take effect.`);
+        return !current;
+      };
 
       // ============================================================================
       // Internationalization (I18n) System - Integrated with I18nHelper Module
