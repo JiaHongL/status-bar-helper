@@ -786,7 +786,8 @@ Security & Resource Management:
 
     <!-- JavaScript Modules -->
     <script src="{{i18nHelperUri}}"></script>
-
+    <script src="{{confirmationUri}}"></script>
+    
     <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
     <script>
@@ -1041,32 +1042,6 @@ Security & Resource Management:
             }
           };
         });
-      }
-
-      // ========== Toast 訊息顯示 ==========
-      function showToast(msg, type) {
-        let toast = document.getElementById("sb-toast");
-        if (!toast) {
-          toast = document.createElement("div");
-          toast.id = "sb-toast";
-          toast.style.position = "fixed";
-          toast.style.bottom = "32px";
-          toast.style.left = "50%";
-          toast.style.transform = "translateX(-50%)";
-          toast.style.zIndex = "9999";
-          toast.style.padding = "10px 24px";
-          toast.style.borderRadius = "6px";
-          toast.style.fontSize = "15px";
-          toast.style.color = "#fff";
-          toast.style.background = type === "success" ? "#4caf50" : "#e53935";
-          toast.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
-          document.body.appendChild(toast);
-        }
-        toast.textContent = msg;
-        toast.style.opacity = "1";
-        setTimeout(() => {
-          toast.style.opacity = "0";
-        }, 2000);
       }
 
       /**
@@ -1618,49 +1593,6 @@ Security & Resource Management:
         const n = getRunningSet().size; // 你現有的 union: host + panel
         el.textContent = String(n);
         el.classList.toggle("badge--accent", n > 0);
-      }
-
-      /* ---------- Custom Choice Dialog ---------- */
-      function showChoiceDialog(title, message, buttons = ["OK"]) {
-        const overlay = document.getElementById("confirm-dialog-overlay");
-        const titleEl = document.getElementById("confirm-title");
-        const messageEl = document.getElementById("confirm-message");
-        const buttonsEl = document.querySelector(".confirm-buttons");
-
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        buttonsEl.innerHTML = ""; // Clear existing buttons
-
-        overlay.style.zIndex = 3001; // 高於 modal
-        overlay.classList.remove("hidden");
-
-        return new Promise((resolve) => {
-          const listeners = [];
-          buttons.forEach((btnText, idx) => {
-            const btn = document.createElement("button");
-            btn.textContent = btnText;
-            if (
-              btnText === getNlsText("cancel", "Cancel") ||
-              btnText === getNlsText("discard", "Discard")
-            ) {
-              btn.classList.add("secondary");
-            }
-            const listener = () => {
-              overlay.classList.add("hidden");
-              overlay.style.zIndex = "";
-              cleanup();
-              resolve(btnText);
-            };
-            btn.addEventListener("click", listener);
-            buttonsEl.appendChild(btn);
-            listeners.push({ btn, listener });
-          });
-          const cleanup = () => {
-            listeners.forEach(({ btn, listener }) => {
-              btn.removeEventListener("click", listener);
-            });
-          };
-        });
       }
 
       /* ---------- Formatters ---------- */
@@ -3237,7 +3169,45 @@ Security & Resource Management:
       }
       setInterval(updateLastSyncDisplay, 5 * 60 * 1000);
 
-      vscode.postMessage({ command: "getSettings" });
+      // ============================================================================
+      // Safe Module Loading with Retry Logic (Phase 3)
+      // ============================================================================
+      
+      const MAX_INIT_RETRIES = 20;
+      let initRetryCount = 0;
+      
+      function safeInitializeUI() {
+        // Check if required modules are loaded
+        if (typeof window.ConfirmationSystem === 'undefined' || 
+            typeof window.I18nHelper === 'undefined') {
+          
+          if (initRetryCount < MAX_INIT_RETRIES) {
+            initRetryCount++;
+            console.log(`Modules not ready, retrying in 50ms... (${initRetryCount}/${MAX_INIT_RETRIES})`);
+            setTimeout(safeInitializeUI, 50);
+            return;
+          } else {
+            console.warn('Failed to load required modules after maximum retries. Using emergency fallbacks.');
+            // Provide emergency fallbacks
+            if (typeof window.showChoiceDialog === 'undefined') {
+              window.showChoiceDialog = function(title, message, choices) {
+                return Promise.resolve(confirm(message) ? choices[0] : null);
+              };
+            }
+            if (typeof window.showToast === 'undefined') {
+              window.showToast = function(message) {
+                console.log('Toast:', message);
+              };
+            }
+          }
+        }
+        
+        // Modules are ready or fallbacks are set, proceed with normal initialization
+        vscode.postMessage({ command: "getSettings" });
+      }
+      
+      // Start safe initialization
+      safeInitializeUI();
     </script>
 
     <script>

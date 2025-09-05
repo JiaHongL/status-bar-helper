@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>模組測試</title>
+</head>
+<body>
+    <h1>Confirmation System 模組測試</h1>
+    
+    <button id="test-choice">測試 Choice Dialog</button>
+    <button id="test-toast">測試 Toast 訊息</button>
+    <button id="test-confirm">測試 Confirm 功能</button>
+    
+    <div id="confirm-dialog-overlay" class="hidden">
+        <div id="confirm-dialog">
+            <h3 id="confirm-title"></h3>
+            <p id="confirm-message"></p>
+            <div class="confirm-buttons"></div>
+        </div>
+    </div>
+    
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        button { margin: 10px; padding: 10px 20px; }
+        #confirm-dialog-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        }
+        #confirm-dialog {
+            background: white; padding: 20px; border-radius: 8px; min-width: 300px;
+        }
+        .confirm-buttons { margin-top: 20px; text-align: right; }
+        .confirm-buttons button { margin-left: 10px; }
+        .hidden { display: none !important; }
+        .secondary { background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; }
+    </style>
+    
+    <script src="utils/i18n-helper.js"></script>
+    <script src="utils/confirmation.js"></script>
+    
+    <script>
+        // 測試 NLS 資料
+        const testNls = {
+            'ok': 'OK',
+            'cancel': 'Cancel',
+            'confirmDelete': 'Confirm Delete',
+            'deleteMessage': 'Are you sure you want to delete "{0}"?',
+        };
+        
+        // 初始化 I18n
+        if (window.I18nHelper) {
+            window.I18nHelper.initI18n(testNls, 'en');
+            console.log('I18nHelper 初始化成功');
+        }
+        
+        // 測試按鈕事件
+        document.getElementById('test-choice').addEventListener('click', async () => {
+            console.log('測試 Choice Dialog...');
+            const choice = await ConfirmationSystem.showChoiceDialog(
+                'Test Dialog',
+                'This is a test message',
+                ['OK', 'Cancel', 'Maybe']
+            );
+            console.log('使用者選擇:', choice);
+            ConfirmationSystem.showSuccessToast(`您選擇了: ${choice}`);
+        });
+        
+        document.getElementById('test-toast').addEventListener('click', () => {
+            console.log('測試 Toast 訊息...');
+            ConfirmationSystem.showToast('這是測試訊息', 'info');
+            setTimeout(() => ConfirmationSystem.showSuccessToast('成功訊息'), 1000);
+            setTimeout(() => ConfirmationSystem.showErrorToast('錯誤訊息'), 2000);
+            setTimeout(() => ConfirmationSystem.showWarningToast('警告訊息'), 3000);
+        });
+        
+        document.getElementById('test-confirm').addEventListener('click', async () => {
+            console.log('測試 Confirm 功能...');
+            const deleteConfirm = await ConfirmationSystem.confirmDelete('測試項目');
+            console.log('刪除確認結果:', deleteConfirm);
+            
+            const generalConfirm = await ConfirmationSystem.confirm(
+                '一般確認',
+                '是否要繼續操作？',
+                '確定',
+                '取消'
+            );
+            console.log('一般確認結果:', generalConfirm);
+        });
+        
+        // 檢查依賴狀態
+        if (window.ConfirmationSystem) {
+            const status = ConfirmationSystem.getDependencyStatus();
+            console.log('ConfirmationSystem 依賴狀態:', status);
+        }
+    </script>
+</body>
+</html>
