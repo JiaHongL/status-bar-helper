@@ -121,6 +121,10 @@
   "shareYourScript": "Share your script",
   "searchIcons": "Search icons…",
   "selectIcon": "Select icon",
+  "justNow": "just now",
+  "minutesAgo": "{0}m ago",
+  "hoursAgo": "{0}h ago",
+  "daysAgo": "{0}d ago",
   "smartBackup": "Smart Backup",
   "nextBackup": "Next",
   "lastBackup": "Last",
@@ -154,5 +158,6 @@
   "clearFilteredMessage": "This will delete {0} items currently listed. This cannot be undone.",
   "nothingToDelete": "Nothing to delete",
   "nothingToDeleteDesc": "The current list is empty.",
-  "ok": "OK"
+  "close": "Close",
+  "previewTitle": "Preview"
 }

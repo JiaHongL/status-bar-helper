@@ -583,6 +583,7 @@ export class SettingsPanel {
 
     // Load translations
     const translations = this._loadTranslations();
+    const currentLocale = vscode.env.language;
 
     let lastSyncAt: number | null = null;
     try {
@@ -596,6 +597,7 @@ export class SettingsPanel {
             editingItem: this._editingItem,
             typeDefs,
             translations,
+            currentLocale,
             lastSyncAt
           });
           this._sendRunningToWebview();
@@ -611,6 +613,7 @@ export class SettingsPanel {
       editingItem: this._editingItem,
       typeDefs,
       translations,
+      currentLocale,
       lastSyncAt
     });
     this._sendRunningToWebview();
@@ -680,10 +683,12 @@ export class SettingsPanel {
     const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
     const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css'));
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
+    const i18nHelperUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'i18n-helper.js'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
     htmlContent = htmlContent.replace(/{{codiconsUri}}/g, codiconsUri.toString());
     htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
+    htmlContent = htmlContent.replace(/{{i18nHelperUri}}/g, i18nHelperUri.toString());
 
     return htmlContent;
   }

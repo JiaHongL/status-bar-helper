@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>I18nHelper Test</title>
+</head>
+<body>
+    <h1>I18nHelper Module Test</h1>
+    
+    <div id="test-results">
+        <h2>Test Results:</h2>
+        <div id="test-output"></div>
+    </div>
+
+    <!-- Load I18nHelper module -->
+    <script src="utils/i18n-helper.js"></script>
+    
+    <script>
+        const testOutput = document.getElementById('test-output');
+        
+        function log(message) {
+            const div = document.createElement('div');
+            div.textContent = message;
+            testOutput.appendChild(div);
+        }
+        
+        function testI18nHelper() {
+            log('=== I18nHelper Module Tests ===');
+            
+            // Test 1: Check if I18nHelper is available
+            if (window.I18nHelper) {
+                log('✅ I18nHelper is loaded successfully');
+                log('Version: ' + window.I18nHelper.getVersion());
+            } else {
+                log('❌ I18nHelper is not available');
+                return;
+            }
+            
+            // Test 2: Initialize with test translations
+            const testTranslations = {
+                'title': 'StatusBar Helper Settings',
+                'statusBarItems': '狀態列項目',
+                'minutesAgo': '{0} 分鐘前',
+                'test.template': 'Hello {0}, you have {1} messages'
+            };
+            
+            window.I18nHelper.initI18n(testTranslations);
+            log('✅ I18nHelper initialized with test translations');
+            
+            // Test 3: Test getNlsText
+            const title = window.I18nHelper.getNlsText('title', 'Default Title');
+            log('getNlsText test: ' + title);
+            
+            // Test 4: Test formatText
+            const formatted = window.I18nHelper.formatText('Hello {0}, you have {1} messages', 'John', '5');
+            log('formatText test: ' + formatted);
+            
+            // Test 5: Test getNlsText with parameters
+            const minutesText = window.I18nHelper.getNlsText('minutesAgo', '{0}m ago', '15');
+            log('getNlsText with params test: ' + minutesText);
+            
+            // Test 6: Test formatRelativeTime
+            const now = new Date();
+            const pastTime = new Date(now.getTime() - 3600000); // 1 hour ago
+            const relativeTime = window.I18nHelper.formatRelativeTime(pastTime);
+            log('formatRelativeTime test: ' + relativeTime);
+            
+            // Test 7: Test legacy t function
+            if (window.t) {
+                const legacyResult = window.t('statusBarItems', 'Status Bar Items');
+                log('Legacy t function test: ' + legacyResult);
+            }
+            
+            // Test 8: Test getCurrentLanguage
+            const currentLang = window.I18nHelper.getCurrentLanguage();
+            log('Current language: ' + currentLang);
+            
+            // Test 9: Test setLanguage
+            window.I18nHelper.setLanguage('zh-tw');
+            const newLang = window.I18nHelper.getCurrentLanguage();
+            log('Language changed to: ' + newLang);
+            
+            log('=== All tests completed ===');
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', testI18nHelper);
+    </script>
+</body>
+</html>
