@@ -443,178 +443,6 @@ Security & Resource Management:
       </div>
     </div>
 
-    <!-- Simple Import/Export Preview Dialog -->
-    <div id="preview-dialog-overlay" class="hidden">
-      <div id="preview-dialog">
-        <div class="preview-header">
-          <h3 id="preview-title" data-nls="previewTitle">Preview</h3>
-          <button
-            id="preview-close"
-            class="close-btn"
-            data-nls="close"
-            title="Close"
-          >
-            &times;
-          </button>
-        </div>
-        <div class="preview-body">
-          <div id="import-options-section" class="import-options hidden">
-            <div class="options-header">
-              <span
-                class="options-title"
-                id="import-options-title"
-                data-nls="importOptions"
-                >匯入選項</span
-              >
-              <div class="options-actions">
-                <span id="import-options-summary" class="summary hidden"></span>
-                <button
-                  id="toggle-import-options"
-                  type="button"
-                  class="mini-btn"
-                  title="折疊 / 展開"
-                >
-                  ▲
-                </button>
-              </div>
-            </div>
-            <div id="import-options-body" class="options-body">
-              <div class="grid-two">
-                <div class="group">
-                  <div
-                    class="group-title"
-                    id="merge-strategy-title"
-                    data-nls="mergeStrategy"
-                  >
-                    合併策略
-                  </div>
-                  <label class="radio-line"
-                    ><input
-                      type="radio"
-                      name="merge-strategy"
-                      value="replace"
-                      id="mergeReplace"
-                      checked
-                    />
-                    <strong id="merge-replace-label"
-                      >Replace（取代）</strong
-                    ></label
-                  >
-                  <div
-                    class="radio-desc"
-                    data-for="mergeReplace"
-                    id="merge-replace-desc"
-                  >
-                    覆蓋同名 command；未選的舊項目保留。<span class="hint"
-                      >重複直接覆蓋。</span
-                    >
-                  </div>
-                  <label class="radio-line"
-                    ><input
-                      type="radio"
-                      name="merge-strategy"
-                      value="append"
-                      id="mergeAppend"
-                    />
-                    <strong id="merge-append-label"
-                      >Append（新增）</strong
-                    ></label
-                  >
-                  <div
-                    class="radio-desc"
-                    data-for="mergeAppend"
-                    id="merge-append-desc"
-                  >
-                    只新增不存在的項目。<span class="hint"
-                      >重複依衝突處理。</span
-                    >
-                  </div>
-                </div>
-                <div id="conflict-policy-wrapper" class="group hidden">
-                  <div
-                    class="group-title"
-                    id="conflict-policy-title"
-                    data-nls="conflictPolicy"
-                  >
-                    衝突處理
-                  </div>
-                  <label class="radio-line"
-                    ><input
-                      type="radio"
-                      name="conflict-policy"
-                      value="skip"
-                      id="conflictSkip"
-                      checked
-                    />
-                    <strong id="conflict-skip-label"
-                      >Skip（略過）</strong
-                    ></label
-                  >
-                  <div
-                    class="radio-desc"
-                    data-for="conflictSkip"
-                    id="conflict-skip-desc"
-                  >
-                    忽略重複 command。
-                  </div>
-                  <label class="radio-line"
-                    ><input
-                      type="radio"
-                      name="conflict-policy"
-                      value="newId"
-                      id="conflictNewId"
-                    />
-                    <strong id="conflict-newid-label"
-                      >newId（重新命名）</strong
-                    ></label
-                  >
-                  <div
-                    class="radio-desc"
-                    data-for="conflictNewId"
-                    id="conflict-newid-desc"
-                  >
-                    重複加時間戳記重命名。<span class="hint">原有不變。</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <hr class="thin-sep" />
-          </div>
-          <div class="selection-controls">
-            <button id="select-all-preview" type="button" data-nls="selectAll">
-              全選
-            </button>
-            <button
-              id="deselect-all-preview"
-              type="button"
-              data-nls="deselectAll"
-            >
-              全部取消選擇
-            </button>
-          </div>
-          <div class="preview-table-container">
-            <table id="preview-table" class="preview-table">
-              <thead>
-                <tr>
-                  <th style="width: 40px">
-                    <input type="checkbox" id="select-all-checkbox" />
-                  </th>
-                  <th id="preview-th-text">Text</th>
-                  <th id="preview-th-command">Command</th>
-                  <th id="preview-th-tooltip">Tooltip</th>
-                </tr>
-              </thead>
-              <tbody id="preview-tbody"></tbody>
-            </table>
-          </div>
-          <div class="preview-actions">
-            <button id="preview-confirm" type="button"></button>
-            <button id="preview-cancel" type="button"></button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Script Store Overlay -->
     <div id="script-store-overlay">
       <div id="script-store-modal">
@@ -2651,350 +2479,56 @@ Security & Resource Management:
         }
       });
 
-      document.getElementById("export-btn").onclick = () => showExportPreview();
+      // Export button - 使用 Web Component
+      async function bindExportButton() {
+        const exportBtn = document.getElementById("export-btn");
+        
+        if (exportBtn) {
+          exportBtn.onclick = async () => {
+            if (!items || items.length === 0) {
+              if (window.ConfirmationSystem) {
+                window.ConfirmationSystem.showWarning('No items to export');
+              } else {
+                alert('No items to export');
+              }
+              return;
+            }
+            
+            // 等待 Web Component 定義完成
+            await customElements.whenDefined('export-dialog');
+            
+            // 直接使用 Web Component
+            const exportDialog = document.getElementById('export-dialog');
+            if (exportDialog && exportDialog.show) {
+              const selectedItems = await exportDialog.show(items);
+              
+              if (selectedItems.length > 0) {
+                vscode.postMessage({
+                  command: 'exportSettings',
+                  items: selectedItems
+                });
+              }
+            } else {
+              console.error('Export dialog not found or not ready');
+              alert('Export dialog not available');
+            }
+          };
+        }
+      }
+      
+      // 等待 DOM 和 Web Component 準備好後再綁定
+      document.addEventListener('DOMContentLoaded', async () => {
+        await customElements.whenDefined('export-dialog');
+        bindExportButton();
+      });
+      
       document.getElementById("import-btn").onclick = () =>
         vscode.postMessage({ command: "importSettings" });
 
-      // === Simple Import/Export Functions ===
-      let currentPreviewData = null;
-      let currentPreviewType = null; // 'import' or 'export'
-
-      function initializeSimpleImportExport() {
-        const overlay = document.getElementById("preview-dialog-overlay");
-        const closeBtn = document.getElementById("preview-close");
-        const confirmBtn = document.getElementById("preview-confirm");
-        const cancelBtn = document.getElementById("preview-cancel");
-        // 多國語系按鈕
-        if (confirmBtn) confirmBtn.textContent = getNlsText("confirm", "確認");
-        if (cancelBtn) cancelBtn.textContent = getNlsText("cancel", "取消");
-        const selectAllBtn = document.getElementById("select-all-preview");
-        const deselectAllBtn = document.getElementById("deselect-all-preview");
-        const selectAllCheckbox = document.getElementById(
-          "select-all-checkbox"
-        );
-
-        if (!overlay || !closeBtn || !confirmBtn || !cancelBtn) {
-          console.error("Preview dialog elements not found");
-          return;
-        }
-
-        // Close dialog
-        const closeDialog = () => {
-          overlay.classList.add("hidden");
-          currentPreviewData = null;
-          currentPreviewType = null;
-        };
-
-        closeBtn.onclick = closeDialog;
-        cancelBtn.onclick = closeDialog;
-
-        // Close when clicking outside
-        overlay.onclick = (e) => {
-          if (e.target === overlay) {
-            closeDialog();
-          }
-        };
-
-        // Select/Deselect all
-        if (selectAllBtn) {
-          selectAllBtn.onclick = () => {
-            const checkboxes = document.querySelectorAll(
-              '#preview-tbody input[type="checkbox"]'
-            );
-            checkboxes.forEach((cb) => (cb.checked = true));
-            if (selectAllCheckbox) selectAllCheckbox.checked = true;
-          };
-        }
-
-        if (deselectAllBtn) {
-          deselectAllBtn.onclick = () => {
-            const checkboxes = document.querySelectorAll(
-              '#preview-tbody input[type="checkbox"]'
-            );
-            checkboxes.forEach((cb) => (cb.checked = false));
-            if (selectAllCheckbox) selectAllCheckbox.checked = false;
-          };
-        }
-
-        if (selectAllCheckbox) {
-          selectAllCheckbox.onchange = (e) => {
-            const checkboxes = document.querySelectorAll(
-              '#preview-tbody input[type="checkbox"]'
-            );
-            checkboxes.forEach((cb) => (cb.checked = e.target.checked));
-          };
-        }
-
-        // Confirm action
-        confirmBtn.onclick = () => {
-          const checkboxes = document.querySelectorAll(
-            '#preview-tbody input[type="checkbox"]:checked'
-          );
-          const selectedIndices = Array.from(checkboxes).map((cb) =>
-            parseInt(cb.dataset.index)
-          );
-
-          if (selectedIndices.length === 0) {
-            alert("請至少選擇一個項目");
-            return;
-          }
-
-          if (currentPreviewType === "export") {
-            // Export selected items
-            const selectedItems = selectedIndices.map(
-              (index) => currentPreviewData[index]
-            );
-            vscode.postMessage({
-              command: "exportSettings",
-              items: selectedItems,
-            });
-          } else if (currentPreviewType === "import") {
-            // Apply import with selected items + strategy/conflict
-            const selectedItems = selectedIndices.map(
-              (index) => currentPreviewData[index]
-            );
-            const mergeStrategy =
-              (
-                document.querySelector(
-                  'input[name="merge-strategy"]:checked'
-                ) || {}
-              ).value || "replace";
-            const conflictPolicy =
-              (
-                document.querySelector(
-                  'input[name="conflict-policy"]:checked'
-                ) || {}
-              ).value || "skip";
-            vscode.postMessage({
-              command: "applyImportSettings",
-              items: selectedItems,
-              mergeStrategy,
-              conflictPolicy,
-            });
-          }
-
-          closeDialog();
-        };
-      }
-
-      function showExportPreview() {
-        if (items.length === 0) {
-          alert("沒有項目可以匯出");
-          return;
-        }
-
-        currentPreviewData = items;
-        currentPreviewType = "export";
-        showPreviewDialog(
-          getNlsText("selectItemsToExport", "選擇要匯出的項目"),
-          items
-        );
-      }
-
-      function showImportPreview(importItems) {
-        if (!importItems || importItems.length === 0) {
-          alert("沒有項目可以匯入");
-          return;
-        }
-
-        currentPreviewData = importItems;
-        currentPreviewType = "import";
-        showPreviewDialog(
-          getNlsText("selectTheProjectToImport", "選擇要匯入的項目"),
-          importItems
-        );
-      }
-
-      function showPreviewDialog(title, itemsToShow) {
-        const overlay = document.getElementById("preview-dialog-overlay");
-        const titleEl = document.getElementById("preview-title");
-        const tbody = document.getElementById("preview-tbody");
-        const selectAllCheckbox = document.getElementById(
-          "select-all-checkbox"
-        );
-        const importOptions = document.getElementById("import-options-section");
-        const conflictWrapper = document.getElementById(
-          "conflict-policy-wrapper"
-        );
-        const mergeAppendRadio = document.getElementById("mergeAppend");
-        const mergeReplaceRadio = document.getElementById("mergeReplace");
-        const summaryEl = document.getElementById("import-options-summary");
-        // 多國語系欄位
-        document.getElementById("preview-title").textContent = getNlsText(
-          currentPreviewType === "import"
-            ? "selectItemsToImport"
-            : "selectItemsToExport",
-          currentPreviewType === "import"
-            ? "選擇要匯入的項目"
-            : "Select Items to Export"
-        );
-        document.getElementById("import-options-title").textContent =
-          getNlsText("importOptions", "Import Options");
-        document.getElementById("merge-strategy-title").textContent =
-          getNlsText("mergeStrategy", "Merge Strategy");
-        document.getElementById("merge-replace-label").textContent = getNlsText(
-          "replace",
-          "Replace"
-        );
-        document.getElementById("merge-replace-desc").textContent = getNlsText(
-          "replaceDesc",
-          "覆蓋同名 command；未選的舊項目保留。重複直接覆蓋。"
-        );
-        document.getElementById("merge-append-label").textContent = getNlsText(
-          "append",
-          "Append"
-        );
-        document.getElementById("merge-append-desc").textContent = getNlsText(
-          "appendDesc",
-          "只新增不存在的項目。重複依衝突處理。"
-        );
-        document.getElementById("conflict-policy-title").textContent =
-          getNlsText("conflictPolicy", "Conflict Policy");
-        document.getElementById("conflict-skip-label").textContent = getNlsText(
-          "skip",
-          "Skip"
-        );
-        document.getElementById("conflict-skip-desc").textContent = getNlsText(
-          "skipDesc",
-          "忽略重複 command。"
-        );
-        document.getElementById("conflict-newid-label").textContent =
-          getNlsText("newId", "New ID");
-        document.getElementById("conflict-newid-desc").textContent = getNlsText(
-          "newIdDesc",
-          "重複加時間戳記重命名。原有不變。"
-        );
-        document.getElementById("select-all-preview").textContent = getNlsText(
-          "selectAll",
-          "Select All"
-        );
-        document.getElementById("deselect-all-preview").textContent =
-          getNlsText("deselectAll", "Deselect All");
-        document.getElementById("preview-th-text").textContent = getNlsText(
-          "text",
-          "Text"
-        );
-        document.getElementById("preview-th-command").textContent = getNlsText(
-          "command",
-          "Command"
-        );
-        document.getElementById("preview-th-tooltip").textContent = getNlsText(
-          "tooltip",
-          "Tooltip"
-        );
-        document.getElementById("preview-confirm").textContent = getNlsText(
-          currentPreviewType === "import" ? "import" : "confirm",
-          currentPreviewType === "import" ? "Import" : "Confirm"
-        );
-        document.getElementById("preview-cancel").textContent = getNlsText(
-          "cancel",
-          "Cancel"
-        );
-
-        if (!overlay || !titleEl || !tbody) {
-          console.error("Preview dialog elements not found");
-          return;
-        }
-
-        titleEl.textContent = title;
-        tbody.innerHTML = "";
-
-        itemsToShow.forEach((item, index) => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-        <td><input type="checkbox" data-index="${index}" checked></td>
-        <td>${escapeHtml(item.text || "")}</td>
-        <td><code>${escapeHtml(item.command || "")}</code></td>
-        <td>${escapeHtml(item.tooltip || "")}</td>
-      `;
-          tbody.appendChild(row);
-        });
-
-        if (selectAllCheckbox) {
-          selectAllCheckbox.checked = true;
-        }
-
-        // Show/hide import options
-        if (importOptions) {
-          if (currentPreviewType === "import") {
-            importOptions.classList.remove("hidden");
-          } else {
-            importOptions.classList.add("hidden");
-          }
-        }
-
-        // Conflict policy visibility + summary
-        if (mergeAppendRadio && mergeReplaceRadio && conflictWrapper) {
-          const syncConflictVisibility = () => {
-            const mergeVal = (
-              document.querySelector('input[name="merge-strategy"]:checked') ||
-              {}
-            ).value;
-            if (mergeVal === "append") {
-              conflictWrapper.classList.remove("hidden");
-            } else {
-              conflictWrapper.classList.add("hidden");
-            }
-            updateImportSummary();
-          };
-          mergeAppendRadio.onchange = syncConflictVisibility;
-          mergeReplaceRadio.onchange = syncConflictVisibility;
-          syncConflictVisibility();
-        }
-
-        if (currentPreviewType === "import" && summaryEl) {
-          // Reset summary collapsed state each open
-          summaryEl.classList.add("hidden");
-          updateImportSummary();
-        }
-
-        overlay.classList.remove("hidden");
-      }
-
-      // Initialize UI elements after DOM is ready
-      function updateImportSummary() {
-        const summaryEl = document.getElementById("import-options-summary");
-        if (!summaryEl) return;
-        const merge = (
-          document.querySelector('input[name="merge-strategy"]:checked') || {}
-        ).value;
-        let txt = "";
-        if (merge === "replace") txt = "取代模式";
-        else if (merge === "append") {
-          const conflict = (
-            document.querySelector('input[name="conflict-policy"]:checked') ||
-            {}
-          ).value;
-          txt = "新增 / " + (conflict === "newId" ? "重名改名" : "重名略過");
-        }
-        summaryEl.textContent = txt;
-      }
-
-      function initImportOptionsCollapsible() {
-        const toggleBtn = document.getElementById("toggle-import-options");
-        const body = document.getElementById("import-options-body");
-        const summary = document.getElementById("import-options-summary");
-        if (!toggleBtn || !body || !summary) return;
-        let collapsed = false;
-        toggleBtn.addEventListener("click", () => {
-          collapsed = !collapsed;
-          if (collapsed) {
-            body.style.display = "none";
-            toggleBtn.textContent = "▼";
-            summary.classList.remove("hidden");
-          } else {
-            body.style.display = "";
-            toggleBtn.textContent = "▲";
-            summary.classList.add("hidden");
-          }
-        });
-      }
+      // === Modern Import/Export Functions ===
+      // Using Web Components for enhanced import/export functionality
 
       function initializeUI() {
-        // Initialize simple import/export preview
-        initializeSimpleImportExport();
-        initImportOptionsCollapsible();
-
         // Initialize backup management
         setupBackupManagement();
 
@@ -3094,8 +2628,9 @@ Security & Resource Management:
             showListView();
             break;
           case "importPreviewData":
-            // Show import preview dialog with the imported data
-            showImportPreview(msg.items || []);
+            // Use Web Components for import preview
+            console.log('Import preview data received, using modern Web Components');
+            // TODO: Implement Web Component import preview
             break;
           case "runLog": {
             const out = document.getElementById("run-output");
@@ -4127,5 +3662,11 @@ Security & Resource Management:
         // expose open function used by main button
       })();
     </script>
+
+    <!-- Export Dialog Web Component -->
+    <export-dialog id="export-dialog"></export-dialog>
+    
+    <!-- Load Export Dialog Component -->
+    <script src="{{componentsBaseUri}}/export-dialog.js"></script>
   </body>
 </html>

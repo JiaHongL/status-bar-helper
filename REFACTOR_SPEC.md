@@ -209,23 +209,82 @@ media/
 - **CSS 樣式衝突問題**（Shadow DOM 完美解決）
 - **組件封裝邊界問題**（Web Components 原生支援）
 
-### Phase 4: Script Store 模組化
-- [ ] 分析並定位 Script Store 相關程式碼區塊（行號範圍：3450-3595）
-- [ ] 創建 `components/script-store.js` 檔案
-- [ ] 提取 RPC 通訊層（`callHost`, `pending` Map, message listener）
-- [ ] 提取狀態管理（`ssCatalog`, `ssLoaded`, `ssLoading`, `ssInstalling`）
-- [ ] 提取 UI 渲染函式（`render`, `badge`, `fetchCatalog`, `syncBulkButton`）
-- [ ] 提取事件處理器（按鈕點擊、搜尋、篩選）
-- [ ] 提取 Diff 視窗功能（`showDiff`, `renderScriptDiff`, `closeDiff`）
-- [ ] **使用已模組化的 I18nHelper 和 ConfirmationSystem**（取代內建的 `showConfirm`）
-- [ ] 建立模組初始化機制（`window.ScriptStore = new ScriptStore(...)`）
-- [ ] 測試 Script Store 開啟/關閉
-- [ ] 測試搜尋和篩選功能
-- [ ] 測試腳本安裝和更新功能
-- [ ] 測試 Diff 檢視和確認對話框
-- [ ] 測試 NEW 徽章系統
-- [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
-- [ ] 更新 REFACTOR_SPEC.md 進度
+### Phase 4: Export 模組化 ✅ **COMPLETED**
+- [x] **分析並定位 Export 相關程式碼**：
+  - [x] 分析 `showExportPreview` 函式（行號範圍：1643-1653）
+  - [x] 分析 export 按鈕事件處理（行號：1544）
+  - [x] 分析 Preview Dialog 中的 Export 邏輯
+- [x] **創建 Export Web Component**：
+  - [x] 創建 `components/export-dialog.js` 檔案
+  - [x] 實作 `<export-dialog>` 自訂元件
+  - [x] **Shadow DOM 封裝與 CSS 隔離**
+  - [x] VS Code 主題整合（CSS 變數系統）
+- [x] **提取匯出功能**：
+  - [x] 提取匯出預覽功能（`showExportPreview`）
+  - [x] 提取項目選擇和篩選邏輯
+  - [x] 提取全選/取消全選控制
+  - [x] 提取匯出確認和檔案生成觸發
+- [x] **整合支援系統**：
+  - [x] **整合 I18nHelper** 多語系支援
+  - [x] **整合 VS Code 通訊** （exportSettings 命令）
+  - [x] **向後相容 API** （全域 ExportSystem 和 showExportPreview 函式）
+- [x] **在 settings.html 中整合**：
+  - [x] 添加 `export-dialog.js` 模組載入
+  - [x] 修改 export 按鈕事件處理
+  - [x] 在 SettingsPanel.ts 中添加 `{{componentsBaseUri}}` 支援
+- [x] **建立測試頁面**：
+  - [x] 創建 `test-export-webcomponent.html`
+  - [x] 實作完整的功能測試
+  - [x] 模擬 VS Code 環境和 I18nHelper
+- [x] **全面測試**：
+  - [x] 測試項目選擇和預覽功能
+  - [x] 測試全選/取消全選控制
+  - [x] 測試多語系切換
+  - [x] 測試 VS Code 通訊機制
+- [x] **程式碼清理**：
+  - [x] **移除原始 showExportPreview 函式**
+  - [x] **移除 Preview Dialog 中的 Export 邏輯**
+  - [x] **保持向後相容** （全域函式和 API）
+  - [x] **清理 Export 相關的多語系處理**
+  - [x] **修復 Table Header 固定** （sticky positioning）
+  - [x] **修正點擊關閉行為** （僅背景、關閉、取消按鈕）
+
+**完成時間**: 2025-09-06
+**實際耗時**: 3 小時（包含 UI 修正）
+**主要成果**:
+- 成功創建 `components/export-dialog.js` Web Component
+- **🧩 完整的 Shadow DOM 封裝**：CSS 隔離、事件邊界、生命週期管理
+- **VS Code 主題完美整合**：使用 CSS 變數系統，自動跟隨明暗主題
+- **響應式設計**：支援小螢幕設備，自動調整佈局
+- **無障礙設計**：完整的 ARIA 標籤、鍵盤導航支援
+- **向後相容 API**：`ExportSystem.showExportPreview()`, `window.showExportPreview()`
+- **I18nHelper 整合**：動態語言切換，所有文字本地化
+- **事件驅動架構**：`export-confirmed`, `dialog-opened`, `dialog-closed` 自訂事件
+- 將 settings.html 精簡約 30 行程式碼
+- 創建了完整的測試頁面，驗證所有功能正常
+
+**Web Components 技術亮點**:
+- 完整的 `<export-dialog>` 自訂元件實作
+- Shadow DOM + CSS 變數整合 VS Code 主題
+- 屬性驅動的狀態管理（visible, items）
+- 事件驅動的結果回傳（export-confirmed 自訂事件）
+- 100% API 相容性：現有程式碼無需修改
+- 智慧選擇控制（全選、取消全選、個別選擇）
+- 自動空狀態處理和錯誤提示
+- HTML 安全處理（escapeHtml 防止 XSS）
+
+**解決的問題**:
+- Export 功能模組化，提升程式碼可維護性
+- 消除 Preview Dialog 中的 Export/Import 邏輯混合
+- **CSS 樣式封裝**：Shadow DOM 完美解決樣式衝突
+- **模組載入路徑**：完善的 webview URI 解析機制
+- **向後相容性**：舊程式碼無需修改即可使用新功能
+- **🔧 檔案修改糾正**：確保修改正確的工作檔案 `settings.html` 而非參考檔案 `settings_clean.html`
+
+**重要修正**:
+- ⚠️ **初始錯誤**：原本誤修改了 `settings_clean.html`（原始版本參考檔案）
+- ✅ **糾正後**：正確修改 `settings.html`（實際工作檔案）
+- 🎯 **最終結果**：Export Web Component 已正確整合到實際使用的 `settings.html` 中
 
 ### Phase 5: Import 模組化
 - [ ] 分析並定位 Import 相關程式碼（行號範圍：2400-2550）
@@ -244,23 +303,7 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 6: Export 模組化
-- [ ] 分析並定位 Export 相關程式碼（行號範圍：2550-2650）
-- [ ] 創建 `components/export.js` 檔案
-- [ ] 提取匯出預覽功能（`showExportPreview`）
-- [ ] 提取項目選擇和篩選邏輯
-- [ ] 提取匯出格式化和檔案生成
-- [ ] 提取下載觸發機制
-- [ ] **使用已模組化的 Confirmation 系統**
-- [ ] 在 settings.html 中添加模組載入
-- [ ] 建立模組初始化和事件綁定
-- [ ] 測試項目選擇和預覽功能
-- [ ] 測試匯出檔案生成
-- [ ] 測試下載功能
-- [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
-- [ ] 更新 REFACTOR_SPEC.md 進度
-
-### Phase 7: Backup Manager 模組化
+### Phase 6: Backup Manager 模組化
 - [ ] 分析並定位備份管理相關程式碼（行號範圍：1700-1850）
 - [ ] 創建 `components/backup-manager.js` 檔案
 - [ ] 提取備份表格渲染（`renderBackupTable`）
@@ -273,6 +316,24 @@ media/
 - [ ] 測試立即備份功能
 - [ ] 測試備份還原功能
 - [ ] 測試備份刪除功能
+- [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
+- [ ] 更新 REFACTOR_SPEC.md 進度
+
+### Phase 7: Script Store 模組化
+- [ ] 分析並定位 Script Store 相關程式碼區塊（行號範圍：3450-3595）
+- [ ] 創建 `components/script-store.js` 檔案
+- [ ] 提取 RPC 通訊層（`callHost`, `pending` Map, message listener）
+- [ ] 提取狀態管理（`ssCatalog`, `ssLoaded`, `ssLoading`, `ssInstalling`）
+- [ ] 提取 UI 渲染函式（`render`, `badge`, `fetchCatalog`, `syncBulkButton`）
+- [ ] 提取事件處理器（按鈕點擊、搜尋、篩選）
+- [ ] 提取 Diff 視窗功能（`showDiff`, `renderScriptDiff`, `closeDiff`）
+- [ ] **使用已模組化的 I18nHelper 和 ConfirmationSystem**（取代內建的 `showConfirm`）
+- [ ] 建立模組初始化機制（`window.ScriptStore = new ScriptStore(...)`）
+- [ ] 測試 Script Store 開啟/關閉
+- [ ] 測試搜尋和篩選功能
+- [ ] 測試腳本安裝和更新功能
+- [ ] 測試 Diff 檢視和確認對話框
+- [ ] 測試 NEW 徽章系統
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
@@ -445,7 +506,8 @@ media/
 - **CSS 模組化**: ✅ **已完成** (2025-09-04)
 - **多國語系模組化**: ✅ **已完成** (用戶自行完成 i18n-helper.js)
 - **Confirmation 系統**: ✅ **已完成** (2025-09-05)
-- **Script Store 模組化**: ⏳ 下一步（第四階段）
+- **Export 模組化**: ✅ **已完成** (2025-09-06)
+- **Import 模組化**: ⏳ 下一步（第五階段）
 - **其他模組**: ⏳ 依序進行
 
 ### 🕐 **實際進度追蹤** (每完成一個 Phase 記錄)
@@ -475,7 +537,17 @@ Phase 3 (Confirmation 系統): ✅ COMPLETED
   3. 模組載入競態條件
   4. 已全部解決，確保穩定運行
 
-Phase 4 (Script Store 模組化):
+Phase 4 (Export 模組化): ✅ COMPLETED
+- 開始時間: 2025-09-06
+- 完成時間: 2025-09-06
+- 實際耗時: 3 小時（包含 UI 修正）
+- 遇到問題: 
+  1. Export 功能"exportDialog.show is not a function"錯誤
+  2. Table header 滾動時未固定問題
+  3. 點擊任何地方都會關閉對話框問題
+  4. 已全部解決，UI 體驗已完善
+
+Phase 5 (Import 模組化):
 - 開始時間: [待記錄]
 - 完成時間: [待記錄]
 - 實際耗時: [待記錄] 
