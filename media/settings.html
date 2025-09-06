@@ -318,131 +318,6 @@ Security & Resource Management:
       </div>
     </div>
 
-    <!-- Backup Management -->
-    <div
-      id="backup-mgmt-overlay"
-      class="sb-modal-overlay"
-      style="display: none"
-      tabindex="-1"
-    >
-      <div class="sb-modal">
-        <div class="sb-modal-header sb-modal-header--compact">
-          <span class="sb-modal-title" id="backup-mgmt-title"></span>
-          <button
-            class="sb-modal-close"
-            id="backup-mgmt-close"
-            title="Close"
-            aria-label="Close"
-          >
-            <span class="codicon codicon-close"></span>
-          </button>
-        </div>
-        <div class="sb-modal-body sb-modal-body--compact">
-          <div
-            style="
-              display: flex;
-              justify-content: flex-end;
-              align-items: center;
-              margin-bottom: 10px;
-            "
-          >
-            <button
-              class="sb-btn sb-btn-primary sb-btn-sm"
-              id="backup-create-btn"
-            >
-              <span class="codicon codicon-save"></span>
-              <span id="immediate-backup-label"></span>
-            </button>
-          </div>
-          <div class="sb-table-container">
-            <table class="sb-table sb-table--bordered">
-              <thead>
-                <tr>
-                  <th
-                    class="sb-th-center"
-                    id="th-index"
-                    style="width: 36px; min-width: 24px; max-width: 40px"
-                  >
-                    #
-                  </th>
-                  <th
-                    id="th-backup-time"
-                    style="
-                      min-width: 140px;
-                      max-width: 180px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                  <th
-                    id="th-relative-time"
-                    style="
-                      width: 70px;
-                      min-width: 60px;
-                      max-width: 80px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                  <th
-                    class="sb-th-right"
-                    id="th-file-size"
-                    style="
-                      width: 90px;
-                      min-width: 60px;
-                      max-width: 100px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                  <th
-                    class="sb-th-right"
-                    id="th-item-count"
-                    style="
-                      width: 60px;
-                      min-width: 40px;
-                      max-width: 70px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                  <th
-                    class="sb-th-center"
-                    id="th-restore"
-                    style="
-                      width: 60px;
-                      min-width: 40px;
-                      max-width: 70px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                  <th
-                    class="sb-th-center"
-                    id="th-delete"
-                    style="
-                      width: 60px;
-                      min-width: 40px;
-                      max-width: 70px;
-                      white-space: nowrap;
-                    "
-                  ></th>
-                </tr>
-              </thead>
-              <tbody id="backup-table-body"></tbody>
-            </table>
-          </div>
-          <div
-            class="sb-backup-hint"
-            style="
-              display: inline-block;
-              min-width: 220px;
-              text-align: right;
-              width: 100%;
-              margin-top: 5px;
-            "
-          >
-            <span id="backup-hint-label"></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Script Store Overlay -->
     <div id="script-store-overlay">
       <div id="script-store-modal">
@@ -797,108 +672,28 @@ Security & Resource Management:
   // no-op
       }
 
-      // ========== 備份管理表格渲染 ==========
+      // ========== 備份管理表格渲染 (Web Component) ==========
       /**
-       * 渲染備份管理表格
+       * 渲染備份管理表格 - 重新導向到 Backup Manager Web Component
        * @param {Array|"loading"} backups 備份資料陣列或 'loading'
        */
       function renderBackupTable(backups) {
-        const tbody = document.getElementById("backup-table-body");
-        if (!tbody) return;
+        const backupManager = document.getElementById("backup-manager");
+        if (!backupManager) {
+          console.warn('Backup Manager Web Component not found');
+          return;
+        }
+        
         if (backups === "loading") {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; opacity:.7">${getNlsText(
-            "loading",
-            "Loading…"
-          )}</td></tr>`;
+          backupManager.setLoading(true);
           return;
         }
-        if (!Array.isArray(backups) || !backups.length) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; opacity:.7">${getNlsText(
-            "noBackups",
-            "No backups found"
-          )}</td></tr>`;
-          return;
-        }
-        // 依時間新到舊排序
-        const sorted = backups
-          .slice()
-          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        tbody.innerHTML = "";
-        sorted.forEach((b, i) => {
-          // index 欄位
-          const idx = i + 1;
-          // Backup Time 欄位（本地化）
-          const timeStr = b.timestamp
-            ? new Date(b.timestamp).toLocaleString()
-            : "";
-          // Time 欄位（相對時間）
-          const rel = b.timestamp
-            ? formatRelativeTime(new Date(b.timestamp))
-            : "";
-          // 檔案大小
-          const size = b.sizeStr;
-          // 項目數
-          const count = b.count;
-          tbody.innerHTML += `
-          <tr>
-            <td class="sb-th-center" style="width:36px;min-width:24px;max-width:40px;white-space:nowrap;">${idx}</td>
-            <td style="min-width:140px;max-width:180px;white-space:nowrap;">${escapeHtml(
-              timeStr
-            )}</td>
-            <td style="width:70px;min-width:60px;max-width:80px;white-space:nowrap;">${escapeHtml(
-              rel
-            )}</td>
-            <td class="sb-th-right" style="width:90px;min-width:60px;max-width:100px;white-space:nowrap;">${escapeHtml(
-              size
-            )}</td>
-            <td class="sb-th-right" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">${escapeHtml(
-              String(count)
-            )}</td>
-            <td class="sb-th-center" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">
-              <button class="sb-icon-btn restore-btn" data-id="${escapeHtml(
-                b.id || ""
-              )}" data-timestr="${escapeHtml(timeStr)}" title="${getNlsText(
-            "restore",
-            "Restore"
-          )}"><i class="codicon codicon-history"></i></button>
-            </td>
-            <td class="sb-th-center" style="width:60px;min-width:40px;max-width:70px;white-space:nowrap;">
-              <button class="sb-icon-btn delete-btn backup-delete-btn" data-index="${i}" data-id="${escapeHtml(
-            b.id || ""
-          )}" data-timestr="${escapeHtml(timeStr)}" title="${getNlsText(
-            "delete",
-            "Delete"
-          )}"><i class="codicon codicon-trash"></i></button>
-            </td>
-          </tr>
-        `;
-        });
-
-        // Restore 按鈕事件委派
-        tbody.querySelectorAll(".restore-btn").forEach((btn) => {
-          btn.onclick = async (e) => {
-            const backupId = btn.getAttribute("data-id");
-            const timeStr = btn.getAttribute("data-timestr");
-            if (!backupId) return;
-            const confirmMsg =
-              getNlsText("confirmRestoreBackup", "確定要還原此備份？") +
-              (timeStr ? `（${timeStr}）` : "");
-            const choice = await showChoiceDialog(
-              getNlsText("restore", "還原"),
-              confirmMsg,
-              [getNlsText("restore", "還原"), getNlsText("cancel", "取消")]
-            );
-            if (choice === getNlsText("restore", "還原")) {
-              const onlyId = backupId
-                ? backupId.split(/[/\\]/).pop()
-                : backupId;
-              vscode.postMessage({
-                command: "backup:restore",
-                backupId: onlyId,
-              });
-            }
-          };
-        });
+        
+        // 更新備份資料
+        backupManager.backups = backups;
+        
+        // 儲存到全域變數供其他地方使用
+        window.__backups = backups;
       }
 
       /**
@@ -938,154 +733,38 @@ Security & Resource Management:
 
       }
 
-      // ========== 備份管理事件監聽器設置 ==========
+      // ========== 備份管理事件監聽器設置 (Web Component) ==========
       function setupBackupManagement() {
         const mgmtBtn = document.querySelector(".backup-manage-btn");
-        const overlay = document.getElementById("backup-mgmt-overlay");
-        const closeBtn = document.getElementById("backup-mgmt-close");
-        if (mgmtBtn && overlay && closeBtn) {
+        const backupManager = document.getElementById("backup-manager");
+        
+        if (mgmtBtn && backupManager) {
+          // 按鈕點擊開啟 Backup Manager
           mgmtBtn.addEventListener("click", () => {
-            overlay.style.display = "flex";
-            setTimeout(() => {
-              overlay.focus();
-            }, 10);
-            // 顯示 loading 狀態
-            renderBackupTable("loading");
-            // 更新表頭多國語系（只在開啟時呼叫）
-            // 發送請求給 extension host
+            backupManager.show();
+          });
+          
+          // 監聽 Backup Manager 事件
+          backupManager.addEventListener('backup-list', () => {
             window.vscode.postMessage({ command: "backup:list" });
           });
-          // ========== 備份管理表格渲染 ==========
-          // ========== 立即備份按鈕事件 ==========
-          const backupCreateBtn = document.getElementById("backup-create-btn");
-          if (backupCreateBtn) {
-            backupCreateBtn.addEventListener("click", () => {
-              if (backupCreateBtn.disabled) return; // 防止重複點擊
-              const temp = backupCreateBtn.innerHTML;
-              backupCreateBtn.disabled = true;
-              backupCreateBtn.innerHTML =
-                '<span class="codicon codicon-loading codicon-modifier-spin"></span>';
-              setTimeout(() => {
-                backupCreateBtn.innerHTML = temp;
-                backupCreateBtn.disabled = false;
-                window.vscode.postMessage({ command: "backup:create" });
-              }, 1500);
+          
+          backupManager.addEventListener('backup-create', () => {
+            window.vscode.postMessage({ command: "backup:create" });
+          });
+          
+          backupManager.addEventListener('backup-restore', (e) => {
+            window.vscode.postMessage({ 
+              command: "backup:restore", 
+              backupId: e.detail.backupId 
             });
-          }
-
-          // ========================
-          // Backup Management - Delete（只保留一次事件）
-          // ========================
-          document
-            .getElementById("backup-table-body")
-            ?.addEventListener("click", async (e) => {
-              const btn = e.target.closest("button.backup-delete-btn");
-              if (!btn) return;
-              const idx = +btn.dataset.index;
-              if (
-                Number.isNaN(idx) ||
-                !Array.isArray(window.__backups) ||
-                !window.__backups[idx]
-              )
-                return;
-              const b = window.__backups[idx];
-              const timeStr = b.timestamp
-                ? new Date(b.timestamp).toLocaleString()
-                : "";
-              const confirm = await showChoiceDialog(
-                getNlsText("deleteBackupTitle", "Delete Backup"),
-                getNlsText(
-                  "deleteBackupMessage",
-                  "Are you sure you want to delete the backup from {time}?"
-                ).replace("{time}", timeStr),
-                [getNlsText("delete", "Delete"), getNlsText("cancel", "Cancel")]
-              );
-              if (confirm === getNlsText("delete", "Delete")) {
-                vscode.postMessage({
-                  command: "backup:delete",
-                  backupId: b.id ? b.id.split(/[/\\]/).pop() : b.id,
-                });
-                setTimeout(
-                  () => vscode.postMessage({ command: "backup:list" }),
-                  300
-                );
-              }
+          });
+          
+          backupManager.addEventListener('backup-delete', (e) => {
+            window.vscode.postMessage({ 
+              command: "backup:delete", 
+              backupId: e.detail.backupId 
             });
-
-          // 備份管理 modal 多國語系標題/按鈕/提示動態渲染
-          function updateBackupMgmtTexts() {
-            const set = (id, key, def) => {
-              const el = document.getElementById(id);
-              if (el) el.textContent = getNlsText(key, def);
-            };
-            const setAttr = (id, attr, key, def) => {
-              const el = document.getElementById(id);
-              if (el) el.setAttribute(attr, getNlsText(key, def));
-            };
-            set("backup-mgmt-title", "backupManagement", "備份管理");
-            set("immediate-backup-label", "immediateBackup", "立即備份");
-            set(
-              "backup-hint-label",
-              "backupHint",
-              "所有備份僅儲存在本機，請定期自行備份重要資料。"
-            );
-            set("th-index", "index", "#");
-            set("th-backup-time", "backupTime", "備份時間");
-            set(
-              "th-relative-time",
-              "relativeTime",
-              getNlsText("relativeTime", "Time")
-            );
-            set("th-file-size", "fileSize", "檔案大小");
-            set("th-item-count", "itemCount", "數量");
-            set("th-restore", "restore", "還原");
-            set("th-delete", "delete", "刪除");
-            // 處理關閉按鈕的 title 和 aria-label
-            setAttr("backup-mgmt-close", "title", "close", "關閉");
-            setAttr("backup-mgmt-close", "aria-label", "close", "關閉");
-          }
-          updateBackupMgmtTexts();
-          // ========== 備份刪除事件 ==========
-          document.addEventListener("click", async (e) => {
-            const btn = e.target.closest(".sb-icon-btn.delete-btn");
-            if (!btn) return;
-            const backupId = btn.getAttribute("data-id");
-            const timeStr = btn.getAttribute("data-timestr") || "";
-            // 多國語系標題與訊息
-            const title = getNlsText("deleteBackupTitle", "Delete Backup");
-            const msg = getNlsText(
-              "deleteBackupMessage",
-              "Are you sure you want to delete the backup from {time}?"
-            ).replace("{time}", timeStr);
-            // 按鈕 key 固定用 delete/cancel，顯示用翻譯
-            const btns = [
-              { key: "delete", label: getNlsText("delete", "Delete") },
-              { key: "cancel", label: getNlsText("cancel", "Cancel") },
-            ];
-            const confirm = await showChoiceDialog(
-              title,
-              msg,
-              btns.map((b) => b.label)
-            );
-            if (confirm === btns[0].label) {
-              vscode.postMessage({
-                command: "backup:delete",
-                backupId: backupId ? backupId.split(/[/\\]/).pop() : backupId,
-              });
-            }
-          });
-          closeBtn.addEventListener("click", () => {
-            overlay.style.display = "none";
-          });
-          overlay.addEventListener("mousedown", (e) => {
-            if (e.target === overlay) {
-              overlay.style.display = "none";
-            }
-          });
-          overlay.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") {
-              overlay.style.display = "none";
-            }
           });
         }
       }
@@ -1216,6 +895,12 @@ Security & Resource Management:
         // Also refresh Script Store localized texts if overlay already mounted
         if (document.getElementById("script-store-overlay"))
           updateScriptStoreTexts();
+          
+        // Also update Backup Manager Web Component texts
+        const backupManager = document.getElementById("backup-manager");
+        if (backupManager && typeof backupManager.updateTexts === 'function') {
+          backupManager.updateTexts();
+        }
 
         // Update table headers
         const headers = document.querySelectorAll("table.list-table th");
@@ -2520,10 +2205,71 @@ Security & Resource Management:
       document.addEventListener('DOMContentLoaded', async () => {
         await customElements.whenDefined('export-dialog');
         bindExportButton();
+        
+        await customElements.whenDefined('import-dialog');
+        bindImportButton();
       });
       
-      document.getElementById("import-btn").onclick = () =>
-        vscode.postMessage({ command: "importSettings" });
+      // Old import button handler - replaced by Web Component
+      // document.getElementById("import-btn").onclick = () =>
+      //   vscode.postMessage({ command: "importSettings" });
+
+      // === Modern Import/Export Functions ===
+      // Using Web Components for enhanced import/export functionality
+
+      function bindImportButton() {
+        const importBtn = document.getElementById("import-btn");
+        if (importBtn) {
+          importBtn.onclick = async () => {
+            try {
+              // Trigger file input to let user select a JSON file
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.style.display = 'none';
+              
+              input.onchange = async (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                  try {
+                    const text = await file.text();
+                    const items = JSON.parse(text);
+                    
+                    if (!Array.isArray(items)) {
+                      window.ConfirmationSystem.showWarning('Invalid JSON format. Expected array of items.');
+                      return;
+                    }
+                    
+                    // Show import preview dialog using Web Component
+                    const importDialog = document.getElementById('import-dialog');
+                    const result = await window.ImportSystem.showImportPreview(items);
+                    
+                    if (result && result.items.length > 0) {
+                      // Send import command to host
+                      vscode.postMessage({
+                        command: "applyImportSettings",
+                        items: result.items,
+                        mergeStrategy: result.mergeStrategy,
+                        conflictPolicy: result.conflictPolicy
+                      });
+                    }
+                  } catch (error) {
+                    window.ConfirmationSystem.showWarning('Failed to parse JSON file: ' + error.message);
+                  }
+                }
+              };
+              
+              document.body.appendChild(input);
+              input.click();
+              document.body.removeChild(input);
+              
+            } catch (error) {
+              console.error('Import error:', error);
+              window.ConfirmationSystem.showWarning('Import failed: ' + error.message);
+            }
+          };
+        }
+      }
 
       // === Modern Import/Export Functions ===
       // Using Web Components for enhanced import/export functionality
@@ -3666,7 +3412,19 @@ Security & Resource Management:
     <!-- Export Dialog Web Component -->
     <export-dialog id="export-dialog"></export-dialog>
     
+    <!-- Import Dialog Web Component -->
+    <import-dialog id="import-dialog"></import-dialog>
+    
+    <!-- Backup Manager Web Component -->
+    <backup-manager id="backup-manager"></backup-manager>
+    
     <!-- Load Export Dialog Component -->
     <script src="{{componentsBaseUri}}/export-dialog.js"></script>
+    
+    <!-- Load Import Dialog Component -->
+    <script src="{{componentsBaseUri}}/import-dialog.js"></script>
+    
+    <!-- Load Backup Manager Component -->
+    <script src="{{componentsBaseUri}}/backup-manager.js"></script>
   </body>
 </html>

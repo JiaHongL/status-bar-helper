@@ -183,25 +183,25 @@
          * @param {string} [type='info'] - 訊息類型：'success', 'error', 'info'
          * @param {number} [duration=2000] - 顯示時間（毫秒）
          */
-        showToast(msg, type = 'info', duration = 2000) {
-            const toast = this._createToast();
+        showToast(msg, type = 'info', duration = 3000) {
+            // 使用新的 confirmation-dialog 元件
+            const dialog = document.createElement('confirmation-dialog');
+            dialog.setAttribute('type', 'toast');
+            dialog.setAttribute('toast-type', type);
+            dialog.setAttribute('message', msg);
+            dialog.setAttribute('visible', '');
             
-            // 設定背景顏色
-            const colorMap = {
-                'success': '#4caf50',
-                'error': '#e53935',
-                'warning': '#ff9800',
-                'info': '#2196f3'
-            };
+            document.body.appendChild(dialog);
             
-            toast.style.background = colorMap[type] || colorMap.info;
-            toast.textContent = msg;
-            toast.style.opacity = '1';
-            
-            // 自動隱藏
+            // 自動移除
             setTimeout(() => {
-                if (toast.style.opacity === '1') {
-                    toast.style.opacity = '0';
+                if (document.body.contains(dialog)) {
+                    dialog.removeAttribute('visible');
+                    setTimeout(() => {
+                        if (document.body.contains(dialog)) {
+                            document.body.removeChild(dialog);
+                        }
+                    }, 300); // 等待動畫完成
                 }
             }, duration);
         }

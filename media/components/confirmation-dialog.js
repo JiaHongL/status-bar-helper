@@ -15,6 +15,14 @@ class ConfirmationDialog extends HTMLElement {
     return ['visible', 'title', 'message', 'type'];
   }
 
+  // 多語系支援
+  getText(key, defaultValue) {
+    if (window.I18nHelper && window.I18nHelper.getNlsText) {
+      return window.I18nHelper.getNlsText(key, defaultValue);
+    }
+    return defaultValue || key;
+  }
+
   connectedCallback() {
     this.render();
     this.setupEventListeners();
@@ -34,6 +42,8 @@ class ConfirmationDialog extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
+        /* 使用簡單的圖示符號，避免字體依賴 */
+        
         :host {
           position: fixed;
           top: 0;
@@ -206,8 +216,10 @@ class ConfirmationDialog extends HTMLElement {
         }
 
         .toast-icon {
-          font-family: "codicon";
+          margin-right: 8px;
           font-size: 16px;
+          font-weight: bold;
+          display: inline-block;
         }
 
         .toast-message {
@@ -262,17 +274,19 @@ class ConfirmationDialog extends HTMLElement {
 
   renderToast() {
     const type = this.getAttribute('toast-type') || 'info';
-    const message = this.getAttribute('message') || '';
-    const icons = {
-      success: '\\eab2', // check
-      error: '\\eab0',   // error
-      warning: '\\eab1', // warning
-      info: '\\eab6'     // info
-    };
+    const ICON = { success:'✓', error:'✕', warning:'⚠', info:'ℹ' };
+    const icon = ICON[type] || ICON.success;
+    let message = this.getAttribute('message') || '';
+    
+    // 多語系翻譯：優先使用 message-key，如果沒有則直接使用 message
+    const messageKey = this.getAttribute('message-key');
+    if (messageKey && window.I18nHelper && window.I18nHelper.getNlsText) {
+      message = window.I18nHelper.getNlsText(messageKey, message);
+    }
 
     return `
       <div class="toast ${type}">
-        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-icon" aria-hidden="true">${icon}</span>
         <span class="toast-message">${this.escapeHtml(message)}</span>
       </div>
     `;
