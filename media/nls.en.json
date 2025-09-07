@@ -116,6 +116,7 @@
   "removeScriptStore": "Remove",
   "label": "Label",
   "updateConfirm": "Update script \"{name}\"?",
+  "updateDescription": "This will overwrite the existing script with the new version.",
   "preview": "Preview",
   "importOptions": "Import Options",
   "shareYourScript": "Share your script",
@@ -159,5 +160,14 @@
   "nothingToDelete": "Nothing to delete",
   "nothingToDeleteDesc": "The current list is empty.",
   "close": "Close",
-  "previewTitle": "Preview"
+  "loading": "Loading...",
+  "scriptNotFound": "Script not found in catalog.",
+  "scriptUpToDate": "This script is already up to date.",
+  "previewTitle": "Preview",
+  "scriptDiff": "Script Diff",
+  "lines": "lines",
+  "collapsed": "collapsed",
+  "expand": "Expand",
+  "ok": "OK",
+  "uninstall": "Remove"
 }

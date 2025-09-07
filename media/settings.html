@@ -131,7 +131,6 @@ Security & Resource Management:
               <span
                 id="script-store-new-badge"
                 class="new-badge"
-                style="display: none"
               ></span>
             </button>
             <button id="import-btn" type="button" data-nls="import">
@@ -318,180 +317,14 @@ Security & Resource Management:
       </div>
     </div>
 
-    <!-- Script Store Overlay -->
-    <div id="script-store-overlay">
-      <div id="script-store-modal">
-        <div id="ss-header">
-          <h3 data-nls="scriptStore">Script Store</h3>
-          <div
-            id="ss-header-status"
-            style="font-size: 11px; opacity: 0.7"
-          ></div>
-          <button
-            id="ss-close"
-            title="Close"
-            class="codicon codicon-close"
-          ></button>
-        </div>
-        <div id="ss-body">
-          <div id="ss-filters">
-            <input
-              type="text"
-              id="ss-search"
-              placeholder="Filter scripts…"
-              data-nls="filterScripts"
-            />
-            <select id="ss-status-filter">
-              <option value="all" data-nls="filterAll">All</option>
-              <option value="new" data-nls="statusNew">New</option>
-              <option value="update" data-nls="update">Update</option>
-              <option value="installed" data-nls="installed">Installed</option>
-            </select>
-            <input
-              type="text"
-              id="ss-tag-filter"
-              placeholder="Tag filter (single)"
-              data-nls="tagFilterSingle"
-            />
-            <button
-              id="ss-refresh"
-              type="button"
-              title="Refresh"
-              aria-label="Refresh"
-            >
-              <i class="codicon codicon-refresh"></i>
-            </button>
-          </div>
-          <div id="ss-main">
-            <div id="ss-left">
-              <div id="ss-table-wrap">
-                <table id="ss-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 26px"></th>
-                      <th
-                        id="ss-col-label"
-                        style="width: 160px"
-                        data-nls="label"
-                      >
-                        Label
-                      </th>
-                      <th
-                        id="ss-col-tooltip"
-                        style="width: auto"
-                        data-nls="tooltip"
-                      >
-                        Tooltip
-                      </th>
-                      <th id="ss-col-tags" style="width: 140px" data-nls="tags">
-                        Tags
-                      </th>
-                      <th
-                        id="ss-col-status"
-                        style="width: 60px"
-                        data-nls="status"
-                      >
-                        Status
-                      </th>
-                      <th
-                        id="ss-col-actions"
-                        style="width: 50px"
-                        data-nls="actions"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody id="ss-tbody"></tbody>
-                </table>
-                <div
-                  id="ss-empty"
-                  style="display: none"
-                  data-nls="scriptStoreNoEntries"
-                >
-                  No entries
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="ss-footer">
-          <div id="ss-error"></div>
-          <a id="ss-share-link" href="#" class="ss-share-link">
-            <span class="codicon codicon-github"></span>
-            <span class="ss-share-text" data-nls="shareYourScript"
-              >Share your script</span
-            >
-          </a>
-          <div class="spacer"></div>
-          <button
-            id="ss-bulk-install"
-            type="button"
-            disabled
-            data-nls="installSelected"
-          >
-            Install Selected
-          </button>
-        </div>
-      </div>
-      <!-- Floating Diff Window Layer -->
-      <div id="ss-diff-layer" style="display: none">
-        <div class="ss-diff-backdrop"></div>
-        <div id="ss-diff-window" class="ss-diff-window">
-          <div
-            class="ss-diff-window-header ss-store-header-like"
-            id="ss-diff-header"
-          >
-            <h3 id="ss-diff-window-title">Diff</h3>
-            <button
-              id="ss-dw-close"
-              class="codicon codicon-close"
-              title="Close"
-            ></button>
-          </div>
-          <div id="ss-diff-body" class="ss-diff-window-body"></div>
-          <div
-            id="ss-diff-actions"
-            class="ss-diff-actions"
-            style="display: none"
-          >
-            <button id="ss-diff-cancel" type="button" data-i18n-text="cancel">
-              Cancel
-            </button>
-            <button
-              id="ss-diff-update"
-              type="button"
-              class="primary"
-              data-i18n-text="update"
-            >
-              Update
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Confirm Layer -->
-    <div id="ss-confirm-layer">
-      <div class="backdrop"></div>
-      <div id="ss-confirm-box">
-        <h4 id="ss-confirm-title"></h4>
-        <div
-          id="ss-confirm-message"
-          style="font-size: 12px; opacity: 0.85"
-        ></div>
-        <div id="ss-confirm-actions">
-          <button type="button" id="ss-confirm-cancel"></button>
-          <button type="button" id="ss-confirm-ok" class="primary"></button>
-        </div>
-      </div>
-    </div>
-
     <!-- JavaScript Modules -->
     <script src="{{i18nHelperUri}}"></script>
     <script src="{{confirmationUri}}"></script>
     <!-- Web Components (experimental) -->
     <script src="{{confirmationDialogUri}}"></script>
+    
+    <!-- Script Store Web Component -->
+    <script-store id="script-store-component" visible="false" codicons-uri="{{codiconsUri}}"></script-store>
     
     <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
@@ -651,9 +484,9 @@ Security & Resource Management:
             nlsKey === "scriptStore" &&
             element.id === "script-store-btn"
           ) {
-            // 特殊處理 Script Store 按鈕，保留 span 子元素
+            // 特殊處理 Script Store 按鈕，保留圖標和 badge
             const badge = element.querySelector("#script-store-new-badge");
-            element.innerHTML = translated + (badge ? badge.outerHTML : "");
+            element.innerHTML = `<i class="codicon codicon-extensions" style="margin-right: 4px;"></i>${translated}${badge ? badge.outerHTML : ""}`;
           } else {
             element.textContent = translated;
           }
@@ -662,14 +495,10 @@ Security & Resource Management:
         // 再執行原有的專門更新函數（處理沒有 data-nls 的元素）
         updateUITexts();
 
-  // 移除診斷用強制校正；此時 I18nHelper 已正確使用 key
+        // Script Store Web Component 會自動處理國際化
+        console.log('I18n setup complete, Script Store Web Component will handle its own localization');
 
-        // 最後處理 Script Store 相關文字（如果已載入）
-        if (document.getElementById("script-store-overlay")) {
-          updateScriptStoreTexts();
-        }
-
-  // no-op
+        // no-op
       }
 
       // ========== 備份管理表格渲染 (Web Component) ==========
@@ -893,9 +722,8 @@ Security & Resource Management:
           );
 
         // Also refresh Script Store localized texts if overlay already mounted
-        if (document.getElementById("script-store-overlay"))
-          updateScriptStoreTexts();
-          
+        // Script Store Web Component handles its own localization
+        
         // Also update Backup Manager Web Component texts
         const backupManager = document.getElementById("backup-manager");
         if (backupManager && typeof backupManager.updateTexts === 'function') {
@@ -987,89 +815,6 @@ Security & Resource Management:
         } else {
           badge.style.display = "none";
         }
-      }
-
-      function updateScriptStoreTexts() {
-        const header = document.querySelector("#ss-header h3");
-        if (header)
-          header.textContent = getNlsText("scriptStore", "Script Store");
-        const search = document.getElementById("ss-search");
-        if (search)
-          search.placeholder = getNlsText("filterScripts", "Filter scripts…");
-        const tagFilter = document.getElementById("ss-tag-filter");
-        if (tagFilter)
-          tagFilter.placeholder = getNlsText(
-            "tagFilterSingle",
-            "Tag filter (single)"
-          );
-        const refreshBtn = document.getElementById("ss-refresh");
-        if (refreshBtn) {
-          refreshBtn.title = getNlsText("refresh", "Refresh");
-          refreshBtn.setAttribute(
-            "aria-label",
-            getNlsText("refresh", "Refresh")
-          );
-        }
-        const bulkBtnEl = document.getElementById("ss-bulk-install");
-        if (bulkBtnEl)
-          bulkBtnEl.textContent = getNlsText(
-            "installSelected",
-            "Install Selected"
-          );
-
-        // 更新狀態過濾器選項
-        const statusFilter = document.getElementById("ss-status-filter");
-        if (statusFilter) {
-          const options = statusFilter.querySelectorAll("option");
-          if (options.length >= 4) {
-            options[0].textContent = getNlsText("filterAll", "All");
-            options[1].textContent = getNlsText("statusNew", "New");
-            options[2].textContent = getNlsText("update", "Update");
-            options[3].textContent = getNlsText("installed", "Installed");
-          }
-        }
-
-        const shareLink = document.getElementById("ss-share-link");
-        if (shareLink) {
-          const shareText = shareLink.querySelector(".ss-share-text");
-          if (shareText)
-            shareText.textContent = getNlsText(
-              "shareYourScript",
-              "Share your script"
-            );
-        }
-        // Diff window buttons
-        const diffCancel = document.getElementById("ss-diff-cancel");
-        if (diffCancel) diffCancel.textContent = getNlsText("cancel", "Cancel");
-        const diffUpdate = document.getElementById("ss-diff-update");
-        if (diffUpdate) diffUpdate.textContent = getNlsText("update", "Update");
-
-        const setText = (id, key, fb) => {
-          const el = document.getElementById(id);
-          if (el) el.textContent = getNlsText(key, fb);
-        };
-        setText("ss-col-label", "label", "Label");
-        setText("ss-col-tooltip", "tooltip", "Tooltip");
-        setText("ss-col-tags", "tags", "Tags");
-        setText("ss-col-status", "status", "Status");
-        setText("ss-col-actions", "actions", "Actions");
-        // Import/Export dialog localization
-        setText("preview-title", "preview", "Preview");
-        setText("import-options-title", "importOptions", "Import Options");
-        setText("merge-strategy-title", "mergeStrategy", "Merge Strategy");
-        setText("merge-replace-label", "mergeReplace", "Replace");
-        setText("merge-append-label", "mergeAppend", "Append");
-        setText("conflict-policy-title", "conflictPolicy", "Conflict Policy");
-        setText("conflict-skip-label", "conflictSkip", "Skip");
-        setText("conflict-newid-label", "conflictNewId", "New ID");
-        setText("select-all-preview", "selectAll", "Select All");
-        setText("deselect-all-preview", "deselectAll", "Deselect All");
-        setText("preview-th-text", "text", "Text");
-        setText("preview-th-command", "command", "Command");
-        setText("preview-th-tooltip", "tooltip", "Tooltip");
-        const empty = document.getElementById("ss-empty");
-        if (empty)
-          empty.textContent = getNlsText("scriptStoreNoEntries", "No entries");
       }
 
       let items = [],
@@ -2278,12 +2023,63 @@ Security & Resource Management:
         // Initialize backup management
         setupBackupManagement();
 
-        // Initialize Script Store button (placeholder – future implementation will open modal / side panel)
+        // Initialize Script Store button and NEW badge
         const storeBtn = document.getElementById("script-store-btn");
-        if (storeBtn) {
+        const newBadge = document.getElementById("script-store-new-badge");
+        const scriptStoreComponent = document.getElementById("script-store-component");
+        
+        if (storeBtn && scriptStoreComponent) {
+          // 儲存事件監聽器的引用以便後續清理
+          const listeners = [];
+          
           storeBtn.onclick = () => {
             openScriptStore();
           };
+          
+          // 監聽 NEW badge 更新事件
+          const badgeUpdateHandler = (e) => {
+            const count = e.detail.count;
+            if (newBadge) {
+              if (count > 0) {
+                newBadge.textContent = count.toString();
+                newBadge.style.display = 'inline-block';
+              } else {
+                newBadge.style.display = 'none';
+              }
+            }
+          };
+          scriptStoreComponent.addEventListener('new-badge-update', badgeUpdateHandler);
+          listeners.push(['new-badge-update', badgeUpdateHandler]);
+          
+          // 初始化時立即檢查 NEW badge 數量
+          setTimeout(() => {
+            if (scriptStoreComponent && typeof scriptStoreComponent.fetchCatalog === 'function') {
+              scriptStoreComponent.fetchCatalog().then(() => {
+                console.log('Initial NEW badge check completed');
+              }).catch(err => {
+                console.log('Initial NEW badge check failed:', err);
+              });
+            }
+          }, 500);
+          
+          // 監聽對話框開關事件
+          const dialogOpenedHandler = () => {
+            console.log('Script Store opened');
+          };
+          const dialogClosedHandler = () => {
+            console.log('Script Store closed');
+            // 當 Script Store 關閉時，清理所有事件監聽器
+            console.log('Cleaning up Script Store event listeners');
+            listeners.forEach(([eventType, handler]) => {
+              scriptStoreComponent.removeEventListener(eventType, handler);
+            });
+            listeners.length = 0; // 清空陣列
+          };
+          
+          scriptStoreComponent.addEventListener('dialog-opened', dialogOpenedHandler);
+          scriptStoreComponent.addEventListener('dialog-closed', dialogClosedHandler);
+          listeners.push(['dialog-opened', dialogOpenedHandler]);
+          listeners.push(['dialog-closed', dialogClosedHandler]);
         }
 
         // Initialize clear all button
@@ -2350,20 +2146,12 @@ Security & Resource Management:
             } else {
               showListView();
             }
-            // 若 Script Store overlay 開啟，重新取得 catalog 以反映最新安裝狀態（避免延遲）
+            // 若 Script Store 開啟，通知 Web Component 重新整理
             try {
-              const ov = document.getElementById("script-store-overlay");
-              if (
-                ov &&
-                ov.style.display !== "none" &&
-                typeof fetchCatalog === "function"
-              ) {
-                // 使用微小延遲，確保 globalState 已完成寫入
-                setTimeout(() => {
-                  try {
-                    fetchCatalog();
-                  } catch (_) {}
-                }, 30);
+              const scriptStoreComponent = document.getElementById("script-store-component");
+              if (scriptStoreComponent && scriptStoreComponent.visible) {
+                // Web Component 會自動處理重新整理
+                console.log('Notifying Script Store Web Component to refresh');
               }
             } catch {
               /* noop */
@@ -2600,812 +2388,45 @@ Security & Resource Management:
         // RPC 回應處理器
         window.addEventListener("message", (ev) => {
           const msg = ev.data;
+          
+          // 處理來自後端的回應
           if (!msg || msg.command !== "scriptStore:resp") return;
+          
+          // 處理原始的 pending Map
           const h = pending.get(msg.reqId);
-          if (!h) return;
-          pending.delete(msg.reqId);
-          if (msg.result && msg.result.ok) h.resolve(msg.result);
-          else h.reject(new Error(msg.result?.error || "error"));
+          if (h) {
+            pending.delete(msg.reqId);
+            if (msg.result && msg.result.ok) h.resolve(msg.result);
+            else h.reject(new Error(msg.result?.error || "error"));
+          }
+          
+          // 同時處理 Web Component 的 pending Map
+          if (window.scriptStorePending && window.scriptStorePending.has(msg.reqId)) {
+            const webComponentHandler = window.scriptStorePending.get(msg.reqId);
+            window.scriptStorePending.delete(msg.reqId);
+            if (msg.result && msg.result.ok) {
+              webComponentHandler.resolve(msg.result);
+            } else {
+              webComponentHandler.reject(new Error(msg.result?.error || "error"));
+            }
+          }
         });
 
         // ========================================================================
-        // Script Store State Management
+        // Script Store Web Component Integration
         // ========================================================================
-
-        /** Catalog 資料陣列 */
-        let ssCatalog = [];
-        /** 是否已載入 catalog */
-        let ssLoaded = false;
-        /** 是否正在載入 */
-        let ssLoading = false;
-        /** 是否正在安裝 */
-        let ssInstalling = false;
-        /** 目前顯示 diff 的 command ID */
-        let currentDiffCommand = null;
-
-        // DOM 元素參照
-        const overlay = document.getElementById("script-store-overlay");
-        const tbody = document.getElementById("ss-tbody");
-        const errorEl = document.getElementById("ss-error");
-        const bulkBtn = document.getElementById("ss-bulk-install");
-        const searchEl = document.getElementById("ss-search");
-        const statusEl = document.getElementById("ss-status-filter");
-        const tagEl = document.getElementById("ss-tag-filter");
-        const headerStatus = document.getElementById("ss-header-status");
-
-        function badge(status) {
-          const cls =
-            status === "update"
-              ? "ss-status-badge ss-status-update"
-              : status === "installed"
-              ? "ss-status-badge ss-status-installed"
-              : "ss-status-badge ss-status-new";
-          const label =
-            status === "update"
-              ? getNlsText("update", "Update")
-              : status === "installed"
-              ? getNlsText("installed", "Installed")
-              : getNlsText("statusNew", "New");
-          return `<span class="${cls}">${label}</span>`;
-        }
-        async function uninstallOne(cmd) {
-          try {
-            ssInstalling = true;
-            render();
-            try {
-              await callHost("uninstall", [cmd]);
-            } catch (err) {
-              errorEl.textContent =
-                "Uninstall failed: " + (err?.message || err);
-            }
-            await fetchCatalog();
-            try {
-              vscodeRef.postMessage({ command: "getSettings" });
-            } catch {}
-          } catch (e) {
-            errorEl.textContent = "Uninstall error: " + (e?.message || e);
-          } finally {
-            ssInstalling = false;
-            render();
-          }
-        }
-        function render() {
-          const q = (searchEl.value || "").toLowerCase();
-          const st = statusEl.value;
-          const tag = tagEl.value.trim().toLowerCase();
-          let list = ssCatalog.slice();
-          if (q) {
-            const fuzzy = (text, pat) => {
-              if (!text) return false;
-              let ti = 0,
-                pi = 0;
-              const t = text.toLowerCase();
-              const p = pat.toLowerCase();
-              while (ti < t.length && pi < p.length - 1) {
-                if (t[ti] === p[pi]) pi++;
-                ti++;
-              }
-              return pi === p.length;
-            };
-            list = list.filter((e) => {
-              const hay = [
-                e.text,
-                e.command,
-                e.tooltip || "",
-                (e.tags || []).join(" "),
-              ];
-              return hay.some(
-                (h) => h && (h.toLowerCase().includes(q) || fuzzy(h, q))
-              );
-            });
-          }
-          if (st !== "all") list = list.filter((e) => e.status === st);
-          if (tag) {
-            const fuzzyTag = (text, pat) => {
-              if (!text) return false;
-              let i = 0,
-                j = 0;
-              const t = text.toLowerCase();
-              const p = pat.toLowerCase();
-              while (i < t.length && j < p.length) {
-                if (t[i] === p[j]) j++;
-                i++;
-              }
-              return j === p.length;
-            };
-            list = list.filter(
-              (e) =>
-                Array.isArray(e.tags) &&
-                e.tags.some((t) => {
-                  const tl = t.toLowerCase();
-                  return tl === tag || tl.includes(tag) || fuzzyTag(tl, tag);
-                })
-            );
-          }
-
-          // 狀態排序：新增 > 可更新 > 已安裝
-          list.sort((a, b) => {
-            const statusOrder = { new: 0, update: 1, installed: 2 };
-            const orderA = statusOrder[a.status] ?? 999;
-            const orderB = statusOrder[b.status] ?? 999;
-            if (orderA !== orderB) return orderA - orderB;
-            // 同狀態時按名稱排序
-            return a.text.localeCompare(b.text);
-          });
-
-          tbody.innerHTML = "";
-          if (!list.length) {
-            const emptyEl = document.getElementById("ss-empty");
-            if (emptyEl) {
-              emptyEl.textContent = getNlsText(
-                "scriptStoreNoEntries",
-                "No entries"
-              );
-            }
-            emptyEl.style.display = "block";
-            bulkBtn.disabled = true;
-            return;
-          }
-          document.getElementById("ss-empty").style.display = "none";
-          list.forEach((e, i) => {
-            const tr = document.createElement("tr");
-            const actionBtns = (() => {
-              const hasDiff = e.status === "update";
-              const viewBtn = `<button data-action=\"view\" data-cmd=\"${
-                e.command
-              }\" title=\"${getNlsText(
-                "view",
-                "View"
-              )}\" aria-label=\"${getNlsText("view", "View")}\" class=\"${
-                hasDiff ? "has-diff" : ""
-              }\"><i class=\"codicon codicon-eye\"></i></button>`;
-              if (e.status === "new")
-                return (
-                  viewBtn +
-                  `<button data-action=\"install\" data-kind=\"install\" data-cmd=\"${
-                    e.command
-                  }\" title=\"${getNlsText(
-                    "install",
-                    "Install"
-                  )}\" aria-label=\"${getNlsText("install", "Install")}\" ${
-                    ssInstalling ? "disabled" : ""
-                  }><i class=\"codicon codicon-cloud-download\"></i></button>`
-                );
-              if (e.status === "update")
-                return (
-                  viewBtn +
-                  `<button data-action=\"update\" data-kind=\"update\" data-cmd=\"${
-                    e.command
-                  }\" title=\"${getNlsText(
-                    "update",
-                    "Update"
-                  )}\" aria-label=\"${getNlsText("update", "Update")}\" ${
-                    ssInstalling ? "disabled" : ""
-                  }><i class=\"codicon codicon-sync\"></i></button>`
-                );
-              return (
-                viewBtn +
-                `<button data-action=\"uninstall\" data-cmd=\"${
-                  e.command
-                }\" title=\"${getNlsText(
-                  "removeScriptStore",
-                  "Remove"
-                )}\" aria-label=\"${getNlsText(
-                  "removeScriptStore",
-                  "Remove"
-                )}\"><i class=\"codicon codicon-trash\"></i></button>`
-              );
-            })();
-            tr.innerHTML = `<td><input type="checkbox" class="ss-sel" data-cmd="${
-              e.command
-            }" ${e.status === "installed" ? "" : "checked"}></td>
-                  <td title="${escapeHtml(e.text)}">${escapeHtml(e.text)}</td>
-                  <td title="${escapeHtml(
-                    e.tooltip || ""
-                  )}" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(
-              e.tooltip || "—"
-            )}</td>
-                  <td>${
-                    (e.tags || [])
-                      .map(
-                        (t) =>
-                          `<span class='ss-tag-badge'>${escapeHtml(t)}</span>`
-                      )
-                      .join("") || '<span style="opacity:.4">—</span>'
-                  }</td>
-                  <td data-status="${e.status}">${badge(e.status)}</td>
-                  <td class="ss-actions">${actionBtns}</td>`;
-            tbody.appendChild(tr);
-          });
-          syncBulkButton();
-        }
-        function syncBulkButton() {
-          const any = tbody.querySelectorAll("input.ss-sel:checked").length > 0;
-          bulkBtn.disabled = !any;
-        }
-        function setLoading(b) {
-          ssLoading = b;
-          document
-            .getElementById("ss-table-wrap")
-            .classList.toggle("loading-dim", b);
-        }
-        async function fetchCatalog() {
-          if (ssLoading) return;
-          setLoading(true);
-          headerStatus.innerHTML = '<span class="mini-spinner"></span>';
-          errorEl.textContent = "";
-          try {
-            const r = await callHost("catalog", []);
-            ssCatalog = (r.data && r.data.entries) || [];
-            ssLoaded = true;
-            headerStatus.textContent = `${ssCatalog.length} ${getNlsText(
-              "scriptStoreEntriesSuffix",
-              "entries"
-            )}`;
-            // Update Script Store NEW badge
-            updateScriptStoreNewBadge(ssCatalog);
-          } catch (e) {
-            errorEl.textContent = "Load failed: " + (e?.message || e);
-            headerStatus.textContent = "Error";
-            // Hide badge on error
-            updateScriptStoreNewBadge([]);
-          } finally {
-            setLoading(false);
-            render();
-            if (currentDiffCommand) showDiff(currentDiffCommand);
-          }
-        }
-        async function installOne(cmd) {
-          try {
-            const entry = ssCatalog.find((e) => e.command === cmd);
-            if (!entry) return;
-            ssInstalling = true;
-            render();
-            try {
-              await callHost("install", [entry]);
-            } catch (err) {
-              errorEl.textContent = "Install failed: " + (err?.message || err);
-            }
-            await fetchCatalog();
-            try {
-              vscodeRef.postMessage({ command: "getSettings" });
-            } catch {}
-          } catch (e) {
-            errorEl.textContent = "Install error: " + (e?.message || e);
-          } finally {
-            ssInstalling = false;
-            render();
-          }
-        }
-        async function bulkInstall() {
-          const selected = Array.from(
-            tbody.querySelectorAll("input.ss-sel:checked")
-          ).map((cb) => cb.dataset.cmd);
-          const payload = ssCatalog.filter(
-            (e) => selected.includes(e.command) && e.status !== "installed"
-          );
-          if (!payload.length) {
-            return;
-          }
-
-          // Show confirmation dialog with items to install
-          const installList = payload
-            .map(
-              (p) =>
-                `• ${p.text || p.command} (${
-                  p.status === "new" ? "New" : "Update"
-                })`
-            )
-            .join("\n");
-          const message = `${getNlsText(
-            "confirmInstall",
-            "Are you sure you want to install the following items?"
-          )}\n\n${installList}`;
-          const choice = await showChoiceDialog(
-            getNlsText("installScript", "Install Scripts"),
-            message,
-            ["Install", "Cancel"]
-          );
-
-          if (choice !== "Install") {
-            return; // User cancelled
-          }
-
-          try {
-            const diffCmds = payload.map((p) => p.command);
-            try {
-              await callHost("diff", [diffCmds]);
-            } catch {}
-            ssInstalling = true;
-            render();
-            try {
-              const r = await callHost("bulkInstall", [payload]);
-              const res = r.data?.results || [];
-              const fail = res.filter((x) => !x.ok).length;
-              const ok = res.filter((x) => x.ok).length;
-              errorEl.textContent = fail
-                ? `Partial success: ${ok} ok / ${fail} failed`
-                : `Installed ${ok} item(s)`;
-            } catch (err) {
-              errorEl.textContent =
-                "Bulk install failed: " + (err?.message || err);
-            }
-            await fetchCatalog();
-            try {
-              vscodeRef.postMessage({ command: "getSettings" });
-            } catch {}
-          } catch (e) {
-            errorEl.textContent = "Bulk install error: " + (e?.message || e);
-          } finally {
-            ssInstalling = false;
-            render();
-          }
-        }
-        function highlightDiff(beforeVal, afterVal) {
-          if (beforeVal === afterVal)
-            return {
-              changed: false,
-              before: escapeHtml(String(beforeVal ?? "")),
-              after: escapeHtml(String(afterVal ?? "")),
-            };
-          return {
-            changed: true,
-            before: escapeHtml(String(beforeVal ?? "")),
-            after: escapeHtml(String(afterVal ?? "")),
-          };
-        }
-        function simpleLineDiff(a, b) {
-          const al = a.split(/\r?\n/),
-            bl = b.split(/\r?\n/);
-          const max = Math.max(al.length, bl.length);
-          const rows = [];
-          for (let i = 0; i < max; i++) {
-            const av = al[i];
-            const bv = bl[i];
-            if (av === bv) {
-              rows.push({ type: "same", before: av, after: bv });
-            } else {
-              if (av != null && bv != null) {
-                rows.push({ type: "changed", before: av, after: bv });
-              } else if (av != null) {
-                rows.push({ type: "removed", before: av, after: "" });
-              } else {
-                rows.push({ type: "added", before: "", after: bv });
-              }
-            }
-          }
-          return rows;
-        }
-        // LCS-based inline diff (character-level) with fallback to simple prefix/suffix when lines are huge
-        function inlineDiff(a, b) {
-          if (a === b)
-            return { a: escapeHtml(a || ""), b: escapeHtml(b || "") };
-          a = a || "";
-          b = b || "";
-          const maxProduct = 40000; // safeguard (e.g. 200x200 chars) to avoid heavy O(n*m) cost
-          const ax = [...a],
-            bx = [...b]; // spread handles surrogate pairs
-          if (ax.length * bx.length > maxProduct) {
-            // fallback: prefix/suffix (previous behavior)
-            let start = 0;
-            while (
-              start < ax.length &&
-              start < bx.length &&
-              ax[start] === bx[start]
-            )
-              start++;
-            let endA = ax.length - 1,
-              endB = bx.length - 1;
-            while (endA >= start && endB >= start && ax[endA] === bx[endB]) {
-              endA--;
-              endB--;
-            }
-            const prefix = escapeHtml(ax.slice(0, start).join(""));
-            const suffix = escapeHtml(ax.slice(endA + 1).join("")); // same for b
-            const delSeg = escapeHtml(ax.slice(start, endA + 1).join(""));
-            const addSeg = escapeHtml(bx.slice(start, endB + 1).join(""));
-            return {
-              a:
-                prefix +
-                (delSeg ? `<span class="diff-del">${delSeg}</span>` : "") +
-                suffix,
-              b:
-                escapeHtml(bx.slice(0, start).join("")) +
-                (addSeg ? `<span class="diff-add">${addSeg}</span>` : "") +
-                escapeHtml(bx.slice(endB + 1).join("")),
-            };
-          }
-          // Build LCS matrix
-          const n = ax.length,
-            m = bx.length;
-          const dp = Array(n + 1);
-          for (let i = 0; i <= n; i++) {
-            dp[i] = new Uint16Array(m + 1);
-          }
-          for (let i = 1; i <= n; i++) {
-            const ai = ax[i - 1];
-            const row = dp[i],
-              prev = dp[i - 1];
-            for (let j = 1; j <= m; j++) {
-              if (ai === bx[j - 1]) row[j] = prev[j - 1] + 1;
-              else row[j] = row[j - 1] > prev[j] ? row[j - 1] : prev[j];
-            }
-          }
-          // Reconstruct operations
-          let i = n,
-            j = m;
-          const ops = [];
-          while (i > 0 || j > 0) {
-            if (i > 0 && j > 0 && ax[i - 1] === bx[j - 1]) {
-              ops.push({ t: "eq", c: ax[i - 1] });
-              i--;
-              j--;
-            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-              ops.push({ t: "add", c: bx[j - 1] });
-              j--;
-            } else {
-              ops.push({ t: "del", c: ax[i - 1] });
-              i--;
-            }
-          }
-          ops.reverse();
-          // Collapse consecutive ops of same type
-          const collapsed = [];
-          for (const o of ops) {
-            const last = collapsed[collapsed.length - 1];
-            if (last && last.t === o.t) {
-              last.c += o.c;
-            } else collapsed.push({ t: o.t, c: o.c });
-          }
-          let outA = "",
-            outB = "";
-          for (const seg of collapsed) {
-            const esc = escapeHtml(seg.c);
-            if (seg.t === "eq") {
-              outA += esc;
-              outB += esc;
-            } else if (seg.t === "del") {
-              outA += `<span class="diff-del">${esc}</span>`;
-            } else if (seg.t === "add") {
-              outB += `<span class="diff-add">${esc}</span>`;
-            }
-          }
-          return { a: outA, b: outB };
-        }
-        function renderScriptDiff(before, after) {
-          before = before || "";
-          after = after || "";
-          const linesBefore = before.split(/\r?\n/).length;
-          const linesAfter = after.split(/\r?\n/).length;
-          const collapse = linesBefore > 400 || linesAfter > 400;
-          const diffRows = simpleLineDiff(before, after).slice(
-            0,
-            collapse ? 400 : undefined
-          );
-          const preL = diffRows
-            .map((r) => {
-              let cls = "";
-              if (r.type === "changed") cls = "changed-line";
-              else if (r.type === "removed") cls = "removed-line";
-              let content = "";
-              if (r.type === "changed") {
-                const parts = inlineDiff(r.before || "", r.after || "");
-                content = parts.a;
-              } else content = escapeHtml(r.before || "");
-              return `<div class="ln ${cls}">${content || ""}</div>`;
-            })
-            .join("\n");
-          const preR = diffRows
-            .map((r) => {
-              let cls = "";
-              if (r.type === "changed") cls = "changed-line";
-              else if (r.type === "added") cls = "added-line";
-              let content = "";
-              if (r.type === "changed") {
-                const parts = inlineDiff(r.before || "", r.after || "");
-                content = parts.b;
-              } else content = escapeHtml(r.after || "");
-              return `<div class="ln ${cls}">${content || ""}</div>`;
-            })
-            .join("\n");
-          return `<div class="script-diff ${collapse ? "collapsed" : ""}">
-                <div class="script-diff-header">Script Diff (${linesBefore} → ${linesAfter} lines)${
-            collapse ? '<span style="margin-left:auto;">(collapsed)</span>' : ""
-          }
-                  ${
-                    collapse
-                      ? '<button type="button" data-action="expand-script">Expand</button>'
-                      : ""
-                  }
-                </div>
-                <div class="split-pre" data-collapse="${
-                  collapse ? 1 : 0
-                }"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
-              </div>`;
-        }
-        async function showDiff(cmd, showUpdateButton = false) {
-          currentDiffCommand = cmd;
-          const layer = document.getElementById("ss-diff-layer");
-          const body = document.getElementById("ss-diff-body");
-          const title = document.getElementById("ss-diff-window-title");
-          const actionsArea = document.getElementById("ss-diff-actions");
-          const updateBtn = document.getElementById("ss-diff-update");
-
-          if (title)
-            title.textContent = `${getNlsText("diffTitle", "Diff")} - ${cmd}`;
-          if (actionsArea) {
-            actionsArea.style.display = showUpdateButton ? "flex" : "none";
-            const cancelBtn = document.getElementById("ss-diff-cancel");
-            if (cancelBtn)
-              cancelBtn.textContent = getNlsText("cancel", "Cancel");
-            if (updateBtn) {
-              updateBtn.dataset.cmd = cmd;
-              updateBtn.textContent = getNlsText("update", "Update");
-              updateBtn.setAttribute(
-                "aria-label",
-                getNlsText("update", "Update")
-              );
-            }
-          }
-          layer.style.display = "block";
-          body.innerHTML =
-            '<div style="padding:8px; opacity:.7;">Loading diff…</div>';
-          try {
-            const r = await callHost("diff", [[cmd]]);
-            const d =
-              r && r.ok && r.data && r.data.diffs ? r.data.diffs[0] : null;
-            if (!d) {
-              body.innerHTML =
-                '<div style="padding:8px; color:var(--vscode-errorForeground);">Diff not available.</div>';
-              return;
-            }
-            const before = d.before || {};
-            const after = d.after || {
-              text: ssCatalog.find((e) => e.command === cmd)?.text,
-            };
-            const textDiff = highlightDiff(before.text, after.text);
-            const tooltipDiff = highlightDiff(before.tooltip, after.tooltip);
-            const tagsDiff = highlightDiff(
-              (before.tags || []).join(", "),
-              (after.tags || []).join(", ")
-            );
-            const scriptBefore = before.script || "";
-            const scriptAfter = after.script || "";
-            body.innerHTML = `
-                  <div class="field-diff ${textDiff.changed ? "changed" : ""}">
-                    <div class="label">${getNlsText("text", "Text")}</div>
-                    <div class="pair"><div class="before">${
-                      textDiff.before || "<i style=opacity:.5>—</i>"
-                    }</div><div class="after">${
-              textDiff.after || "<i style=opacity:.5>—</i>"
-            }</div></div>
-                  </div>
-                  <div class="field-diff ${
-                    tooltipDiff.changed ? "changed" : ""
-                  }">
-                    <div class="label">${getNlsText("tooltip", "Tooltip")}</div>
-                    <div class="pair"><div class="before">${
-                      tooltipDiff.before || "<i style=opacity:.5>—</i>"
-                    }</div><div class="after">${
-              tooltipDiff.after || "<i style=opacity:.5>—</i>"
-            }</div></div>
-                  </div>
-                  <div class="field-diff ${tagsDiff.changed ? "changed" : ""}">
-                    <div class="label">${getNlsText("tags", "Tags")}</div>
-                    <div class="pair"><div class="before">${
-                      tagsDiff.before || "<i style=opacity:.5>—</i>"
-                    }</div><div class="after">${
-              tagsDiff.after || "<i style=opacity:.5>—</i>"
-            }</div></div>
-                  </div>
-                  ${renderScriptDiff(scriptBefore, scriptAfter)}
-                `;
-            body
-              .querySelectorAll('button[data-action="expand-script"]')
-              .forEach((btn) => {
-                btn.addEventListener("click", () => {
-                  const wrapper = btn.closest(".script-diff");
-                  if (wrapper) {
-                    wrapper.classList.remove("collapsed");
-                    btn.remove();
-                    // re-render full diff
-                    body.querySelector("#ss-pre-before").innerHTML =
-                      scriptBefore
-                        .split(/\r?\n/)
-                        .map((l) => `<div class='ln'>${escapeHtml(l)}</div>`)
-                        .join("\n");
-                    body.querySelector("#ss-pre-after").innerHTML = scriptAfter
-                      .split(/\r?\n/)
-                      .map((l) => `<div class='ln'>${escapeHtml(l)}</div>`)
-                      .join("\n");
-                  }
-                });
-              });
-          } catch (e) {
-            body.innerHTML =
-              '<div style="padding:8px; color:var(--vscode-errorForeground);">Diff error: ' +
-              escapeHtml(e?.message || String(e)) +
-              "</div>";
-          }
-        }
-        function closeDiff() {
-          const layer = document.getElementById("ss-diff-layer");
-          if (layer) {
-            layer.style.display = "none";
-            currentDiffCommand = null;
-          }
-        }
-        document
-          .getElementById("ss-dw-close")
-          .addEventListener("click", closeDiff);
-        document
-          .getElementById("ss-diff-update")
-          .addEventListener("click", async (e) => {
-            const cmd = e.target.dataset.cmd;
-            if (cmd) {
-              const entry = ssCatalog.find((e) => e.command === cmd);
-              const scriptName = entry ? entry.text || cmd : cmd;
-              const confirmed = await showConfirm(
-                getNlsText("updateConfirm", 'Update script "{name}"?').replace(
-                  "{name}",
-                  scriptName
-                ),
-                "",
-                getNlsText("update", "Update"),
-                getNlsText("cancel", "Cancel")
-              );
-              if (confirmed) {
-                closeDiff();
-                installOne(cmd);
-              }
-            }
-          });
-        document
-          .getElementById("ss-diff-cancel")
-          .addEventListener("click", closeDiff);
-        document
-          .getElementById("ss-diff-layer")
-          .addEventListener("click", (e) => {
-            if (e.target.classList.contains("ss-diff-backdrop")) closeDiff();
-          });
-        window.addEventListener("keydown", (e) => {
-          if (
-            e.key === "Escape" &&
-            document.getElementById("ss-diff-layer").style.display === "block"
-          )
-            closeDiff();
-        });
-        // custom confirm (sandbox disallows native confirm)
-        const confirmLayer = document.getElementById("ss-confirm-layer");
-        const confirmTitle = document.getElementById("ss-confirm-title");
-        const confirmMsg = document.getElementById("ss-confirm-message");
-        const confirmOk = document.getElementById("ss-confirm-ok");
-        const confirmCancel = document.getElementById("ss-confirm-cancel");
-        function showConfirm(title, msg, okLabel, cancelLabel) {
-          return new Promise((res) => {
-            confirmTitle.textContent = title || "";
-            confirmMsg.textContent = msg || "";
-            confirmOk.textContent = okLabel || "OK";
-            confirmCancel.textContent =
-              cancelLabel || getNlsText("cancel", "Cancel");
-            confirmLayer.style.display = "block";
-            const cleanup = () => {
-              confirmLayer.style.display = "none";
-              confirmOk.onclick = null;
-              confirmCancel.onclick = null;
-            };
-            confirmOk.onclick = () => {
-              cleanup();
-              res(true);
-            };
-            confirmCancel.onclick = () => {
-              cleanup();
-              res(false);
-            };
-            confirmLayer.querySelector(".backdrop").addEventListener(
-              "click",
-              () => {
-                cleanup();
-                res(false);
-              },
-              { once: true }
-            );
-          });
-        }
+        
         function openScriptStore() {
-          overlay.style.display = "flex";
-          searchEl.value = "";
-          statusEl.value = "all";
-          tagEl.value = "";
-          statusEl.addEventListener("change", () => {
-            render();
-          });
-          tagEl.addEventListener("input", () => {
-            render();
-          });
-          // 永遠重新抓 catalog（避免使用者在外部編輯後因 ssLoaded=true 而不更新狀態）
-          fetchCatalog();
+          const scriptStoreComponent = document.getElementById("script-store-component");
+          if (scriptStoreComponent) {
+            // 傳入當前的 items 資料，讓 Script Store 可以用來做 diff 比較
+            scriptStoreComponent.currentItems = items || [];
+            console.log('Opening Script Store with current items:', items?.length || 0);
+            scriptStoreComponent.visible = true;
+          }
         }
-        function closeScriptStore() {
-          overlay.style.display = "none";
-        }
+        
         window.openScriptStore = openScriptStore;
-        document.getElementById("ss-close").onclick = closeScriptStore;
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) closeScriptStore();
-        });
-        tbody.addEventListener("change", (e) => {
-          if (e.target.classList.contains("ss-sel")) syncBulkButton();
-        });
-        tbody.addEventListener("click", (e) => {
-          const installBtn = e.target.closest('button[data-action="install"]');
-          const updateBtn = e.target.closest('button[data-action="update"]');
-          const viewBtn = e.target.closest('button[data-action="view"]');
-          const uninstallBtn = e.target.closest(
-            'button[data-action="uninstall"]'
-          );
-          if (installBtn) {
-            installOne(installBtn.dataset.cmd);
-          } else if (updateBtn) {
-            const cmd = updateBtn.dataset.cmd;
-            showDiff(cmd, true); // 傳入 true 表示這是更新操作
-          } else if (viewBtn) {
-            showDiff(viewBtn.dataset.cmd);
-          } else if (uninstallBtn) {
-            const cmd = uninstallBtn.dataset.cmd;
-            const entry = ssCatalog.find((e) => e.command === cmd);
-            const scriptName = entry ? entry.text || cmd : cmd;
-            showConfirm(
-              getNlsText("removeConfirm", 'Remove script "{name}"?').replace(
-                "{name}",
-                scriptName
-              ),
-              "",
-              getNlsText("removeConfirmYes", "Remove"),
-              getNlsText("cancel", "Cancel")
-            ).then((ok) => {
-              if (ok) uninstallOne(cmd);
-            });
-          }
-        });
-        bulkBtn.addEventListener("click", bulkInstall);
-        searchEl.addEventListener("input", () => {
-          render();
-        });
-        statusEl.addEventListener("change", () => {
-          render();
-        });
-        tagEl.addEventListener("input", () => {
-          render();
-        });
-        document
-          .getElementById("ss-refresh")
-          .addEventListener("click", () => fetchCatalog());
-
-        // Share script link handler
-        const shareLink = document.getElementById("ss-share-link");
-        if (shareLink) {
-          shareLink.addEventListener("click", (e) => {
-            e.preventDefault();
-            const shareUrl =
-              "https://github.com/JiaHongL/status-bar-helper/issues/new?title=%5BShare%5D%20%5BYour%20Script%20Name%5D&body=Label%28s%29%3A%20%5BYour%20Label%5D%0ATooltip%3A%20%5BYour%20Tooltip%5D%0A%0AScript%3A%0A%60%60%60js%0A%5BYour%20Script%5D%0A%60%60%60";
-            vscode.postMessage({ command: "openExternal", url: shareUrl });
-          });
-        }
-
-        // Auto-load catalog after Script Store initialization
-        setTimeout(async () => {
-          try {
-            const r = await callHost("catalog", []);
-            const catalog = (r.data && r.data.entries) || [];
-            updateScriptStoreNewBadge(catalog);
-          } catch (e) {
-            // Silently fail - badge will remain hidden
-            updateScriptStoreNewBadge([]);
-          }
-        }, 300);
-
-        // expose open function used by main button
       })();
     </script>
 
@@ -3426,5 +2447,8 @@ Security & Resource Management:
     
     <!-- Load Backup Manager Component -->
     <script src="{{componentsBaseUri}}/backup-manager.js"></script>
+    
+    <!-- Load Script Store Component -->
+    <script src="{{componentsBaseUri}}/script-store.js" onload="console.log('script-store.js loaded successfully')" onerror="console.error('Failed to load script-store.js')"></script>
   </body>
 </html>

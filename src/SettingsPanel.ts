@@ -685,6 +685,7 @@ export class SettingsPanel {
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
     const componentsBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
     const i18nHelperUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'i18n-helper.js'));
+    const confirmationUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'confirmation.js'));
     const confirmationDialogUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'confirmation-dialog.js'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
@@ -692,6 +693,7 @@ export class SettingsPanel {
     htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
     htmlContent = htmlContent.replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString());
     htmlContent = htmlContent.replace(/{{i18nHelperUri}}/g, i18nHelperUri.toString());
+    htmlContent = htmlContent.replace(/{{confirmationUri}}/g, confirmationUri.toString());
     htmlContent = htmlContent.replace(/{{confirmationDialogUri}}/g, confirmationDialogUri.toString());
 
     return htmlContent;

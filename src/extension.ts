@@ -1155,6 +1155,10 @@ function registerBridge(context: vscode.ExtensionContext) {
             try {
               await saveAllToGlobal(context, remain);
               await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              // 通知 Webview 更新資料
+              if (SettingsPanel.currentPanel) {
+                try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+              }
               return { ok:true, data:{ command } };
             } catch(e:any){
               return { ok:false, error:'uninstallFailed', message:e?.message||String(e) };
@@ -1184,7 +1188,13 @@ function registerBridge(context: vscode.ExtensionContext) {
           case 'install': {
             const [payload] = args as [CatalogEntry];
             const r = await applyInstall(payload);
-            if (r.ok) { await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar'); }
+            if (r.ok) { 
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              // 通知 Webview 更新資料
+              if (SettingsPanel.currentPanel) {
+                try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+              }
+            }
             return r;
           }
           case 'bulkInstall': {
@@ -1199,10 +1209,18 @@ function registerBridge(context: vscode.ExtensionContext) {
               if (!r.ok) { // rollback
                 try { await saveAllToGlobal(context, snapshot); } catch {}
                 await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+                // 通知 Webview 更新資料
+                if (SettingsPanel.currentPanel) {
+                  try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+                }
                 return { ok:false, error:'partialFailureRolledBack', data:{ results } };
               }
             }
             await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+            // 通知 Webview 更新資料
+            if (SettingsPanel.currentPanel) {
+              try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+            }
             return { ok:true, data:{ results } };
           }
         }

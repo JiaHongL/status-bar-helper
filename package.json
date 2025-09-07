@@ -98,9 +98,9 @@
     "watch": "tsc -watch -p ./",
     "build": "vsce package",
     "publish:patch": "vsce publish patch",
-  "publish:minor": "vsce publish minor",
-  "publish:major": "vsce publish major",
-  "nls:check": "node tools/check-nls.mjs"
+    "publish:minor": "vsce publish minor",
+    "publish:major": "vsce publish major",
+    "nls:check": "node tools/check-nls.mjs"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

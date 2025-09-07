@@ -100,6 +100,7 @@
   "scriptStoreEntriesSuffix": "個項目",
   "scriptStoreNoEntries": "無項目",
   "remove": "移除",
+  "uninstall": "移除",
   "reinstall": "重新安裝",
   "install": "安裝",
   "update": "可更新",
@@ -116,6 +117,7 @@
   "removeScriptStore": "解除",
   "label": "標籤",
   "updateConfirm": "更新腳本「{name}」？",
+  "updateDescription": "這將使用新版本覆蓋現有腳本。",
   "preview": "預覽",
   "importOptions": "匯入選項",
   "shareYourScript": "分享你的腳本",
@@ -159,6 +161,15 @@
   "nothingToDelete": "沒有可刪除的資料",
   "nothingToDeleteDesc": "目前列表為空。",
   "close": "關閉",
+  "scriptNotFound": "在目錄中找不到腳本。",
+  "scriptUpToDate": "此腳本已是最新版本。",
   "previewTitle": "預覽",
-  "ok": "好"
+  "scriptDiff": "腳本差異",
+  "lines": "行",
+  "collapsed": "摺疊",
+  "expand": "展開",
+  "loading": "載入中...",
+  "ok": "確定"
 }
+
+
