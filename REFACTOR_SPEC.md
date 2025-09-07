@@ -479,12 +479,46 @@ media/
 - **向後相容性**：現有主機通訊協定和調用無需修改
 - **分享功能實現**：透過 VS Code API 實現腳本分享機制
 
-### Phase 8: Main Page 模組化 (List View + Data View)
-- [ ] 分析並定位主頁面相關程式碼（行號範圍：2000-2400）
-- [ ] 創建 `components/main-page.js` 檔案
+### Phase 8: Data View 模組化 ✅ **已完成**
+- [x] 分析並定位 Data View 相關程式碼
+- [x] 創建 `components/data-view.js` 檔案
+- [x] 提取 Data View 渲染邏輯（`renderStoredData`）
+- [x] 提取資料篩選和搜尋功能
+- [x] 提取資料格式化和顯示邏輯
+- [x] 提取資料視覺化元件（如表格、統計圖表）
+- [x] 建立 Data View 的獨立樣式封裝
+- [x] 在 settings.html 中添加模組載入
+- [x] 建立 Data View 控制器初始化
+- [x] 測試資料檢視功能
+- [x] 測試篩選和搜尋
+- [x] 測試資料格式化顯示
+- [x] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
+- [x] 更新 REFACTOR_SPEC.md 進度
+
+**實作重點**:
+
+- **Web Component 架構**：使用 CustomElement + Shadow DOM 實現完全封裝
+- **資料過濾系統**：支援文字搜尋和類型過濾（Global Storage、Secret Storage 等）
+- **響應式表格設計**：支援 VS Code 主題適配和 Codicons 圖示系統
+- **事件驅動通訊**：透過 CustomEvent 與主機程式碼溝通
+- **多語系支援**：完整的 NLS 系統集成
+- **資料操作功能**：刪除、清除全部等操作含確認對話框
+
+**解決的問題**:
+
+- Data View 功能完全模組化，提升程式碼可維護性
+- 消除散落在 settings.html 中的資料檢視相關程式碼
+- **過濾功能修復**：正確實現即時搜尋和類型篩選
+- **多語系系統完善**：空狀態訊息和下拉選單完整本地化
+- **CSS 樣式封裝**：Shadow DOM 完美解決樣式衝突
+- **向後相容性**：現有主機通訊協定和調用無需修改
+- **效能最佳化**：防止重複事件綁定和資料處理優化
+
+### Phase 9: List View 模組化
+- [ ] 分析並定位 List View 相關程式碼（行號範圍：2000-2400）
+- [ ] 創建 `components/list-view.js` 檔案
 - [ ] 提取頁面切換控制（`showListView`, `showEditView`）
 - [ ] 提取 List View 渲染邏輯（`renderListView`）
-- [ ] 提取 Data View 渲染邏輯（`renderStoredData`）
 - [ ] 提取搜尋和篩選功能
 - [ ] 提取項目操作（run, stop, edit, delete）
 - [ ] 提取拖拽排序功能
@@ -492,17 +526,16 @@ media/
 - [ ] 提取同步狀態顯示（last sync indicator）
 - [ ] 提取資料刷新邏輯（定時器管理）
 - [ ] 在 settings.html 中添加模組載入
-- [ ] 建立主頁面控制器初始化
+- [ ] 建立 List View 控制器初始化
 - [ ] 測試頁面切換功能
 - [ ] 測試列表顯示和更新
-- [ ] 測試資料檢視和篩選
 - [ ] 測試搜尋功能
 - [ ] 測試項目操作按鈕
 - [ ] 測試執行狀態指示器
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 9: Edit Page 模組化
+### Phase 10: Edit Page 模組化
 - [ ] 分析並定位編輯頁面相關程式碼（行號範圍：3200-3450）
 - [ ] 創建 `components/edit-page.js` 檔案
 - [ ] 提取 Monaco 編輯器初始化邏輯
@@ -522,13 +555,13 @@ media/
 - [ ] **確認新模組完全正常後**，刪除原始檔案中的對應程式碼
 - [ ] 更新 REFACTOR_SPEC.md 進度
 
-### Phase 10: 核心系統整合
+### Phase 11: 核心系統整合
 - [ ] 創建 `core/app-controller.js` 主要應用控制器
 - [ ] 提取 postMessage 通訊邏輯
 - [ ] 提取全域狀態管理（items, nls, runningStates）
 - [ ] 提取初始化流程
 - [ ] 創建 `core/page-router.js` 頁面路由控制
-- [ ] 提取頁面切換邏輯（Main Page ↔ Edit Page）
+- [ ] 提取頁面切換邏輯（List View ↔ Edit Page ↔ Data View）
 - [ ] 建立模組間通訊機制
 - [ ] 整合所有模組初始化
 - [ ] 進行完整功能測試

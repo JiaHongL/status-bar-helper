@@ -236,73 +236,8 @@ Security & Resource Management:
       </div>
 
       <div id="data-view">
-        <div class="data-title-bar">
-          <div class="data-title">
-            <i class="codicon codicon-database"></i>
-            <span>Stored Data</span>
-          </div>
-          <div class="data-search-wrap">
-            <i class="codicon codicon-search"></i>
-            <input
-              id="data-filter-input"
-              type="text"
-              placeholder="Filter by key/path…"
-              data-nls="filterByKeyPath"
-            />
-          </div>
-          <div class="data-filter-wrap">
-            <select id="data-type-filter">
-              <option value="all" data-nls="filterAll">All</option>
-              <option value="global-storage" data-nls="filterGlobalStorage">
-                Global Storage
-              </option>
-              <option value="secret-storage" data-nls="filterSecretStorage">
-                Secret Storage
-              </option>
-              <option
-                value="workspace-storage"
-                data-nls="filterWorkspaceStorage"
-              >
-                Workspace Storage
-              </option>
-              <option value="global-files" data-nls="filterGlobalFiles">
-                Global Files
-              </option>
-              <option value="workspace-files" data-nls="filterWorkspaceFiles">
-                Workspace Files
-              </option>
-              <option value="text-files" data-nls="filterTextFiles">
-                Text Files
-              </option>
-              <option value="json-files" data-nls="filterJsonFiles">
-                JSON Files
-              </option>
-              <option value="binary-files" data-nls="filterBinaryFiles">
-                Binary Files
-              </option>
-            </select>
-          </div>
-          <div class="data-actions">
-            <button id="clear-all-btn" type="button" data-nls="clearAll">
-              Clear All
-            </button>
-          </div>
-        </div>
-        <div class="data-table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 180px" data-nls="type">Type</th>
-                <th data-nls="keyPath">Key / Path</th>
-                <th style="width: 120px" data-nls="size">Size</th>
-                <th style="width: 100px; text-align: right" data-nls="actions">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody id="data-table-body"></tbody>
-          </table>
-        </div>
+        <!-- Data View Web Component -->
+        <data-view id="data-view-component" codicons-uri="{{codiconsUri}}"></data-view>
       </div>
     </div>
 
@@ -429,6 +364,11 @@ Security & Resource Management:
         // 更新舊的 nls 變數以保持相容性
         if (nlsData && typeof nlsData === "object") {
           nls = { ...nlsData };
+        }
+
+        // 更新 Data View Web Component 的本地化資料
+        if (dataViewComponent) {
+          dataViewComponent.nlsData = nls;
         }
 
         // 如果 I18nHelper 可用，則初始化它
@@ -820,13 +760,14 @@ Security & Resource Management:
       let items = [],
         currentEditor = null,
         typeDefs = null;
-      let storedRows = [],
-        dataFilterText = "",
-        dataTypeFilter = "all";
       let filterText = "";
       let dataRefreshInterval = null;
       let runningHost = new Set();
       let runningPanel = new Set();
+      
+      // Data View Web Component reference
+      let dataViewComponent = null;
+      
       const getRunningSet = () => {
         const s = new Set(runningHost);
         runningPanel.forEach((c) => s.add(c));
@@ -893,13 +834,6 @@ Security & Resource Management:
         }
         return `${Math.round(n * 10) / 10} ${u[i]}`;
       }
-      const typeIcon = (row) => {
-        if (row.kind === "secret") return "lock";
-        if (row.kind === "kv") return "database";
-        if (row.ext === "text") return "file-text";
-        if (row.ext === "json") return "file-code";
-        return "file-binary";
-      };
       // Global HTML escaper used by list + preview dialogs
       function escapeHtml(str = "") {
         return str.replace(
@@ -1231,90 +1165,28 @@ Security & Resource Management:
         updateRunningBadge();
       }
 
-      /* ---------- Stored Data ---------- */
+      /* ---------- Stored Data (Web Component) ---------- */
       function refreshStoredData() {
         vscode.postMessage({ command: "data:refresh" });
       }
+      
       function renderStoredData(rows) {
-        storedRows = rows || [];
-        const tbody = document.querySelector("#data-table-body");
-        tbody.innerHTML = "";
-        const q = dataFilterText.trim().toLowerCase();
-
-        // 先按文字過濾
-        let filteredRows = q
-          ? storedRows.filter((r) => r.keyPath.toLowerCase().includes(q))
-          : storedRows;
-
-        // 再按類型過濾
-        if (dataTypeFilter !== "all") {
-          filteredRows = filteredRows.filter((r) => {
-            switch (dataTypeFilter) {
-              case "secret-storage":
-                return r.kind === "secret";
-              case "global-storage":
-                return r.kind === "kv" && r.scope === "global";
-              case "workspace-storage":
-                return r.kind === "kv" && r.scope === "workspace";
-              case "global-files":
-                return r.kind === "file" && r.scope === "global";
-              case "workspace-files":
-                return r.kind === "file" && r.scope === "workspace";
-              case "text-files":
-                return r.kind === "file" && r.ext === "text";
-              case "json-files":
-                return r.kind === "file" && r.ext === "json";
-              case "binary-files":
-                return r.kind === "file" && r.ext === "bytes";
-              default:
-                return true;
-            }
-          });
+        if (dataViewComponent) {
+          // Transform data format for Web Component
+          const transformedData = (rows || []).map(r => ({
+            key: r.keyPath,
+            keyPath: r.keyPath,
+            kind: r.kind,
+            scope: r.scope,
+            ext: r.ext,
+            size: r.size
+          }));
+          
+          dataViewComponent.data = transformedData;
+          
+          // Maintain backward compatibility
+          window.__visibleDataRows = dataViewComponent.getVisibleData();
         }
-
-        // 按照大小從大到小排序
-        filteredRows = filteredRows.slice().sort((a, b) => b.size - a.size);
-
-        // 讓「清除目前列表」能拿到當前可見資料
-        window.__visibleDataRows = filteredRows;
-
-        if (!filteredRows.length) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; opacity:.7">${
-            q || dataTypeFilter !== "all"
-              ? getNlsText("noMatchingData", "No matching data")
-              : getNlsText("noData", "No data")
-          }</td></tr>`;
-          return;
-        }
-
-        filteredRows.forEach((r) => {
-          const originalIndex = storedRows.indexOf(r);
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-          <td class="type-cell">
-            <span class="type-badge">
-              <i class="codicon codicon-${typeIcon(r)}"></i>
-            </span>
-            <span>${
-              r.kind === "secret"
-                ? "secret storage"
-                : r.kind === "kv"
-                ? `${r.scope} storage`
-                : `${r.scope} ${r.ext}`
-            }</span>
-          </td>
-          <td class="mono">${r.keyPath}</td>
-          <td>${r.kind === "secret" ? "***" : formatBytes(r.size)}</td>
-          <td style="text-align:right;"><button class="data-del delete-item" data-i="${originalIndex}" title="${getNlsText(
-            "delete",
-            "Delete"
-          )}" aria-label="${getNlsText(
-            "delete",
-            "Delete"
-          )}"><i class="codicon codicon-trash"></i></button></td>
-        `;
-          tbody.appendChild(tr);
-        });
       }
 
       /* ---------- Edit View ---------- */
@@ -1768,22 +1640,7 @@ Security & Resource Management:
         }, 80);
       });
 
-      document
-        .getElementById("data-filter-input")
-        .addEventListener("input", (e) => {
-          clearTimeout(e.target.timer);
-          e.target.timer = setTimeout(() => {
-            dataFilterText = e.target.value;
-            renderStoredData(storedRows);
-          }, 80);
-        });
-
-      document
-        .getElementById("data-type-filter")
-        .addEventListener("change", (e) => {
-          dataTypeFilter = e.target.value;
-          renderStoredData(storedRows);
-        });
+      // Data View Web Component event listeners will be set up in initializeUI()
 
       document
         .getElementById("list-view")
@@ -2020,6 +1877,50 @@ Security & Resource Management:
       // Using Web Components for enhanced import/export functionality
 
       function initializeUI() {
+        // Initialize Data View Web Component
+        dataViewComponent = document.getElementById('data-view-component');
+        if (dataViewComponent) {
+          // Set up event listeners for the Data View component
+          dataViewComponent.addEventListener('data-refresh-requested', () => {
+            refreshStoredData();
+          });
+
+          dataViewComponent.addEventListener('data-delete-requested', (e) => {
+            const { row } = e.detail;
+            console.log('Sending delete request:', row );
+            vscode.postMessage({ 
+              command: "data:delete", 
+              row 
+            });
+            // 延遲刷新，確保後端處理完成
+            setTimeout(() => {
+              refreshStoredData();
+            }, 100);
+          });
+
+          dataViewComponent.addEventListener('data-clear-requested', async (e) => {
+            const filteredData = e.detail.filteredData || [];
+            
+            console.log('Received data-clear-requested event:', filteredData.length, 'items');
+            
+            // data-view.js 已經處理了確認對話框，直接執行刪除
+            if (filteredData.length > 0) {
+              console.log('Sending clear request to backend:', filteredData.length, 'items');
+              vscode.postMessage({
+                command: "data:clearAll",
+                rows: filteredData
+              });
+              // 延遲刷新，確保後端處理完成
+              setTimeout(() => {
+                refreshStoredData();
+              }, 100);
+            }
+          });
+
+          // Set initial NLS data
+          dataViewComponent.nlsData = nls;
+        }
+
         // Initialize backup management
         setupBackupManagement();
 
@@ -2080,45 +1981,6 @@ Security & Resource Management:
           scriptStoreComponent.addEventListener('dialog-closed', dialogClosedHandler);
           listeners.push(['dialog-opened', dialogOpenedHandler]);
           listeners.push(['dialog-closed', dialogClosedHandler]);
-        }
-
-        // Initialize clear all button
-        const clearAllBtn = document.getElementById("clear-all-btn");
-        if (clearAllBtn) {
-          // 改按鈕文字：清除目前列表
-          clearAllBtn.textContent = getNlsText("clearFiltered", "清除目前列表");
-
-          clearAllBtn.onclick = async () => {
-            // 由前端維護的「目前畫面上可見的資料列」
-            const visible = Array.isArray(window.__visibleDataRows)
-              ? window.__visibleDataRows.slice()
-              : [];
-
-            if (!visible.length) {
-              await showChoiceDialog(
-                getNlsText("nothingToDelete", "沒有可刪除的資料"),
-                getNlsText("nothingToDeleteDesc", "目前列表為空。"),
-                [getNlsText("ok", "好")]
-              );
-              return;
-            }
-
-            const msg = getNlsText(
-              "clearFilteredMessage",
-              "將刪除目前列表中的 {0} 筆資料。此動作無法復原。"
-            ).replace("{0}", String(visible.length));
-
-            const picked = await showChoiceDialog(
-              getNlsText("clearFilteredConfirm", "刪除目前列表？"),
-              msg,
-              [getNlsText("delete", "刪除"), getNlsText("cancel", "取消")]
-            );
-
-            if (picked === getNlsText("delete", "刪除")) {
-              // 後端相容：若有 rows 僅刪除這些，否則清空全部
-              vscode.postMessage({ command: "data:clearAll", rows: visible });
-            }
-          };
         }
       }
 
@@ -2447,6 +2309,9 @@ Security & Resource Management:
     
     <!-- Load Backup Manager Component -->
     <script src="{{componentsBaseUri}}/backup-manager.js"></script>
+    
+    <!-- Load Data View Component -->
+    <script src="{{componentsBaseUri}}/data-view.js"></script>
     
     <!-- Load Script Store Component -->
     <script src="{{componentsBaseUri}}/script-store.js" onload="console.log('script-store.js loaded successfully')" onerror="console.error('Failed to load script-store.js')"></script>

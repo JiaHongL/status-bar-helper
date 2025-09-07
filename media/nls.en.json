@@ -169,5 +169,7 @@
   "collapsed": "collapsed",
   "expand": "Expand",
   "ok": "OK",
-  "uninstall": "Remove"
+  "uninstall": "Remove",
+  "noDataFound": "No data found",
+  "noDataDescription": "No stored data matches your filter criteria."
 }
