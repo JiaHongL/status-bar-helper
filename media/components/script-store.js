@@ -2156,4 +2156,8 @@ class ScriptStore extends HTMLElement {
 
 // 註冊 Web Component
 console.log('script-store.js: registering ScriptStore component');
-customElements.define('script-store', ScriptStore);
+if (!customElements.get('script-store')) {
+  customElements.define('script-store', ScriptStore);
+} else {
+  console.warn('script-store component already registered');
+}

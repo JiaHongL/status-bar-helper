@@ -144,43 +144,10 @@ Security & Resource Management:
             </button>
           </div>
         </div>
-        <div class="list-table-container">
-          <table class="list-table">
-            <thead>
-              <tr>
-                <th style="width: 24px"></th>
-                <th style="width: 30px; text-align: center" data-nls="icon">
-                  Icon
-                </th>
-                <th data-nls="labelTooltip">Label & Tooltip</th>
-                <th style="width: 120px; text-align: center" data-nls="running">
-                  Running<span
-                    id="running-count"
-                    class="badge"
-                    title="Running scripts"
-                    >0</span
-                  >
-                </th>
-                <th style="width: 50px; text-align: center" data-nls="visible">
-                  Visible
-                </th>
-                <th
-                  style="width: 100px; text-align: center"
-                  data-nls="runAtStartup"
-                >
-                  Run at Startup
-                </th>
-                <th style="width: 50px; text-align: center" data-nls="cmdId">
-                  CmdId
-                </th>
-                <th style="width: 120px; text-align: right" data-nls="actions">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody id="items-list-body"></tbody>
-          </table>
-        </div>
+        
+        <!-- List View Web Component -->
+        <list-view id="list-view-component" codicons-uri="{{codiconsUri}}"></list-view>
+        
         <div id="backup-status-root" style="margin: 0; padding: 0">
           <div
             style="
@@ -257,9 +224,7 @@ Security & Resource Management:
     <script src="{{confirmationUri}}"></script>
     <!-- Web Components (experimental) -->
     <script src="{{confirmationDialogUri}}"></script>
-    
-    <!-- Script Store Web Component -->
-    <script-store id="script-store-component" visible="false" codicons-uri="{{codiconsUri}}"></script-store>
+    <script src="{{listViewComponentUri}}"></script>
     
     <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
@@ -369,6 +334,11 @@ Security & Resource Management:
         // 更新 Data View Web Component 的本地化資料
         if (dataViewComponent) {
           dataViewComponent.nlsData = nls;
+        }
+
+        // 更新 List View Web Component 的本地化資料
+        if (listViewComponent) {
+          listViewComponent.nlsData = nls;
         }
 
         // 如果 I18nHelper 可用，則初始化它
@@ -765,8 +735,9 @@ Security & Resource Management:
       let runningHost = new Set();
       let runningPanel = new Set();
       
-      // Data View Web Component reference
+      // Web Component references
       let dataViewComponent = null;
+      let listViewComponent = null;
       
       const getRunningSet = () => {
         const s = new Set(runningHost);
@@ -955,7 +926,7 @@ Security & Resource Management:
           currentEditor = null;
         }
         vscode.postMessage({ command: "exitEditView" });
-        renderListView();
+        refreshListView();
         refreshStoredData();
         if (dataRefreshInterval) clearInterval(dataRefreshInterval);
         dataRefreshInterval = setInterval(refreshStoredData, 2500);
@@ -987,182 +958,17 @@ Security & Resource Management:
       }
 
       /* ---------- List View Rendering & Events ---------- */
-      function renderListView() {
-        const tbody = document.getElementById("items-list-body");
-        tbody.innerHTML = "";
-        const q = filterText.trim().toLowerCase();
-
-        const filteredItems = items.filter((item) => {
-          const label = item.text.replace(/^\$\(([^)]+)\) /, "");
-          const tagMatch =
-            Array.isArray(item.tags) &&
-            item.tags.some((t) => t.toLowerCase().includes(q));
-          return (
-            !q ||
-            label.toLowerCase().includes(q) ||
-            (item.tooltip || "").toLowerCase().includes(q) ||
-            (item.command || "").toLowerCase().includes(q) ||
-            tagMatch
-          );
-        });
-
-        if (!filteredItems.length) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; opacity:.7">${
-            q
-              ? getNlsText("noMatchingItems", "No matching items")
-              : getNlsText("noItemsToDisplay", "No items to display")
-          }</td></tr>`;
-          return;
+      
+      // List View refresh function using Web Component
+      function refreshListView() {
+        if (listViewComponent) {
+          listViewComponent.items = items;
+          listViewComponent.filterText = filterText;
+          listViewComponent.runningCommands = getRunningSet();
+          
+          // Update NLS data using the same pattern as data-view
+          listViewComponent.nlsData = nls;
         }
-
-        const runningSet = getRunningSet();
-
-        // 將執行中的項目排在最前面
-        filteredItems.sort((a, b) => {
-          const aRunning = runningSet.has(a.command);
-          const bRunning = runningSet.has(b.command);
-          if (aRunning && !bRunning) return -1;
-          if (!aRunning && bRunning) return 1;
-          return 0;
-        });
-
-        filteredItems.forEach((item) => {
-          const originalIndex = items.indexOf(item);
-          const m = item.text.match(/^\$\(([^)]+)\)(?:\s+(.*))?$/);
-          const icon = m ? m[1] : "";
-          const label = m ? m[2] ?? "---" : item.text;
-          const isRunning = runningSet.has(item.command);
-
-          const row = document.createElement("tr");
-          row.className = "item-row";
-          if (item.hidden) row.classList.add("is-hidden");
-          row.dataset.index = originalIndex;
-
-          // 只對未執行的項目設置拖拉功能
-          if (!isRunning) {
-            row.setAttribute("draggable", "true");
-          }
-
-          row.innerHTML = `
-          <td class="drag-handle" title="Drag to reorder"><div class="td-content-wrapper"><i class="codicon codicon-grabber"></i></div></td>
-          <td class="item-icon"><div class="td-content-wrapper justify-center"><i class="codicon codicon-${
-            icon || "ellipsis"
-          }"></i></div></td>
-          <td>
-            <div class="td-content-wrapper">
-              <div class="item-details">
-                <div class="item-label" title="${escapeHtml(
-                  label
-                )}">${escapeHtml(label)}</div>
-                <div class="item-tooltip" title="${escapeHtml(
-                  item.tooltip || ""
-                )}">${escapeHtml(item.tooltip || "No tooltip")}</div>
-              </div>
-            </div>
-          </td>
-          <td><div class="td-content-wrapper justify-center">${
-            isRunning
-              ? `<span class="running-dot">${getNlsText(
-                  "running",
-                  "Running"
-                )}</span>`
-              : `<span style="opacity:.5">—</span>`
-          }</div></td>
-          <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="visibility-toggle" data-index="${originalIndex}" ${
-            item.hidden ? "" : "checked"
-          }><span class="slider"></span></label></div></td>
-          <td><div class="td-content-wrapper justify-center"><label class="slide-checkbox"><input type="checkbox" class="run-on-enable-toggle" data-index="${originalIndex}" ${
-            item.enableOnInit ? "checked" : ""
-          }><span class="slider"></span></label></div></td>
-          <td>
-            <div class="command-cell">
-              <button class="copy-btn" title="Copy ${escapeHtml(
-                item.command || ""
-              )}"><i class="codicon codicon-clippy"></i></button>
-            </div>
-            <input hidden style="width:0px" type="text" readonly class="command-input" value="${escapeHtml(
-              item.command || ""
-            )}" />
-          </td>
-          <td class="item-actions">
-            <div class="td-content-wrapper justify-end">
-              <button class="icon-btn run-now-item" data-index="${originalIndex}" type="button" title="${getNlsText(
-            "run",
-            "Run"
-          )}" aria-label="${getNlsText(
-            "run",
-            "Run"
-          )}"><i class="codicon codicon-play"></i></button>
-              <button class="icon-btn stop-item" data-index="${originalIndex}" type="button" title="${getNlsText(
-            "stop",
-            "Stop"
-          )}" aria-label="${getNlsText(
-            "stop",
-            "Stop"
-          )}"><i class="codicon codicon-debug-stop"></i></button>
-              <button class="icon-btn edit-item" data-index="${originalIndex}" type="button" title="${getNlsText(
-            "edit",
-            "Edit"
-          )}" aria-label="${getNlsText(
-            "edit",
-            "Edit"
-          )}"><i class="codicon codicon-edit"></i></button>
-              <button class="icon-btn delete-item" data-index="${originalIndex}" type="button" title="${getNlsText(
-            "delete",
-            "Delete"
-          )}" aria-label="${getNlsText(
-            "delete",
-            "Delete"
-          )}"><i class="codicon codicon-trash"></i></button>
-            </div>
-          </td>
-        `;
-
-          // 只對未執行的項目添加拖拉事件
-          if (!isRunning) {
-            row.addEventListener("dragstart", (e) => {
-              e.dataTransfer.setData("text/plain", originalIndex);
-              e.dataTransfer.effectAllowed = "move";
-            });
-
-            row.addEventListener("dragover", (e) => {
-              // 只允許拖拉到未執行的項目上
-              const targetItem = items[parseInt(e.currentTarget.dataset.index)];
-              if (targetItem && !runningSet.has(targetItem.command)) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-              }
-            });
-
-            row.addEventListener("drop", (e) => {
-              e.preventDefault();
-              const fromIndex = +e.dataTransfer.getData("text/plain");
-              const toEl = e.target.closest("tr.item-row");
-              if (!toEl || Number.isNaN(fromIndex)) return;
-
-              const toIndex = +toEl.dataset.index;
-              if (fromIndex === toIndex) return;
-
-              // 檢查來源和目標項目都不是執行中的
-              const fromItem = items[fromIndex];
-              const toItem = items[toIndex];
-              if (
-                runningSet.has(fromItem.command) ||
-                runningSet.has(toItem.command)
-              ) {
-                return; // 禁止拖拉執行中的項目
-              }
-
-              const movedItem = items.splice(fromIndex, 1)[0];
-              items.splice(toIndex, 0, movedItem);
-              saveAndPostSettings();
-              renderListView();
-            });
-          }
-
-          tbody.appendChild(row);
-        });
-        updateRunningBadge();
       }
 
       /* ---------- Stored Data (Web Component) ---------- */
@@ -1636,80 +1442,15 @@ Security & Resource Management:
         clearTimeout(e.target.timer);
         e.target.timer = setTimeout(() => {
           filterText = e.target.value;
-          renderListView();
+          refreshListView();
         }, 80);
       });
 
       // Data View Web Component event listeners will be set up in initializeUI()
 
-      document
-        .getElementById("list-view")
-        .addEventListener("click", async (e) => {
-          const target = e.target.closest("button, input");
-          if (!target) return;
-          const index = +target.closest("tr")?.dataset.index;
-          if (Number.isNaN(index)) return;
-          else if (target.classList.contains("copy-btn")) {
-            const row = target.closest("tr");
-            const commandInput = row.querySelector(".command-input");
-            if (commandInput) {
-              navigator.clipboard.writeText(commandInput.value);
-              const originalText = target.innerHTML;
-              target.innerHTML = '<i class="codicon codicon-check"></i>';
-              setTimeout(() => {
-                target.innerHTML = originalText;
-              }, 1000);
-            }
-          } else if (target.classList.contains("edit-item")) {
-            showEditView(index, { ...items[index] });
-          } else if (target.classList.contains("delete-item")) {
-            const row = target.closest("tr");
-            const labelEl = row.querySelector(".item-label");
-            const label = labelEl ? labelEl.textContent : "";
-            const choice = await showChoiceDialog(
-              getNlsText("deleteConfirm", "Delete Item"),
-              getNlsText(
-                "deleteMessage",
-                'Are you sure you want to delete the item "{name}"?'
-              ).replace("{name}", label),
-              [getNlsText("delete", "Delete"), getNlsText("cancel", "Cancel")]
-            );
-            if (choice === getNlsText("delete", "Delete")) {
-              items.splice(index, 1);
-              saveAndPostSettings();
-              renderListView();
-            }
-          } else if (target.classList.contains("visibility-toggle")) {
-            items[index].hidden = !target.checked;
-            saveAndPostSettings();
-            target
-              .closest("tr")
-              .classList.toggle("is-hidden", items[index].hidden);
-          } else if (target.classList.contains("run-on-enable-toggle")) {
-            items[index].enableOnInit = target.checked;
-            saveAndPostSettings();
-          } else if (target.classList.contains("run-now-item")) {
-            const itemToRun = items[index];
-            vscode.postMessage({
-              command: "stopByCommand",
-              itemCommand: itemToRun.command,
-            });
-            setTimeout(() => {
-              vscode.postMessage({
-                command: "runScriptTrusted",
-                code: itemToRun.script,
-                itemCommand: itemToRun.command,
-              });
-            }, 200);
-          } else if (target.classList.contains("stop-item")) {
-            const itemToStop = items[index];
-            vscode.postMessage({
-              command: "stopByCommand",
-              itemCommand: itemToStop.command,
-            });
-          }
-        });
-
+      // Legacy list-view event listener - replaced by Web Component
+      // Event handling for list view is now delegated to the List View Web Component
+      
       document
         .getElementById("data-view")
         .addEventListener("click", async (e) => {
@@ -1877,6 +1618,100 @@ Security & Resource Management:
       // Using Web Components for enhanced import/export functionality
 
       function initializeUI() {
+        // Initialize List View Web Component
+        listViewComponent = document.getElementById('list-view-component');
+        if (listViewComponent) {
+          // Set initial NLS data
+          listViewComponent.nlsData = nls;
+          
+          // Set up event listeners for List View component
+          listViewComponent.addEventListener('item-run', (e) => {
+            const { index } = e.detail;
+            const itemToRun = items[index];
+            if (itemToRun) {
+              vscode.postMessage({
+                command: "stopByCommand",
+                itemCommand: itemToRun.command,
+              });
+              setTimeout(() => {
+                vscode.postMessage({
+                  command: "runScriptTrusted",
+                  code: itemToRun.script,
+                  itemCommand: itemToRun.command,
+                });
+              }, 200);
+            }
+          });
+
+          listViewComponent.addEventListener('item-stop', (e) => {
+            const { index } = e.detail;
+            const itemToStop = items[index];
+            if (itemToStop) {
+              vscode.postMessage({
+                command: "stopByCommand",
+                itemCommand: itemToStop.command,
+              });
+            }
+          });
+
+          listViewComponent.addEventListener('item-edit', (e) => {
+            const { index } = e.detail;
+            showEditView(index, { ...items[index] });
+          });
+
+          listViewComponent.addEventListener('item-delete', async (e) => {
+            const { index } = e.detail;
+            const item = items[index];
+            if (item) {
+              const label = item.text.replace(/^\$\(([^)]+)\) /, '');
+              const choice = await showChoiceDialog(
+                getNlsText("deleteConfirm", "Delete Item"),
+                getNlsText(
+                  "deleteMessage",
+                  'Are you sure you want to delete the item "{name}"?'
+                ).replace("{name}", label),
+                [getNlsText("delete", "Delete"), getNlsText("cancel", "Cancel")]
+              );
+              if (choice === getNlsText("delete", "Delete")) {
+                items.splice(index, 1);
+                saveAndPostSettings();
+                refreshListView();
+              }
+            }
+          });
+
+          listViewComponent.addEventListener('item-visibility-toggle', (e) => {
+            const { index, visible } = e.detail;
+            items[index].hidden = !visible;
+            saveAndPostSettings();
+          });
+
+          listViewComponent.addEventListener('item-startup-toggle', (e) => {
+            const { index, enableOnInit } = e.detail;
+            items[index].enableOnInit = enableOnInit;
+            saveAndPostSettings();
+          });
+
+          listViewComponent.addEventListener('items-reorder', (e) => {
+            const { fromIndex, toIndex } = e.detail;
+            const movedItem = items.splice(fromIndex, 1)[0];
+            items.splice(toIndex, 0, movedItem);
+            saveAndPostSettings();
+            refreshListView();
+          });
+
+          listViewComponent.addEventListener('command-copied', (e) => {
+            const { command } = e.detail;
+            // Visual feedback could be added here
+            console.log('Command copied:', command);
+          });
+
+          listViewComponent.addEventListener('running-count-changed', (e) => {
+            const { count } = e.detail;
+            updateRunningBadge();
+          });
+        }
+
         // Initialize Data View Web Component
         dataViewComponent = document.getElementById('data-view-component');
         if (dataViewComponent) {
@@ -1960,8 +1795,10 @@ Security & Resource Management:
               }).catch(err => {
                 console.log('Initial NEW badge check failed:', err);
               });
+            } else {
+              console.log('Script Store component not ready for badge update');
             }
-          }, 500);
+          }, 1000); // 增加延遲確保組件完全載入
           
           // 監聽對話框開關事件
           const dialogOpenedHandler = () => {
@@ -1981,6 +1818,11 @@ Security & Resource Management:
           scriptStoreComponent.addEventListener('dialog-closed', dialogClosedHandler);
           listeners.push(['dialog-opened', dialogOpenedHandler]);
           listeners.push(['dialog-closed', dialogClosedHandler]);
+        }
+        
+        // Initial render of List View if component is ready and items are available
+        if (listViewComponent && items.length > 0) {
+          refreshListView();
         }
       }
 
@@ -2056,7 +1898,7 @@ Security & Resource Management:
           case "vm:setRunning": {
             runningHost = new Set(msg.hostRunning || []);
             runningPanel = new Set(msg.panelRunning || []);
-            renderListView();
+            refreshListView();
             break;
           }
           case "sync:refreshTime": {
@@ -2088,7 +1930,7 @@ Security & Resource Management:
           case "backup:restore:result": {
             if (msg.success) {
               showToast("備份還原成功", "success");
-              renderListView();
+              refreshListView();
             } else {
               showToast(msg.message || "還原備份失敗", "error");
             }
@@ -2283,7 +2125,6 @@ Security & Resource Management:
           if (scriptStoreComponent) {
             // 傳入當前的 items 資料，讓 Script Store 可以用來做 diff 比較
             scriptStoreComponent.currentItems = items || [];
-            console.log('Opening Script Store with current items:', items?.length || 0);
             scriptStoreComponent.visible = true;
           }
         }
@@ -2291,6 +2132,9 @@ Security & Resource Management:
         window.openScriptStore = openScriptStore;
       })();
     </script>
+
+    <!-- Script Store Web Component -->
+    <script-store id="script-store-component" visible="false" codicons-uri="{{codiconsUri}}"></script-store>
 
     <!-- Export Dialog Web Component -->
     <export-dialog id="export-dialog"></export-dialog>
@@ -2313,7 +2157,10 @@ Security & Resource Management:
     <!-- Load Data View Component -->
     <script src="{{componentsBaseUri}}/data-view.js"></script>
     
+    <!-- Load List View Component -->
+    <script src="{{componentsBaseUri}}/list-view.js"></script>
+    
     <!-- Load Script Store Component -->
-    <script src="{{componentsBaseUri}}/script-store.js" onload="console.log('script-store.js loaded successfully')" onerror="console.error('Failed to load script-store.js')"></script>
+    <script src="{{componentsBaseUri}}/script-store.js"></script>
   </body>
 </html>
