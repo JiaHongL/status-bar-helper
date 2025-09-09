@@ -731,7 +731,6 @@ Security & Resource Management:
         currentEditor = null,
         typeDefs = null;
       let filterText = "";
-      let dataRefreshInterval = null;
       let runningHost = new Set();
       let runningPanel = new Set();
       
@@ -928,8 +927,6 @@ Security & Resource Management:
         vscode.postMessage({ command: "exitEditView" });
         refreshListView();
         refreshStoredData();
-        if (dataRefreshInterval) clearInterval(dataRefreshInterval);
-        dataRefreshInterval = setInterval(refreshStoredData, 2500);
         vscode.postMessage({ command: "vm:refresh" });
         updateLastSyncDisplay();
       }
@@ -947,10 +944,6 @@ Security & Resource Management:
        * 4. 通知 host 進入編輯模式
        */
       function showEditView(index, item) {
-        if (dataRefreshInterval) {
-          clearInterval(dataRefreshInterval);
-          dataRefreshInterval = null;
-        }
         listViewWrapper.style.display = "none";
         editView.style.display = "flex";
         renderEditView(index, item);

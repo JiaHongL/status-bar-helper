@@ -109,9 +109,16 @@ export class SettingsPanel {
    * @param extensionUri Extension 的 URI（用於載入資源）
    */
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+
+    setTimeout(() => {
+      this._sendRunningToWebview();
+      this._sendStoredDataToWebview();
+    }, 400);
+
     // 啟動執行狀態定時更新（每2.5秒向 webview 發送最新的執行狀態）
     this.sendRunningSetIntervalId = setInterval(()=>{
       this._sendRunningToWebview();
+      this._sendStoredDataToWebview();
     }, 2500);
 
     this._panel = panel;
@@ -384,6 +391,7 @@ export class SettingsPanel {
 
             // 跑起來後同步一次 Running 給 webview
             this._sendRunningToWebview();
+            this._sendStoredDataToWebview();
             return;
           }
           case 'stopByCommand': {
@@ -407,8 +415,7 @@ export class SettingsPanel {
           }
 
           case 'data:refresh': {
-            let rows = await this._collectStoredRows();
-            this._panel.webview.postMessage({ command: 'data:setRows', rows });
+            this._sendStoredDataToWebview();
             return;
           }
           case 'data:delete': {
@@ -422,8 +429,7 @@ export class SettingsPanel {
                 await this._callBridge('files', 'remove', row.scope, row.keyPath);
               }
             } catch {}
-            let rows = await this._collectStoredRows();
-            this._panel.webview.postMessage({ command: 'data:setRows', rows });
+            this._sendStoredDataToWebview();
             return;
           }
           case 'openExternal': {
@@ -648,6 +654,11 @@ export class SettingsPanel {
       console.warn('Failed to load webview translations:', error);
       return {};
     }
+  }
+
+  private async _sendStoredDataToWebview(){
+    let rows = await this._collectStoredRows();
+    this._panel.webview.postMessage({ command: 'data:setRows', rows });
   }
 
   private async _sendRunningToWebview() {
