@@ -688,7 +688,7 @@ export class SettingsPanel {
 
     htmlContent = htmlContent.replace(
       /<head>/,
-      `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`
+      `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; worker-src ${webview.cspSource} blob:; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`
     );
 
     const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
@@ -696,18 +696,20 @@ export class SettingsPanel {
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
     const componentsBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
     const i18nHelperUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'i18n-helper.js'));
-    const confirmationUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'confirmation.js'));
     const confirmationDialogUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'confirmation-dialog.js'));
     const listViewComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'list-view.js'));
+    const monacoEditorComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'monaco-editor.js'));
+    const editPageComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'edit-page.js'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
     htmlContent = htmlContent.replace(/{{codiconsUri}}/g, codiconsUri.toString());
     htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
     htmlContent = htmlContent.replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString());
     htmlContent = htmlContent.replace(/{{i18nHelperUri}}/g, i18nHelperUri.toString());
-    htmlContent = htmlContent.replace(/{{confirmationUri}}/g, confirmationUri.toString());
     htmlContent = htmlContent.replace(/{{confirmationDialogUri}}/g, confirmationDialogUri.toString());
     htmlContent = htmlContent.replace(/{{listViewComponentUri}}/g, listViewComponentUri.toString());
+    htmlContent = htmlContent.replace(/{{monacoEditorComponentUri}}/g, monacoEditorComponentUri.toString());
+    htmlContent = htmlContent.replace(/{{editPageComponentUri}}/g, editPageComponentUri.toString());
 
     return htmlContent;
   }

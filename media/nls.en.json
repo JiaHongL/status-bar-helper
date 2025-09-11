@@ -28,6 +28,8 @@
   "edit": "Edit",
   "delete": "Delete",
   "save": "Save",
+  "output": "Output",
+  "dragToResize": "Drag to resize",
   "cancel": "Cancel",
   "restoreTitle": "Restore Sample Items",
   "restoreMessage": "Choose how to restore sample items:",

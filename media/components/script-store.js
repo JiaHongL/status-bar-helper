@@ -58,7 +58,6 @@ class ScriptStore extends HTMLElement {
   // 設置當前項目的便捷方法
   set currentItems(items) {
     this._currentItems = Array.isArray(items) ? items : [];
-    console.log('Script Store: set current items via property:', this._currentItems.length);
   }
 
   get currentItems() {
@@ -79,7 +78,6 @@ class ScriptStore extends HTMLElement {
     }
     
     try {
-      console.log('Starting ScriptStore initialization...');
       
       // 首先設置初始狀態 - 從屬性讀取 visible 狀態
       const visibleAttr = this.getAttribute('visible');
@@ -104,7 +102,6 @@ class ScriptStore extends HTMLElement {
   // 完成初始化
   completeInitialization() {
     try {
-      console.log('Completing ScriptStore initialization with I18nHelper available');
       
       this.render();
       this.setupEventListeners();
@@ -116,7 +113,6 @@ class ScriptStore extends HTMLElement {
       this.updateVisibility();
       
       this._initialized = true;
-      console.log('ScriptStore initialized successfully, visible:', this._visible);
       
       // 只有在組件可見時才載入數據
       if (this._visible) {
@@ -144,7 +140,6 @@ class ScriptStore extends HTMLElement {
         link.rel = 'stylesheet';
         link.href = codiconsUri;
         this.shadowRoot.insertBefore(link, this.shadowRoot.firstChild);
-        console.log('Codicons CSS loaded into Shadow DOM from URI:', codiconsUri);
       } else {
         console.warn('Codicons URI not provided via codicons-uri attribute');
       }
@@ -165,7 +160,6 @@ class ScriptStore extends HTMLElement {
       // 只有在狀態真的改變時才更新
       if (this._visible !== newVisible) {
         this._visible = newVisible;
-        console.log('Visibility changed to:', this._visible);
         
         if (this._visible) {
           this.show();
@@ -991,9 +985,6 @@ class ScriptStore extends HTMLElement {
     if (headerTitle) {
       headerTitle.innerHTML = `<i class="codicon codicon-extensions" style="margin-right: 6px;"></i>${this.getText('scriptStore', 'Script Store')}`;
     }
-    console.log('Header title set to:', headerTitle ? headerTitle.textContent : 'N/A');
-    console.log('I18nHelper available:', !!window.I18nHelper);
-    console.log('Sample text:', this.getText('scriptStore', 'Script Store'));
 
     // 更新搜索框
     const searchInput = this.shadowRoot.getElementById('search-input');
@@ -1152,7 +1143,6 @@ class ScriptStore extends HTMLElement {
       // Diff 對話框事件監聽器
       this.setupDiffEventListeners();
 
-      console.log('Event listeners setup completed');
     } catch (error) {
       console.error('Failed to setup event listeners:', error);
     }
@@ -1267,11 +1257,8 @@ class ScriptStore extends HTMLElement {
   // 載入 catalog
   async fetchCatalog() {
     if (this._loading) {
-      console.log('fetchCatalog: already loading, skipping');
       return;
     }
-    
-    console.log('fetchCatalog: starting, vscode available:', !!window.vscode);
     
     this.setLoading(true);
     this.setHeaderStatus('<span class="mini-spinner"></span>');
@@ -1279,12 +1266,9 @@ class ScriptStore extends HTMLElement {
 
     try {
       // 使用 VS Code postMessage API 調用 host
-      console.log('fetchCatalog: calling host with catalog command');
       const result = await this.callHost('catalog', []);
-      console.log('fetchCatalog: received result:', result);
       
       this._catalog = (result.data && result.data.entries) || [];
-      console.log('fetchCatalog: catalog entries count:', this._catalog.length);
       
       const count = this._catalog.length;
       this.setHeaderStatus(`${count} ${this.getText('scriptStoreEntriesSuffix', 'entries')}`);
@@ -1317,11 +1301,9 @@ class ScriptStore extends HTMLElement {
 
   // 調用 host RPC
   async callHost(fn, args) {
-    console.log(`callHost: calling ${fn} with args:`, args);
     
     return new Promise((resolve, reject) => {
       const id = 'ss_' + Math.random().toString(36).slice(2, 9);
-      console.log(`callHost: generated ID ${id} for command ${fn}`);
       
       // 確保全域 pending Map 存在
       if (!window.scriptStorePending) {
@@ -1481,8 +1463,6 @@ class ScriptStore extends HTMLElement {
       tagFilter.value = '';
       this._tagFilter = '';
     }
-    
-    console.log('updateTagFilterOptions: updated with', sortedTags.length, 'tags:', sortedTags);
   }
 
   // 渲染表格
@@ -1639,18 +1619,13 @@ class ScriptStore extends HTMLElement {
 
   // 處理表格點擊事件
   async handleTableClick(e) {
-    console.log('handleTableClick: event triggered', e.target);
     const button = e.target.closest('button[data-action]');
-    console.log('handleTableClick: button found', button);
     if (!button) {
-      console.log('handleTableClick: no action button found');
       return;
     }
 
     const action = button.dataset.action;
     const command = button.dataset.command;
-    
-    console.log('handleTableClick: action =', action, 'command =', command);
     
     if (!action || !command) {
       console.error('handleTableClick: missing action or command', { action, command });
@@ -1663,12 +1638,10 @@ class ScriptStore extends HTMLElement {
         break;
       case 'update':
         // 顯示 diff 並提供更新按鈕
-        console.log('Update action triggered for command:', command);
         await this.showDiff(command, true);
         break;
       case 'view':
         // 顯示 diff（只檢視）
-        console.log('View action triggered for command:', command);
         await this.showDiff(command, false);
         break;
       case 'uninstall':
@@ -1682,7 +1655,6 @@ class ScriptStore extends HTMLElement {
     try {
       // 直接從 currentItems 中查找
       const currentItem = this.currentItems.find(item => item.command === command);
-      console.log('getCurrentScript: found in currentItems:', command, !!currentItem);
       return currentItem || null;
     } catch (error) {
       console.error('Failed to get current script:', error);
@@ -1692,7 +1664,6 @@ class ScriptStore extends HTMLElement {
 
   // 安裝腳本
   async installScript(command) {
-    console.log('installScript: called with command:', command);
     
     const entry = this._catalog.find(e => e.command === command);
     if (!entry) {
@@ -1700,21 +1671,16 @@ class ScriptStore extends HTMLElement {
       return;
     }
 
-    console.log('installScript: found entry:', entry);
-
     try {
       this._installing = true;
       this.renderTable(); // 更新按鈕狀態
 
-      console.log('installScript: calling callHost with install command');
       await this.callHost('install', [entry]);
-      console.log('installScript: callHost completed successfully');
       
       // 更新本地狀態（將狀態改為 installed）
       const catalogEntry = this._catalog.find(e => e.command === command);
       if (catalogEntry) {
         catalogEntry.status = 'installed';
-        console.log('installScript: updated local catalog status to installed');
       }
       
       // 重新載入 catalog（不阻塞，在背景執行）
@@ -1728,7 +1694,6 @@ class ScriptStore extends HTMLElement {
     } finally {
       this._installing = false;
       this.renderTable();
-      console.log('installScript: finished, _installing set to false');
     }
   }
 
@@ -2155,7 +2120,6 @@ class ScriptStore extends HTMLElement {
 }
 
 // 註冊 Web Component
-console.log('script-store.js: registering ScriptStore component');
 if (!customElements.get('script-store')) {
   customElements.define('script-store', ScriptStore);
 } else {

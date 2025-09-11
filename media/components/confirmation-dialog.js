@@ -43,7 +43,6 @@ class ConfirmationDialog extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         /* 使用簡單的圖示符號，避免字體依賴 */
-        
         :host {
           position: fixed;
           top: 0;
@@ -513,4 +512,3 @@ if (window.I18nHelper) {
   };
 }
 
-console.log('[Web Components] ConfirmationDialog component loaded');

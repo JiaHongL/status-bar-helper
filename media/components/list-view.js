@@ -593,7 +593,7 @@ class ListViewComponent extends HTMLElement {
   }
 
   _createItemRow(item, originalIndex) {
-    const m = item.text.match(/^\$\(([^)]+)\)(?:\s+(.*))?$/);
+    const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
     const icon = m ? m[1] : '';
     const label = m ? (m[2] ?? '---') : item.text;
     const isRunning = this._runningCommands.has(item.command);

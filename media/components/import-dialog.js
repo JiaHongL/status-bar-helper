@@ -878,4 +878,3 @@ window.showImportPreview = async function(items) {
   return await window.ImportSystem.showImportPreview(items);
 };
 
-console.log('Import Dialog Web Component loaded successfully');

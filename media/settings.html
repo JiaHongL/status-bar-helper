@@ -74,11 +74,6 @@ Security & Resource Management:
     <link rel="stylesheet" href="{{stylesUri}}/components.css" />
     <link rel="stylesheet" href="{{stylesUri}}/list-view.css" />
     <link rel="stylesheet" href="{{stylesUri}}/edit-page.css" />
-    <link rel="stylesheet" href="{{stylesUri}}/data-view.css" />
-    <link rel="stylesheet" href="{{stylesUri}}/modals.css" />
-    <link rel="stylesheet" href="{{stylesUri}}/script-store.css" />
-    <link rel="stylesheet" href="{{stylesUri}}/import-export.css" />
-    <link rel="stylesheet" href="{{stylesUri}}/backup-manager.css" />
 
     <!-- 
         ==========================================================================
@@ -125,9 +120,8 @@ Security & Resource Management:
               id="script-store-btn"
               type="button"
               title="Open Script Store"
-              data-nls="scriptStore"
             >
-              Script Store
+              <span data-nls="scriptStore">Script Store</span>
               <span
                 id="script-store-new-badge"
                 class="new-badge"
@@ -209,59 +203,19 @@ Security & Resource Management:
     </div>
 
     <!-- edit view -->
-    <div id="edit-view"></div>
-
-    <div id="confirm-dialog-overlay" class="hidden">
-      <div id="confirm-dialog">
-        <h3 id="confirm-title"></h3>
-        <p id="confirm-message"></p>
-        <div class="confirm-buttons"></div>
-      </div>
-    </div>
+    <edit-page id="edit-page-component"></edit-page>
 
     <!-- JavaScript Modules -->
     <script src="{{i18nHelperUri}}"></script>
-    <script src="{{confirmationUri}}"></script>
     <!-- Web Components (experimental) -->
     <script src="{{confirmationDialogUri}}"></script>
     <script src="{{listViewComponentUri}}"></script>
+    <script src="{{monacoEditorComponentUri}}"></script>
+    <script src="{{editPageComponentUri}}"></script>
     
     <script src="{{monacoUri}}/loader.js"></script>
     <script src="{{monacoUri}}/vscode-icons.js"></script>
     <script>
-      // [copilot] please write your javascript here
-      /*
-      ============================================================================
-      Status Bar Helper Settings Panel - JavaScript Architecture
-      ============================================================================
-      
-      Core Architecture:
-      ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-      │   UI State Mgmt     │◄──►│   postMessage API   │◄──►│   Monaco Editor     │
-      │   (Views & Tables)  │    │   (Host ↔ Webview)  │    │   (Script Editing)  │
-      └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-                 ▲                          ▲                          ▲
-                 │                          │                          │
-      ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-      │   Script Store RPC  │    │   I18n & Theming    │    │   Resource Cleanup  │
-      │   (Catalog Mgmt)    │    │   (NLS Integration) │    │   (Timers & Events) │
-      └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-      
-      Key Modules:
-      1. Communication Layer: vscode.postMessage() bidirectional protocol
-      2. State Management: Real-time sync of settings, running status, sync info
-      3. UI Controllers: List view, edit view, script store overlay management
-      4. Script Store: Async RPC system for catalog operations
-      5. Monaco Integration: TypeScript-aware editor with SBH API definitions
-      6. Responsive Design: Automatic layout adaptation based on viewport size
-      7. Resource Management: Timer cleanup, event listener disposal
-      
-      Security Features:
-      - CSP-compliant resource loading
-      - HTML injection protection via escapeHtml()
-      - Safe postMessage parameter validation
-      - No eval() or Function() constructor usage
-      */
 
       // VS Code API 取得與全域暴露
       const vscode = acquireVsCodeApi();
@@ -269,33 +223,6 @@ Security & Resource Management:
       if (!window.vscode) {
         window.vscode = vscode;
       }
-
-      // ============================================================================
-      // Web Components Mode Toggle (Experimental)
-      // ============================================================================
-      
-      // 檢查是否啟用 Web Components 模式（可以從 localStorage 或 URL 參數控制）
-      const USE_WEB_COMPONENTS = localStorage.getItem('sbh-use-web-components') === 'true' ||
-                                new URLSearchParams(window.location.search).get('webcomponents') === 'true';
-      
-      if (USE_WEB_COMPONENTS) {
-        console.log('[Phase 3.5] 🧩 Using Web Components mode for Confirmation System');
-        
-        // 使用 Web Components 版本的 ConfirmationSystem
-        // Web Component 已經暴露相同的全域 API，所以不需要額外設定
-      } else {
-        console.log('[Phase 3] 📦 Using traditional module for Confirmation System');
-        
-        // 使用傳統模組，已經在 confirmation.js 中載入
-      }
-      
-      // 提供切換函式供開發者測試
-      window.toggleWebComponents = function() {
-        const current = localStorage.getItem('sbh-use-web-components') === 'true';
-        localStorage.setItem('sbh-use-web-components', (!current).toString());
-        console.log(`Web Components mode ${!current ? 'enabled' : 'disabled'}. Please reload to take effect.`);
-        return !current;
-      };
 
       // ============================================================================
       // Internationalization (I18n) System - Integrated with I18nHelper Module
@@ -378,6 +305,26 @@ Security & Resource Management:
           ) {
             element.placeholder = translated;
           } else if (
+            element.tagName.toLowerCase() === "button"
+          ) {
+            // 處理按鈕的 title 和 aria-label 屬性
+            if (element.hasAttribute("title")) {
+              element.title = translated;
+            }
+            if (element.hasAttribute("aria-label")) {
+              element.setAttribute("aria-label", translated);
+            }
+            // 如果按鈕沒有文字內容，則不設置 textContent
+            if (element.textContent.trim() && !element.querySelector("i.codicon")) {
+              element.textContent = translated;
+            }
+          } else if (
+            element.tagName.toLowerCase() === "div" &&
+            element.hasAttribute("title")
+          ) {
+            // 處理 div 元素的 title 屬性（如 splitter）
+            element.title = translated;
+          } else if (
             nlsKey === "running" &&
             element.tagName.toLowerCase() === "th"
           ) {
@@ -390,25 +337,10 @@ Security & Resource Management:
           ) {
             // 特殊處理 search-wrap div 的 title 屬性
             element.title = translated;
-          } else if (
-            nlsKey === "scriptStore" &&
-            element.id === "script-store-btn"
-          ) {
-            // 特殊處理 Script Store 按鈕，保留圖標和 badge
-            const badge = element.querySelector("#script-store-new-badge");
-            element.innerHTML = `<i class="codicon codicon-extensions" style="margin-right: 4px;"></i>${translated}${badge ? badge.outerHTML : ""}`;
-          } else {
+          }else {
             element.textContent = translated;
           }
         });
-
-        // 再執行原有的專門更新函數（處理沒有 data-nls 的元素）
-        updateUITexts();
-
-        // Script Store Web Component 會自動處理國際化
-        console.log('I18n setup complete, Script Store Web Component will handle its own localization');
-
-        // no-op
       }
 
       // ========== 備份管理表格渲染 (Web Component) ==========
@@ -433,43 +365,6 @@ Security & Resource Management:
         
         // 儲存到全域變數供其他地方使用
         window.__backups = backups;
-      }
-
-      /**
-       * 更新 UI 中的靜態文字為本地化版本
-       * 整合 I18nHelper 系統，支援新舊兩種方式
-       */
-      function updateUITexts() {
-        // 優先使用 I18nHelper 的 updateUITexts
-        if (
-          window.I18nHelper &&
-          typeof window.I18nHelper.updateUITexts === "function"
-        ) {
-          window.I18nHelper.updateUITexts();
-          return;
-        }
-
-        // 舊版本的 updateUITexts 作為 fallback
-        // Update static texts
-        document.title = getNlsText("title", "StatusBar Helper Settings");
-
-        // Update main sections
-        const statusBarTitle = document.querySelector(
-          "#list-view .list-title span"
-        );
-        if (statusBarTitle)
-          statusBarTitle.textContent = getNlsText(
-            "statusBarItems",
-            "Status Bar Items"
-          );
-
-        const storedDataTitle = document.querySelector(
-          "#data-view .data-title span"
-        );
-        if (storedDataTitle){
-          storedDataTitle.textContent = getNlsText("storedData", "Stored Data");
-        }
-
       }
 
       // ========== 備份管理事件監聽器設置 (Web Component) ==========
@@ -508,227 +403,7 @@ Security & Resource Management:
         }
       }
 
-      // ========== UI 輸入欄位多國語系更新 ==========
-      function updateInputFieldTexts() {
-        // 以下是已經有 data-nls 屬性的元素，不需要手動設定：
-        // filter-input, data-filter-input, import-btn, export-btn,
-        // add-new-item-btn, script-store-btn, clear-all-btn,
-        // preview-close, select-all-preview, deselect-all-preview,
-        // preview-title, import-options-title, merge-strategy-title, conflict-policy-title
-
-        // 保留不存在的元素的手動設定
-        const restoreBtn = document.getElementById("restore-btn");
-        if (restoreBtn)
-          restoreBtn.textContent = getNlsText(
-            "restoreSamples",
-            "Restore Samples"
-          );
-
-        // Update modal elements (these don't exist in current HTML)
-        const modalTitle = document.getElementById("modal-title");
-        if (modalTitle)
-          modalTitle.textContent = getNlsText(
-            "advancedImportExport",
-            "Advanced Import/Export"
-          );
-
-        const importTabBtn = document.getElementById("import-tab-btn");
-        if (importTabBtn)
-          importTabBtn.textContent = getNlsText("importTab", "Import");
-
-        const exportTabBtn = document.getElementById("export-tab-btn");
-        if (exportTabBtn)
-          exportTabBtn.textContent = getNlsText("exportTab", "Export");
-
-        const loadFileBtn = document.getElementById("load-file-btn");
-        if (loadFileBtn)
-          loadFileBtn.textContent = getNlsText("loadFile", "Load File");
-
-        const importJsonTextarea = document.getElementById("import-json");
-        if (importJsonTextarea)
-          importJsonTextarea.placeholder = getNlsText(
-            "pasteJsonHere",
-            "Paste JSON data here or load from file..."
-          );
-
-        const mergeStrategySelect = document.getElementById("merge-strategy");
-        if (mergeStrategySelect) {
-          const options = mergeStrategySelect.querySelectorAll("option");
-          if (options.length >= 2) {
-            options[0].textContent = getNlsText(
-              "mergeStrategyReplace",
-              "Replace All (clear all items then import)"
-            );
-            options[1].textContent = getNlsText(
-              "mergeStrategyAppend",
-              "Append (add to existing items)"
-            );
-          }
-        }
-
-        const conflictPolicySelect = document.getElementById("conflict-policy");
-        if (conflictPolicySelect) {
-          const options = conflictPolicySelect.querySelectorAll("option");
-          if (options.length >= 2) {
-            options[0].textContent = getNlsText(
-              "conflictPolicySkip",
-              "Skip (skip conflicting items)"
-            );
-            options[1].textContent = getNlsText(
-              "conflictPolicyNewId",
-              "New ID (generate new command IDs)"
-            );
-          }
-        }
-
-        const previewImportBtn = document.getElementById("preview-import-btn");
-        if (previewImportBtn)
-          previewImportBtn.textContent = getNlsText(
-            "previewChanges",
-            "Preview Changes"
-          );
-
-        const applyImportBtn = document.getElementById("apply-import-btn");
-        if (applyImportBtn)
-          applyImportBtn.textContent = getNlsText(
-            "applyImport",
-            "Apply Import"
-          );
-
-        const selectAllExportBtn = document.getElementById(
-          "select-all-export-btn"
-        );
-        if (selectAllExportBtn)
-          selectAllExportBtn.textContent = getNlsText(
-            "selectAll",
-            "Select All"
-          );
-
-        const deselectAllExportBtn = document.getElementById(
-          "deselect-all-export-btn"
-        );
-        if (deselectAllExportBtn)
-          deselectAllExportBtn.textContent = getNlsText(
-            "deselectAll",
-            "Deselect All"
-          );
-
-        const previewExportBtn = document.getElementById("preview-export-btn");
-        if (previewExportBtn)
-          previewExportBtn.textContent = getNlsText(
-            "generateJson",
-            "Generate JSON"
-          );
-
-        const saveExportBtn = document.getElementById("save-export-btn");
-        if (saveExportBtn)
-          saveExportBtn.textContent = getNlsText("saveToFile", "Save to File");
-
-        const copyExportBtn = document.getElementById("copy-export-btn");
-        if (copyExportBtn)
-          copyExportBtn.textContent = getNlsText(
-            "copyToClipboard",
-            "Copy to Clipboard"
-          );
-
-        // Also refresh Script Store localized texts if overlay already mounted
-        // Script Store Web Component handles its own localization
-        
-        // Also update Backup Manager Web Component texts
-        const backupManager = document.getElementById("backup-manager");
-        if (backupManager && typeof backupManager.updateTexts === 'function') {
-          backupManager.updateTexts();
-        }
-
-        // Update table headers
-        const headers = document.querySelectorAll("table.list-table th");
-        if (headers.length >= 8) {
-          headers[1].textContent = getNlsText("icon", "Icon");
-          headers[2].textContent = getNlsText(
-            "labelTooltip",
-            "Label & Tooltip"
-          );
-          headers[3].innerHTML =
-            getNlsText("running", "Running") +
-            '<span id="running-count" class="badge" title="Running scripts">0</span>';
-          headers[4].textContent = getNlsText("visible", "Visible");
-          headers[5].textContent = getNlsText("runAtStartup", "Run at Startup");
-          headers[6].textContent = getNlsText("cmdId", "CmdId");
-          headers[7].textContent = getNlsText("actions", "Actions");
-        }
-
-        // Update dropdown options
-        const typeFilterSelect = document.getElementById("data-type-filter");
-        if (typeFilterSelect) {
-          const options = typeFilterSelect.querySelectorAll("option");
-          if (options.length >= 8) {
-            options[0].textContent = getNlsText("filterAll", "All");
-            options[1].textContent = getNlsText(
-              "filterGlobalStorage",
-              "Global Storage"
-            );
-            options[2].textContent = getNlsText(
-              "filterSecretStorage",
-              "Secret Storage"
-            );
-            options[3].textContent = getNlsText(
-              "filterWorkspaceStorage",
-              "Workspace Storage"
-            );
-            options[4].textContent = getNlsText(
-              "filterGlobalFiles",
-              "Global Files"
-            );
-            options[5].textContent = getNlsText(
-              "filterWorkspaceFiles",
-              "Workspace Files"
-            );
-            options[6].textContent = getNlsText(
-              "filterTextFiles",
-              "Text Files"
-            );
-            options[7].textContent = getNlsText(
-              "filterJsonFiles",
-              "JSON Files"
-            );
-            options[8].textContent = getNlsText(
-              "filterBinaryFiles",
-              "Binary Files"
-            );
-          }
-        }
-
-        const dataHeaders = document.querySelectorAll("table.data-table th");
-        if (dataHeaders.length >= 4) {
-          dataHeaders[0].textContent = getNlsText("type", "Type");
-          dataHeaders[1].textContent = getNlsText("keyPath", "Key / Path");
-          dataHeaders[2].textContent = getNlsText("size", "Size");
-          dataHeaders[3].textContent = getNlsText("actions", "Actions");
-        }
-      }
-
-      function updateScriptStoreNewBadge(catalog) {
-        const badge = document.getElementById("script-store-new-badge");
-        if (!badge) return;
-
-        const newCount = (catalog || []).filter(
-          (entry) => entry.status === "new"
-        ).length;
-        if (newCount > 0) {
-          badge.textContent = newCount.toString();
-          badge.title = getNlsText(
-            "scriptStoreNewBadge",
-            "{0} new scripts",
-            newCount
-          );
-          badge.style.display = "";
-        } else {
-          badge.style.display = "none";
-        }
-      }
-
       let items = [],
-        currentEditor = null,
         typeDefs = null;
       let filterText = "";
       let runningHost = new Set();
@@ -737,6 +412,8 @@ Security & Resource Management:
       // Web Component references
       let dataViewComponent = null;
       let listViewComponent = null;
+      let monacoEditorComponent = null;
+      let editPageComponent = null;
       
       const getRunningSet = () => {
         const s = new Set(runningHost);
@@ -745,7 +422,7 @@ Security & Resource Management:
       };
 
       const listViewWrapper = document.getElementById("list-view-wrapper");
-      const editView = document.getElementById("edit-view");
+      const editView = document.getElementById("edit-page-component");
 
       /* ---------- Responsive Compact Mode ---------- */
       const COMPACT_BREAKPOINT = 1000; // px
@@ -793,115 +470,8 @@ Security & Resource Management:
         el.classList.toggle("badge--accent", n > 0);
       }
 
-      /* ---------- Formatters ---------- */
-      function formatBytes(n) {
-        if (!Number.isFinite(n)) return "0 B";
-        const u = ["B", "KB", "MB", "GB"];
-        let i = 0;
-        while (n >= 1024 && i < u.length - 1) {
-          n /= 1024;
-          i++;
-        }
-        return `${Math.round(n * 10) / 10} ${u[i]}`;
-      }
-      // Global HTML escaper used by list + preview dialogs
-      function escapeHtml(str = "") {
-        return str.replace(
-          /[&<>'"']/g,
-          (ch) =>
-            ({
-              "&": "&amp;",
-              "<": "&lt;",
-              ">": "&gt;",
-              '"': "&quot;",
-              "'": "&#39;",
-            }[ch] || ch)
-        );
-      }
-
-      /* ---------- Monaco Editor Setup ---------- */
+      /* ---------- Monaco Editor Setup (Web Component) ---------- */
       require.config({ paths: { vs: "{{monacoUri}}" } });
-      function setupMonaco(item) {
-        require(["vs/editor/editor.main"], () => {
-          const ct = document.getElementById("editor-container");
-          if (currentEditor) currentEditor.dispose();
-          const theme = document.body.classList.contains("vscode-light")
-            ? "vs"
-            : "vs-dark";
-          currentEditor = monaco.editor.create(ct, {
-            value: item.script,
-            language: "javascript",
-            theme,
-            automaticLayout: true,
-            lineNumbers: "relative",
-            glyphMargin: true,
-            folding: true,
-            foldingStrategy: "auto",
-            showFoldingControls: "mouseover",
-            matchBrackets: "always",
-            scrollBeyondLastLine: false,
-            smoothScrolling: true,
-            mouseWheelZoom: true,
-            wordWrap: "on",
-            wrappingIndent: "indent",
-            quickSuggestions: { other: true, comments: false, strings: false },
-            quickSuggestionsDelay: 50,
-            parameterHints: { enabled: true, cycle: true },
-            snippetSuggestions: "inline",
-            suggestOnTriggerCharacters: true,
-            acceptSuggestionOnEnter: "on",
-            renderWhitespace: "boundary",
-            renderControlCharacters: true,
-            renderIndentGuides: true,
-            highlightActiveIndentGuide: true,
-            bracketPairColorization: { enabled: true },
-            colorDecorators: true,
-            codeLens: true,
-            lightbulb: { enabled: true },
-            inlayHints: { enabled: true },
-            links: true,
-            multiCursorModifier: "ctrlCmd",
-            minimap: { enabled: false },
-            target: monaco.languages.typescript.ScriptTarget.ES2020,
-            module: monaco.languages.typescript.ModuleKind.CommonJS,
-            allowNonTsExtensions: true,
-          });
-
-          currentEditor.addCommand(
-            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-            () => document.getElementById("save-item-btn").click()
-          );
-          currentEditor.onDidChangeModelContent(() => {
-            saveDraft({
-              command: item.command,
-              script: currentEditor.getValue(),
-            });
-          });
-
-          if (typeDefs) {
-            if (typeDefs.node) {
-              typeDefs.node.forEach((lib) =>
-                monaco.languages.typescript.javascriptDefaults.addExtraLib(
-                  lib.content,
-                  lib.path
-                )
-              );
-            }
-            if (typeDefs.vscode) {
-              monaco.languages.typescript.javascriptDefaults.addExtraLib(
-                typeDefs.vscode,
-                "file:///vscode.d.ts"
-              );
-            }
-            if (typeDefs.sbh) {
-              monaco.languages.typescript.javascriptDefaults.addExtraLib(
-                typeDefs.sbh,
-                "file:///sbh.d.ts"
-              );
-            }
-          }
-        });
-      }
 
       // ============================================================================
       // Main View Controllers - List View & Edit View Management
@@ -909,21 +479,17 @@ Security & Resource Management:
 
       /**
        * 顯示列表檢視（主要設定檢視）
-       *
-       * 操作流程：
-       * 1. 切換 DOM 顯示狀態
-       * 2. 清理編輯器資源
-       * 3. 重新渲染項目列表和儲存資料
-       * 4. 啟動資料定時重新整理
-       * 5. 更新 VM 執行狀態和同步指示器
        */
       function showListView() {
         listViewWrapper.style.display = "flex";
         editView.style.display = "none";
-        if (currentEditor) {
-          currentEditor.dispose();
-          currentEditor = null;
+        
+        // 清理編輯頁面組件
+        if (editPageComponent) {
+          editPageComponent.currentEditingIndex = null;
+          editPageComponent.currentItem = null;
         }
+        
         vscode.postMessage({ command: "exitEditView" });
         refreshListView();
         refreshStoredData();
@@ -933,20 +499,16 @@ Security & Resource Management:
 
       /**
        * 顯示編輯檢視（單一項目編輯）
-       *
-       * @param {number} index 項目在陣列中的索引
-       * @param {object} item 要編輯的項目物件
-       *
-       * 操作流程：
-       * 1. 停止資料自動重新整理
-       * 2. 切換 DOM 顯示狀態
-       * 3. 初始化 Monaco 編輯器
-       * 4. 通知 host 進入編輯模式
        */
       function showEditView(index, item) {
         listViewWrapper.style.display = "none";
         editView.style.display = "flex";
-        renderEditView(index, item);
+        
+        // 設置編輯頁面組件
+        if (editPageComponent) {
+          editPageComponent.setItem(index, item);
+        }
+        
         vscode.postMessage({ command: "enterEditView", item });
       }
 
@@ -988,444 +550,10 @@ Security & Resource Management:
         }
       }
 
-      /* ---------- Edit View ---------- */
-      const defaultScript = `// Press Ctrl+S (or Cmd+S) to save\nconst vscode = require('vscode');\nconst { storage, files, vm } = statusBarHelper.v1;\nconst { setTimeout, clearTimeout, setInterval, clearInterval } = require('timers');\nconst { randomUUID } = require('crypto');\nconst fs = require('fs');\nconst path = require('path');\nconst { exec, spawn } = require('child_process');\nconst util = require('util');\n`;
-
-      let editClickHandler = null;
-      function renderEditView(index, item) {
-        const isNew = index === null;
-        const m = item.text.match(/^\$\(([^)]+)\) (.*)$/);
-        let initIcon = m ? m[1] : "";
-        let initLabel = m ? m[2] : item.text;
-        const original = {
-          icon: initIcon,
-          label: initLabel,
-          tooltip: item.tooltip || "",
-          script: item.script || "",
-        };
-
-        let editing = getEditing();
-        if (!editing || editing.command !== item.command || !editing.pristine) {
-          // Canonical pristine
-          const origCanon = { ...original };
-          editing = {
-            command: item.command,
-            pristine: JSON.stringify(origCanon),
-          };
-          writeEditing(editing);
-        }
-
-        const curDraft = getDraft();
-        if (curDraft?.command === item.command) {
-          if (curDraft.icon != null) initIcon = curDraft.icon;
-          if (curDraft.label != null) initLabel = curDraft.label;
-          if (curDraft.tooltip != null) item.tooltip = curDraft.tooltip;
-          if (curDraft.script != null) item.script = curDraft.script;
-        }
-
-        editView.innerHTML = `
-        <div class="edit-item-container">
-          <div class="controls-row">
-            <div class="field icon-field">
-              <label>${getNlsText("icon", "Icon")}</label>
-              <div id="icon-trigger" class="icon-trigger"><i id="selected-icon" class="codicon codicon-${
-                initIcon || "ellipsis"
-              }"></i><span id="selected-icon-name">${
-          initIcon || getNlsText("selectIcon", "Select icon")
-        }</span><i class="codicon codicon-chevron-down"></i></div>
-              <div id="icon-dropdown" class="icon-dropdown"><input type="text" id="icon-search" placeholder="${getNlsText(
-                "searchIcons",
-                "Search icons…"
-              )}"><div id="icon-list" class="icon-list"></div></div>
-            </div>
-            <div class="field label-field"><label for="edit-label">${getNlsText(
-              "label",
-              "Label"
-            )}</label><input type="text" id="edit-label"></div>
-            <div class="field tooltip-field"><label for="edit-tooltip">${getNlsText(
-              "tooltip",
-              "Tooltip"
-            )}</label><input type="text" id="edit-tooltip"></div>
-            <div class="actions">
-              <button type="button" id="run-btn" class="edit-icon-btn" title="Smart Run (auto-detect)" aria-label="${getNlsText(
-                "run",
-                "Run"
-              )}"><i class="codicon codicon-play"></i></button>
-              <button type="button" id="stop-btn" class="edit-icon-btn" title="${getNlsText(
-                "stop",
-                "Stop"
-              )}" aria-label="${getNlsText(
-          "stop",
-          "Stop"
-        )}"><i class="codicon codicon-debug-stop"></i></button>
-              <button type="button" id="save-item-btn" class="edit-icon-btn" title="${getNlsText(
-                "save",
-                "Save"
-              )}" aria-label="${getNlsText(
-          "save",
-          "Save"
-        )}"><i class="codicon codicon-save"></i></button>
-              <button type="button" id="cancel-edit-btn" class="edit-icon-btn" title="${getNlsText(
-                "cancel",
-                "Cancel"
-              )}" aria-label="${getNlsText(
-          "cancel",
-          "Cancel"
-        )}"><i class="codicon codicon-close"></i></button>
-            </div>
-          </div>
-
-          <div class="eo-stack" id="eo-stack">
-            <div class="editor-container" id="editor-container"></div>
-            <div class="splitter" id="eo-splitter" title="Drag to resize"></div>
-            <div class="output-container" id="output-container">
-              <div class="output-header" id="output-toggle">
-                <i class="codicon codicon-terminal"></i>
-                <span class="title">Output</span>
-                <i class="codicon codicon-chevron-down chev" id="output-chevron"></i>
-              </div>
-              <pre id="run-output"></pre>
-            </div>
-          </div>
-        </div>`;
-
-        document.getElementById("edit-label").value = initLabel;
-        document.getElementById("edit-tooltip").value = item.tooltip || "";
-        setupMonaco(item);
-
-        /* --- Editor/Output resizer & collapse-aware layout --- */
-        const stackEl = document.getElementById("eo-stack");
-        const splitEl = document.getElementById("eo-splitter");
-        const editorEl = document.getElementById("editor-container");
-        const outEl = document.getElementById("output-container");
-        const SPLIT_MIN_EDITOR = 120; // 編輯器區域的最小高度（px），避免被拖到太小看不到
-        const SPLIT_MIN_OUTPUT = 60; // Output 區塊的最小高度（px）
-        const SPLIT_BAR = 6; // 中間分隔條的厚度（px）
-
-        function isCollapsed() {
-          return !!getState().outCollapsed;
-        }
-        function setCollapsed(b) {
-          vscode.setState({ ...getState(), outCollapsed: !!b });
-        }
-
-        function getSplitState() {
-          const s = getState();
-          return typeof s.splitRatio === "number" ? s.splitRatio : 0.65;
-        }
-        function setSplitState(r) {
-          vscode.setState({ ...getState(), splitRatio: r });
-        }
-
-        function applySplitByRatio(r) {
-          const H = stackEl.clientHeight - SPLIT_BAR;
-          const edH = Math.max(
-            SPLIT_MIN_EDITOR,
-            Math.min(H - SPLIT_MIN_OUTPUT, Math.round(H * r))
-          );
-          const outH = Math.max(SPLIT_MIN_OUTPUT, H - edH);
-          editorEl.style.height = edH + "px";
-          outEl.style.height = outH + "px";
-          if (currentEditor) currentEditor.layout();
-        }
-        function applyLayout() {
-          const H = stackEl.clientHeight - SPLIT_BAR;
-          if (isCollapsed()) {
-            const headerH =
-              outEl.querySelector(".output-header").offsetHeight || 28;
-            const edH = Math.max(SPLIT_MIN_EDITOR, H - headerH);
-            editorEl.style.height = edH + "px";
-            outEl.style.height = headerH + "px";
-          } else {
-            applySplitByRatio(getSplitState());
-          }
-        }
-        function bindSplitter() {
-          let startY = 0,
-            startEdH = 0,
-            totalH = 0;
-          const onMove = (e) => {
-            const dy = e.clientY - startY;
-            const H = totalH - SPLIT_BAR;
-            const edH = Math.max(
-              SPLIT_MIN_EDITOR,
-              Math.min(H - SPLIT_MIN_OUTPUT, startEdH + dy)
-            );
-            const ratio = edH / H;
-            editorEl.style.height = edH + "px";
-            outEl.style.height = H - edH + "px";
-            if (currentEditor) currentEditor.layout();
-            setSplitState(ratio);
-          };
-          const onUp = () => {
-            window.removeEventListener("mousemove", onMove);
-            window.removeEventListener("mouseup", onUp);
-          };
-          splitEl.addEventListener("mousedown", (e) => {
-            if (isCollapsed()) return; // ignore drag while collapsed
-            e.preventDefault();
-            startY = e.clientY;
-            startEdH = editorEl.getBoundingClientRect().height;
-            totalH = stackEl.getBoundingClientRect().height;
-            window.addEventListener("mousemove", onMove);
-            window.addEventListener("mouseup", onUp);
-          });
-        }
-        applyLayout();
-        bindSplitter();
-        window.addEventListener("resize", () => applyLayout(), {
-          passive: true,
-        });
-
-        // Icon dropdown logic
-        let selectedIcon = initIcon;
-        const trigger = document.getElementById("icon-trigger");
-        const dropdown = document.getElementById("icon-dropdown");
-        const inEl = document.getElementById("icon-search");
-        const listEl = document.getElementById("icon-list");
-        const host = trigger.parentElement;
-        let isOpen = false,
-          detachFn = null;
-        function placeDropdown() {
-          const r = trigger.getBoundingClientRect();
-          Object.assign(dropdown.style, {
-            position: "fixed",
-            left: `${Math.round(r.left)}px`,
-            top: `${Math.round(r.bottom)}px`,
-            width: `${Math.round(r.width)}px`,
-            display: "block",
-          });
-        }
-        function openDropdown() {
-          if (isOpen) return;
-          isOpen = true;
-          document.body.appendChild(dropdown);
-          placeDropdown();
-          inEl.focus();
-          const onDocClick = (e) => {
-            if (
-              e.target === trigger ||
-              trigger.contains(e.target) ||
-              dropdown.contains(e.target)
-            )
-              return;
-            closeDropdown();
-          };
-          const onScrollOrResize = () => {
-            if (isOpen) placeDropdown();
-          };
-          document.addEventListener("click", onDocClick);
-          window.addEventListener("resize", onScrollOrResize, {
-            passive: true,
-          });
-          window.addEventListener("scroll", onScrollOrResize, {
-            passive: true,
-          });
-          detachFn = () => {
-            document.removeEventListener("click", onDocClick);
-            window.removeEventListener("resize", onScrollOrResize);
-            window.removeEventListener("scroll", onScrollOrResize);
-          };
-        }
-        function closeDropdown() {
-          if (!isOpen) return;
-          isOpen = false;
-          dropdown.style.display = "none";
-          host.appendChild(dropdown);
-          if (detachFn) {
-            detachFn();
-            detachFn = null;
-          }
-        }
-        function renderIcons(filter = "") {
-          const f = filter.toLowerCase();
-          listEl.innerHTML = "";
-          vscodeIcons
-            .filter((n) => n.toLowerCase().includes(f))
-            .forEach((name) => {
-              const d = document.createElement("div");
-              d.className =
-                "icon-item" + (name === selectedIcon ? " selected" : "");
-              d.innerHTML = `<i class="codicon codicon-${name}" title="${name}"></i>`;
-              d.onclick = () => {
-                selectedIcon = name;
-                document.getElementById(
-                  "selected-icon"
-                ).className = `codicon codicon-${name}`;
-                document.getElementById("selected-icon-name").textContent =
-                  name;
-                saveDraft({ command: item.command, icon: name });
-                closeDropdown();
-              };
-              listEl.appendChild(d);
-            });
-        }
-        trigger.onclick = () => (isOpen ? closeDropdown() : openDropdown());
-        inEl.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") {
-            closeDropdown();
-            trigger.focus();
-          }
-          if (e.key === "Enter") {
-            const first = listEl.querySelector(".icon-item");
-            if (first) first.click();
-          }
-        });
-        let iconTimer;
-        inEl.oninput = () => {
-          clearTimeout(iconTimer);
-          iconTimer = setTimeout(() => renderIcons(inEl.value.trim()), 80);
-        };
-        renderIcons();
-
-        // Edit inputs
-        document.getElementById("edit-label").addEventListener("input", (e) => {
-          saveDraft({ command: item.command, label: e.target.value });
-        });
-        document
-          .getElementById("edit-tooltip")
-          .addEventListener("input", (e) => {
-            saveDraft({ command: item.command, tooltip: e.target.value });
-          });
-
-        // Output collapse toggle
-        document.getElementById("output-toggle").onclick = () => {
-          const oc = document.getElementById("output-container");
-          const pre = document.getElementById("run-output");
-          if (isCollapsed()) {
-            oc.classList.remove("collapsed");
-            pre.removeAttribute("hidden");
-            setCollapsed(false);
-          } else {
-            oc.classList.add("collapsed");
-            pre.setAttribute("hidden", "");
-            setCollapsed(true);
-          }
-          applyLayout();
-          setTimeout(() => {
-            if (currentEditor) currentEditor.layout();
-          }, 0);
-        };
-
-        // Buttons
-        if (editClickHandler)
-          editView.removeEventListener("click", editClickHandler);
-        editClickHandler = async (ev) => {
-          const btn = ev.target.closest("button");
-          if (!btn) return;
-
-          if (btn.id === "save-item-btn") {
-            const lbl = document.getElementById("edit-label").value.trim();
-            let txt = lbl;
-            if (selectedIcon) txt = `\$(${selectedIcon}) ${lbl}`;
-            const upd = {
-              ...item,
-              text: txt,
-              tooltip: document.getElementById("edit-tooltip").value,
-              script: currentEditor.getValue(),
-            };
-            if (isNew) items.push(upd);
-            else items[index] = upd;
-            saveAndPostSettings();
-            clearDraftIfMatch(item.command);
-            clearEditing();
-            showListView();
-          } else if (btn.id === "cancel-edit-btn") {
-            const hasUnsaved = () => {
-              const ed = getEditing();
-              const pristineJson =
-                ed && ed.command === item.command && ed.pristine
-                  ? ed.pristine
-                  : JSON.stringify({ ...original });
-              let pristineObj;
-              try {
-                pristineObj = JSON.parse(pristineJson);
-              } catch {
-                pristineObj = original;
-              }
-              const lbl = document.getElementById("edit-label").value.trim();
-              const tooltipVal = document.getElementById("edit-tooltip").value;
-              const scriptVal = currentEditor
-                ? currentEditor.getValue()
-                : item.script || "";
-              const currentCanon = {
-                icon: selectedIcon || "",
-                label: lbl,
-                tooltip: tooltipVal,
-                script: scriptVal,
-              };
-              return (
-                JSON.stringify(currentCanon) !==
-                JSON.stringify({
-                  icon: pristineObj.icon || "",
-                  label: pristineObj.label || "",
-                  tooltip: pristineObj.tooltip || "",
-                  script: pristineObj.script || "",
-                })
-              );
-            };
-            const discardAndBack = () => {
-              clearDraftIfMatch(item.command);
-              clearEditing();
-              showListView();
-            };
-            if (hasUnsaved()) {
-              if (
-                (await showChoiceDialog(
-                  getNlsText("discardChanges", "Discard changes?"),
-                  getNlsText(
-                    "discardMessage",
-                    "You have unsaved changes. Are you sure you want to discard them?"
-                  ),
-                  [
-                    getNlsText("discard", "Discard"),
-                    getNlsText("cancel", "Cancel"),
-                  ]
-                )) === getNlsText("discard", "Discard")
-              ) {
-                discardAndBack();
-              }
-            } else {
-              discardAndBack();
-            }
-          } else if (btn.id === "run-btn") {
-            const code = currentEditor.getValue();
-            const cmd = item.command;
-            const out = document.getElementById("run-output");
-            out.textContent = "▶ Running script...\n";
-            const oc = document.getElementById("output-container");
-            oc.classList.remove("collapsed");
-            out.removeAttribute("hidden");
-            setCollapsed(false);
-            applyLayout();
-
-            const stripComments = (src) =>
-              src
-                .replace(/\/\*[\s\S]*?\*\//g, "")
-                .replace(/(^|[^:])\/\/.*$/gm, "$1");
-            const usesVsCode = (code) => {
-              const s = stripComments(code);
-              return (
-                /(?:^|[^\w.])require\(['"]vscode['"]\)/.test(s) ||
-                /(?:^|[^\w.])(vscode|statusBarHelper|sbh|SBH)\./.test(s)
-              );
-            };
-            vscode.postMessage({ command: "stopByCommand", itemCommand: cmd });
-            setTimeout(() => {
-              vscode.postMessage({
-                command: usesVsCode(code) ? "runScriptTrusted" : "runScript",
-                code,
-                itemCommand: cmd,
-              });
-            }, 200);
-          } else if (btn.id === "stop-btn") {
-            const cmd = item.command;
-            vscode.postMessage({ command: "stopByCommand", itemCommand: cmd });
-          }
-        };
-        editView.addEventListener("click", editClickHandler);
+      /* ---------- Global Event Listeners ---------- */
+      function saveAndPostSettings() {
+        vscode.postMessage({ command: "updateSettings", items });
       }
-
       /* ---------- Global Event Listeners ---------- */
       function saveAndPostSettings() {
         vscode.postMessage({ command: "updateSettings", items });
@@ -1475,6 +603,16 @@ Security & Resource Management:
           "cmd." +
           Math.random().toString(36).slice(2, 7) +
           Math.random().toString(36).slice(2, 7);
+        const defaultScript = `// Press Ctrl+S (or Cmd+S) to save
+const vscode = require('vscode');
+const { storage, files, vm } = statusBarHelper.v1;
+const { setTimeout, clearTimeout, setInterval, clearInterval } = require('timers');
+const { randomUUID } = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { exec, spawn } = require('child_process');
+const util = require('util');
+`;
         showEditView(null, {
           text: "New Item",
           tooltip: "",
@@ -1490,9 +628,10 @@ Security & Resource Management:
       window.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
           const editVisible = editView && editView.style.display === "flex";
-          if (editVisible) {
+          if (editVisible && editPageComponent) {
             e.preventDefault();
-            const saveBtn = document.getElementById("save-item-btn");
+            // 觸發 Edit Page Web Component 的保存功能
+            const saveBtn = editPageComponent.querySelector("#save-item-btn");
             if (saveBtn) {
               saveBtn.click();
             }
@@ -1695,8 +834,6 @@ Security & Resource Management:
 
           listViewComponent.addEventListener('command-copied', (e) => {
             const { command } = e.detail;
-            // Visual feedback could be added here
-            console.log('Command copied:', command);
           });
 
           listViewComponent.addEventListener('running-count-changed', (e) => {
@@ -1715,7 +852,6 @@ Security & Resource Management:
 
           dataViewComponent.addEventListener('data-delete-requested', (e) => {
             const { row } = e.detail;
-            console.log('Sending delete request:', row );
             vscode.postMessage({ 
               command: "data:delete", 
               row 
@@ -1729,11 +865,8 @@ Security & Resource Management:
           dataViewComponent.addEventListener('data-clear-requested', async (e) => {
             const filteredData = e.detail.filteredData || [];
             
-            console.log('Received data-clear-requested event:', filteredData.length, 'items');
-            
             // data-view.js 已經處理了確認對話框，直接執行刪除
             if (filteredData.length > 0) {
-              console.log('Sending clear request to backend:', filteredData.length, 'items');
               vscode.postMessage({
                 command: "data:clearAll",
                 rows: filteredData
@@ -1747,6 +880,94 @@ Security & Resource Management:
 
           // Set initial NLS data
           dataViewComponent.nlsData = nls;
+        }
+
+        // Initialize Monaco Editor Web Component
+        monacoEditorComponent = document.getElementById('monaco-editor-component');
+        if (monacoEditorComponent) {
+          // Set up event listeners for Monaco Editor component
+          monacoEditorComponent.addEventListener('monaco-ready', () => {
+            console.log('Monaco Editor component is ready');
+          });
+
+          // Content changed handling is now done by Edit Page Web Component
+          // Set initial NLS data
+          monacoEditorComponent.nlsData = nls;
+        }
+
+        // Initialize Edit Page Web Component
+        editPageComponent = document.getElementById('edit-page-component');
+        if (editPageComponent) {
+          // 立即設置 Monaco URI
+          editPageComponent.setMonacoUri("{{monacoUri}}");
+          editPageComponent.typeDefs = typeDefs;
+          
+          // Set up event listeners for Edit Page component
+          editPageComponent.addEventListener('save-item', (e) => {
+            const { index, item } = e.detail;
+            if (index === null) {
+              items.push(item);
+            } else {
+              items[index] = item;
+            }
+            saveAndPostSettings();
+            clearDraftIfMatch(item.command);
+            clearEditing();
+            showListView();
+          });
+
+          editPageComponent.addEventListener('cancel-edit', (e) => {
+            clearDraftIfMatch(e.detail.item.command);
+            clearEditing();
+            showListView();
+          });
+
+          editPageComponent.addEventListener('confirm-discard', async (e) => {
+            const choice = await showChoiceDialog(
+              getNlsText("discardChanges", "Discard Changes"),
+              getNlsText("discardMessage", "You have unsaved changes. Are you sure you want to discard them?"),
+              [getNlsText("discard", "Discard"), getNlsText("cancel", "Cancel")]
+            );
+            if (choice === getNlsText("discard", "Discard")) {
+              clearDraftIfMatch(e.detail.item.command);
+              clearEditing();
+              showListView();
+            }
+          });
+
+          editPageComponent.addEventListener('run-script', (e) => {
+            const { script, item } = e.detail;
+            const cmd = item.command;
+            
+            vscode.postMessage({ command: "stopByCommand", itemCommand: cmd });
+            setTimeout(() => {
+              vscode.postMessage({
+                command: "runScriptTrusted",
+                code: script,
+                itemCommand: cmd,
+              });
+            }, 200);
+          });
+
+          editPageComponent.addEventListener('stop-script', (e) => {
+            const { item } = e.detail;
+            vscode.postMessage({ command: "stopByCommand", itemCommand: item.command });
+          });
+
+          editPageComponent.addEventListener('field-changed', (e) => {
+            const { field, value, item } = e.detail;
+            const draftUpdate = { command: item.command };
+            draftUpdate[field] = value;
+            saveDraft(draftUpdate);
+          });
+
+          editPageComponent.addEventListener('content-changed', (e) => {
+            const { content, item } = e.detail;
+            saveDraft({ command: item.command, script: content });
+          });
+
+          // Set initial NLS data
+          editPageComponent.nlsData = nls;
         }
 
         // Initialize backup management
@@ -1783,24 +1004,15 @@ Security & Resource Management:
           // 初始化時立即檢查 NEW badge 數量
           setTimeout(() => {
             if (scriptStoreComponent && typeof scriptStoreComponent.fetchCatalog === 'function') {
-              scriptStoreComponent.fetchCatalog().then(() => {
-                console.log('Initial NEW badge check completed');
-              }).catch(err => {
-                console.log('Initial NEW badge check failed:', err);
-              });
+              scriptStoreComponent.fetchCatalog().then(() => {}).catch(err => {});
             } else {
-              console.log('Script Store component not ready for badge update');
+              console.warn('Script Store component not ready for fetching catalog');
             }
           }, 1000); // 增加延遲確保組件完全載入
           
           // 監聽對話框開關事件
-          const dialogOpenedHandler = () => {
-            console.log('Script Store opened');
-          };
+          const dialogOpenedHandler = () => {};
           const dialogClosedHandler = () => {
-            console.log('Script Store closed');
-            // 當 Script Store 關閉時，清理所有事件監聽器
-            console.log('Cleaning up Script Store event listeners');
             listeners.forEach(([eventType, handler]) => {
               scriptStoreComponent.removeEventListener(eventType, handler);
             });
@@ -1978,7 +1190,6 @@ Security & Resource Management:
           
           if (initRetryCount < MAX_INIT_RETRIES) {
             initRetryCount++;
-            console.log(`Modules not ready, retrying in 50ms... (${initRetryCount}/${MAX_INIT_RETRIES})`);
             setTimeout(safeInitializeUI, 50);
             return;
           } else {
@@ -2006,38 +1217,6 @@ Security & Resource Management:
     </script>
 
     <script>
-      /*
-          ============================================================================
-          Script Store Module - Catalog Management & RPC System
-          ============================================================================
-          
-          Architecture:
-          ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-          │   Webview Client    │◄──►│   postMessage RPC   │◄──►│   Extension Host    │
-          │   (Catalog UI)      │    │   (Async Bridge)    │    │   (Bridge Handler)  │
-          └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-                     ▲                          ▲                          ▲
-                     │                          │                          │
-          ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-          │   Diff Viewer       │    │   Installation      │    │   Remote Catalog    │
-          │   (Change Preview)  │    │   (Batch/Single)    │    │   (GitHub + Cache)  │
-          └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-          
-          Features:
-          - Async RPC pattern with request/response correlation
-          - Status-aware sorting (NEW > UPDATE > INSTALLED)
-          - NEW badge indicator with auto-loading on panel init
-          - Diff preview with bottom-button UX design
-          - Batch installation with confirmation dialog
-          - Modern gradient color system with theme adaptation
-          - Error handling with timeout and retry logic
-          
-          Security:
-          - All host communication via controlled RPC bridge
-          - No direct file system access from webview
-          - Timeout protection against hanging requests
-          - Input validation on all user interactions
-          */
       (function () {
         // ========================================================================
         // RPC Communication Layer - Webview ↔ Extension Host
