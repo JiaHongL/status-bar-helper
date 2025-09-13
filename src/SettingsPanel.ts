@@ -103,15 +103,26 @@ export class SettingsPanel {
   /** 面板專用的 VM 執行狀態定時器（用於「Run」按鈕預覽） */
   private sendRunningSetIntervalId: NodeJS.Timeout | undefined;
 
+  /** 最近一次成功同步的時間戳 */
+  lastSyncAt = null; // timestamp of last successful sync
+
   /**
    * Settings Panel 建構函數
    * @param panel VS Code webview 面板實例
    * @param extensionUri Extension 的 URI（用於載入資源）
    */
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+
+    setTimeout(() => {
+      this._sendRunningToWebview();
+      this._sendStoredDataToWebview();
+    }, 400);
+
     // 啟動執行狀態定時更新（每2.5秒向 webview 發送最新的執行狀態）
     this.sendRunningSetIntervalId = setInterval(()=>{
       this._sendRunningToWebview();
+      this._sendStoredDataToWebview();
+      this._checkLastSync();
     }, 2500);
 
     this._panel = panel;
@@ -351,6 +362,7 @@ export class SettingsPanel {
                 next = current.concat(appended);
               }
               await saveAllToGlobal(SettingsPanel.extensionContext, next);
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
               this._sendStateToWebview();
               this._panel.webview.postMessage({ command: 'importDone', items: next });
               vscode.window.showInformationMessage(localize('import.success', 'Settings imported successfully.'));
@@ -384,6 +396,7 @@ export class SettingsPanel {
 
             // 跑起來後同步一次 Running 給 webview
             this._sendRunningToWebview();
+            this._sendStoredDataToWebview();
             return;
           }
           case 'stopByCommand': {
@@ -407,8 +420,7 @@ export class SettingsPanel {
           }
 
           case 'data:refresh': {
-            let rows = await this._collectStoredRows();
-            this._panel.webview.postMessage({ command: 'data:setRows', rows });
+            this._sendStoredDataToWebview();
             return;
           }
           case 'data:delete': {
@@ -422,8 +434,7 @@ export class SettingsPanel {
                 await this._callBridge('files', 'remove', row.scope, row.keyPath);
               }
             } catch {}
-            let rows = await this._collectStoredRows();
-            this._panel.webview.postMessage({ command: 'data:setRows', rows });
+            this._sendStoredDataToWebview();
             return;
           }
           case 'openExternal': {
@@ -443,7 +454,7 @@ export class SettingsPanel {
               // 只刪目前列表裡的資料
               for (const r of rows) {
                 // safety：不要動到備份資料夾
-                if (r.keyPath && r.keyPath.includes(BACKUP_DIR)) continue;
+                if (r.keyPath && r.keyPath.includes(BACKUP_DIR)) { continue; }
                 try {
                   if (r.kind === 'kv') {
                     await this._callBridge('storage',
@@ -583,12 +594,12 @@ export class SettingsPanel {
 
     // Load translations
     const translations = this._loadTranslations();
+    const currentLocale = vscode.env.language;
 
-    let lastSyncAt: number | null = null;
     try {
       vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'hostRun', fn: 'lastSyncInfo', args: [] })
         .then((r:any) => {
-          if (r && r.ok) { lastSyncAt = r.data?.lastSyncAt ?? null; }
+          if (r && r.ok) { this.lastSyncAt = r.data?.lastSyncAt ?? null; }
           this._panel.webview.postMessage({
             command: 'loadState',
             items,
@@ -596,7 +607,8 @@ export class SettingsPanel {
             editingItem: this._editingItem,
             typeDefs,
             translations,
-            lastSyncAt
+            currentLocale,
+            lastSyncAt: this.lastSyncAt
           });
           this._sendRunningToWebview();
         });
@@ -611,7 +623,8 @@ export class SettingsPanel {
       editingItem: this._editingItem,
       typeDefs,
       translations,
-      lastSyncAt
+      currentLocale,
+      lastSyncAt: this.lastSyncAt
     });
     this._sendRunningToWebview();
   }
@@ -647,6 +660,26 @@ export class SettingsPanel {
     }
   }
 
+  private _checkLastSync(){
+    try {
+      vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'hostRun', fn: 'lastSyncInfo', args: [] })
+        .then((r:any) => {
+          if(this.lastSyncAt !== r.data?.lastSyncAt){
+            this.lastSyncAt = r.data?.lastSyncAt ?? null;
+            this._panel.webview.postMessage({
+              command: 'sync:lastSyncAt',
+              lastSyncAt: this.lastSyncAt
+            });
+          }
+        });
+    } catch {}
+  }
+
+  private async _sendStoredDataToWebview(){
+    let rows = await this._collectStoredRows();
+    this._panel.webview.postMessage({ command: 'data:setRows', rows });
+  }
+
   private async _sendRunningToWebview() {
     try {
       const r = await vscode.commands.executeCommand(
@@ -674,14 +707,18 @@ export class SettingsPanel {
 
     htmlContent = htmlContent.replace(
       /<head>/,
-      `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`
+      `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; worker-src ${webview.cspSource} blob:; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`
     );
 
     const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
-    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css'));
+    const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
+    const componentsBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
+    const utilsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
-    htmlContent = htmlContent.replace(/{{codiconsUri}}/g, codiconsUri.toString());
+    htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
+    htmlContent = htmlContent.replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString());
+    htmlContent = htmlContent.replace(/{{utilsUri}}/g, utilsUri.toString());
 
     return htmlContent;
   }
@@ -763,7 +800,7 @@ export class SettingsPanel {
           await this._callBridge('files','listStats', scope, '');
         list.forEach(f => {
           const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
-          if (!rel) return;
+          if (!rel) { return; }
           const ext = /\.json$/i.test(rel) ? 'json' : /\.txt$/i.test(rel) ? 'text' : 'bytes';
           rows.push({ kind:'file', scope, ext, keyPath: rel, size: Number(f.size || 0) });
         });

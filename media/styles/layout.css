@@ -1,0 +1,96 @@
+/* ==========================================================================
+   Main Layout Structure - Split Panel Design
+   ========================================================================== */
+
+/* Main container layout */
+#list-view-wrapper { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  min-height: 0; 
+  gap: 10px; 
+}
+
+/* Upper panel: Status Bar Items Management (60% height) */
+#list-view {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-editorGroup-border);
+  border-radius: 6px; 
+  padding: 8px;
+  flex-basis: 60%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Lower panel: Stored Data View (40% height) */
+#data-view {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-editorGroup-border);
+  border-radius: 6px; 
+  padding: 8px;
+  flex-basis: 40%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Edit view layout */
+#edit-view { 
+  display: none; 
+  flex-grow: 1; 
+  height: 100%; 
+  flex-direction: column; 
+}
+
+.edit-item-container { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+}
+
+/* Editor/Output split layout */
+.eo-stack { 
+  flex: 1; 
+  min-height: 240px; 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.eo-stack .editor-container { 
+  flex: 0 0 auto; 
+  margin-top: 6px; 
+}
+
+.eo-stack .output-container { 
+  flex: 0 0 auto; 
+  margin-top: 6px; 
+  height: auto; 
+}
+
+.eo-stack .splitter {
+  height: 6px; 
+  cursor: ns-resize; 
+  background: var(--vscode-editorGroup-border);
+  border-top: 1px solid var(--vscode-editorGroup-border);
+  border-bottom: 1px solid var(--vscode-editorGroup-border); 
+  position: relative;
+}
+
+.eo-stack .splitter::after {
+  content: ""; 
+  position: absolute; 
+  left: 50%; 
+  top: 50%; 
+  transform: translate(-50%, -50%);
+  width: 40px; 
+  height: 2px; 
+  border-radius: 2px; 
+  background: var(--vscode-descriptionForeground); 
+  opacity: .5;
+}
+
+.eo-stack #run-output { 
+  height: auto; 
+  flex: 1 1 auto; 
+}

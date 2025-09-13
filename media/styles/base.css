@@ -1,0 +1,54 @@
+/* ==========================================================================
+   Base Styles - Global Variables, Base Layout, VS Code Theme Integration
+   ========================================================================== */
+
+/* Global CSS variables */
+:root { 
+  --ctrl-h: 24px; 
+}
+
+/* Global layout settings */
+html, body { 
+  height: 100vh; 
+  margin: 0; 
+  padding: 0; 
+  overflow: hidden; 
+  display: flex; 
+  flex-direction: column; 
+  font-size: var(--vscode-font-size); 
+}
+
+body { 
+  font-family: var(--vscode-font-family); 
+  color: var(--vscode-editor-foreground); 
+  background: var(--vscode-editor-background); 
+  padding: 8px 10px; 
+  box-sizing: border-box; 
+  display: flex; 
+  flex-direction: column; 
+}
+
+/* Global utility classes */
+.mono { 
+  font-family: var(--vscode-editor-font-family, monospace); 
+}
+
+body.compact .list-title > span { 
+  display: none; 
+}
+
+body.compact .item-tooltip { 
+  display: none; 
+}
+
+body.compact .list-title { 
+  gap: 6px; 
+}
+
+body.compact tr.item-row { 
+  height: 30px; 
+}
+
+body.compact .tags-cell { 
+  display: none; 
+}

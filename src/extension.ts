@@ -88,16 +88,16 @@ let _pollTimer: NodeJS.Timeout | null = null;
 let _pollStableCount = 0;
 
 /** 目前使用的輪詢間隔（毫秒） */
-let _pollCurrentInterval = 20000;
+let _pollCurrentInterval = 30000;
 
 /** 最近一次偵測到遠端同步變更並套用的時間戳 (ms) - 用於 UI "Last sync" 指示器 */
 let _lastSyncApplied: number | null = null;
 
 /**
- * 進階自適應階梯：20s → 45s → 90s → 180s (3m) → 300s (5m) → 600s (10m)
+ * 進階自適應階梯：30s → 60s → 120s (2m) → 180s (3m) → 300s (5m) → 600s (10m)
  * 依據連續未變更次數逐步放緩輪詢，節省資源同時保持同步能力
  */
-const POLL_INTERVAL_STEPS = [20000, 45000, 90000, 180000, 300000, 600000];
+const POLL_INTERVAL_STEPS = [30000, 60000, 120000, 180000, 300000, 600000];
 
 /**
  * 計算自適應輪詢間隔
@@ -122,7 +122,7 @@ function _calcAdaptiveInterval(isPanelOpen: boolean, stable: number): number {
   } else {
     idx = 0;
   }
-  // 若面板開啟，避免過慢（最高到 index 2 = 90s）
+  // 若面板開啟，避免過慢（最高到 index 2 = 120s）
   if (isPanelOpen && idx > 2) { idx = 2; }
   return POLL_INTERVAL_STEPS[idx];
 }
@@ -797,7 +797,7 @@ function backgroundPollOnce(context: vscode.ExtensionContext, noAdapt = false): 
     }
     _pollStableCount = 0;
     _pollCurrentInterval = POLL_INTERVAL_STEPS[0];
-  _lastSyncApplied = Date.now();
+    _lastSyncApplied = Date.now();
     return true;
   }
   if (!noAdapt) {
@@ -860,18 +860,18 @@ async function loadDefaultsFromJson(context: vscode.ExtensionContext): Promise<S
 
   // 先嘗試遠端（GitHub raw）→ 失敗再 fallback 本地 packaged 檔案
   // 風險控管：
-  //  - Timeout 3s 避免 activation 卡住
-  //  - 限制大小 256KB
+  //  - Timeout 10s 避免卡死
+  //  - 限制大小 2mb 避免過大
   //  - 僅允許陣列 JSON，否則視為失敗
   const RAW_BASE = 'https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/media';
-  const SIZE_LIMIT = 256 * 1024;
+  const SIZE_LIMIT = 2 * 1024 * 1024;
 
   const tryFetchRemote = async (loc: string): Promise<SbhItem[] | null> => {
     const url = `${RAW_BASE}/script-store.defaults.${loc}.json`;
     try {
       const text = await new Promise<string>((resolve, reject) => {
         const controller = new AbortController();
-        const timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, 3000);
+        const timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, 10000);
         // 使用 https 模組，避免對 fetch lib 依賴
         const https = require('https') as typeof import('https');
         https.get(url, { signal: (controller as any).signal, headers: { 'User-Agent': 'status-bar-helper' } }, (res: any) => {
@@ -931,13 +931,6 @@ function normalizeDefaultJsonItem(x: any): SbhItem | null {
   hidden: !!x.hidden,
   tags: Array.isArray(x.tags) ? x.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0, 12) : undefined
   };
-}
-
-// Deprecated: 後續將移除，僅作為 JSON 載入失敗 fallback
-
-// 若使用者在加入 Chat A/B 之前已安裝，globalState 中可能沒有這兩個項目或 script 為空字串。
-async function backfillChatMessagingSamples(context: vscode.ExtensionContext) {
-  // 轉型後：Chat A/B 預設腳本已內嵌於 JSON，不做舊版補寫。
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1106,10 +1099,10 @@ function registerBridge(context: vscode.ExtensionContext) {
           return catalog.map(entry => {
             const installed = idx.get(entry.command);
             const scriptContent = entry.script || '';
-            const catalogHash = computeHash(scriptContent + '|' + entry.text + '|' + (entry.tooltip||'') + '|' + JSON.stringify(entry.tags||[]));
+            const catalogHash = computeHash(scriptContent + '|' + entry.text + '|' + (entry.tooltip||''));
             let status: 'installed' | 'update' | 'new' = 'new';
             if (installed) {
-              const installedHash = computeHash((installed.script||'') + '|' + installed.text + '|' + (installed.tooltip||'') + '|' + JSON.stringify(installed.tags||[]));
+              const installedHash = computeHash((installed.script||'') + '|' + installed.text + '|' + (installed.tooltip||''));
               status = installedHash === catalogHash ? 'installed' : 'update';
             }
             return { ...entry, hash: catalogHash, status };
@@ -1155,6 +1148,10 @@ function registerBridge(context: vscode.ExtensionContext) {
             try {
               await saveAllToGlobal(context, remain);
               await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              // 通知 Webview 更新資料
+              if (SettingsPanel.currentPanel) {
+                try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+              }
               return { ok:true, data:{ command } };
             } catch(e:any){
               return { ok:false, error:'uninstallFailed', message:e?.message||String(e) };
@@ -1165,18 +1162,23 @@ function registerBridge(context: vscode.ExtensionContext) {
             const cat = buildStatusView(await loadCatalog());
             const subset = Array.isArray(commands) && commands.length ? cat.filter(c => commands.includes(c.command)) : cat;
             const diffs = subset.map(entry => {
-              const installed = indexItems().get(entry.command);
-              if (!installed) { return { command: entry.command, status: 'new' }; }
+            const installed = indexItems().get(entry.command) || {
+                text: '', tooltip: '', tags: [], script: ''
+              };
               return {
                 command: entry.command,
                 status: entry.status,
                 changed: entry.status === 'update',
-                before: entry.status === 'update' ? {
-                  text: installed.text, tooltip: installed.tooltip, tags: installed.tags, script: installed.script
-                } : undefined,
-                after: entry.status === 'update' ? {
-                  text: entry.text, tooltip: entry.tooltip, tags: entry.tags, script: entry.script
-                } : undefined
+                before: {
+                  text: installed?.text, 
+                  tooltip: installed?.tooltip,  
+                  script: installed?.script
+                },
+                after: {
+                  text: entry.text, 
+                  tooltip: entry.tooltip, 
+                  script: entry.script
+                }
               };
             });
             return { ok:true, data:{ diffs } };
@@ -1184,7 +1186,13 @@ function registerBridge(context: vscode.ExtensionContext) {
           case 'install': {
             const [payload] = args as [CatalogEntry];
             const r = await applyInstall(payload);
-            if (r.ok) { await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar'); }
+            if (r.ok) { 
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+              // 通知 Webview 更新資料
+              if (SettingsPanel.currentPanel) {
+                try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+              }
+            }
             return r;
           }
           case 'bulkInstall': {
@@ -1199,10 +1207,18 @@ function registerBridge(context: vscode.ExtensionContext) {
               if (!r.ok) { // rollback
                 try { await saveAllToGlobal(context, snapshot); } catch {}
                 await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+                // 通知 Webview 更新資料
+                if (SettingsPanel.currentPanel) {
+                  try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+                }
                 return { ok:false, error:'partialFailureRolledBack', data:{ results } };
               }
             }
             await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
+            // 通知 Webview 更新資料
+            if (SettingsPanel.currentPanel) {
+              try { (SettingsPanel.currentPanel as any)._sendStateToWebview?.(); } catch {}
+            }
             return { ok:true, data:{ results } };
           }
         }
@@ -1611,33 +1627,39 @@ function registerBridge(context: vscode.ExtensionContext) {
   });
 }
 
+function nowTime() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  return `${hh}:${mm}:${ss}.${ms}`; // 若不要毫秒就去掉 .${ms}
+}
+
 // ─────────────────────────────────────────────────────────────
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('🚀 Status Bar Helper: 開始啟動');
+  console.log(`${nowTime()} 🚀 Status Bar Helper: starting`);
   const outputChannel = vscode.window.createOutputChannel(localize('ext.outputChannel', 'Status Bar Helper'));
-  outputChannel.appendLine('Status Bar Helper 正在啟動...');
+  outputChannel.appendLine(`${nowTime()} 🚀 Status Bar Helper: starting`);
   
   try {
-    console.log('✅ Status Bar Helper Activated');
 
     // 1) 初始化 globalState 同步設定
     initGlobalSyncKeys(context);
 
-    // 2) 執行一次性遷移（從 settings.json 到 globalState）
-    await migrateFromSettingsIfNeeded(context);
-
-    // 3) 植入預設項目（若目前為空）
+    // 2) 植入預設項目（若目前為空）
     await ensureDefaultItems(context);
 
-    // 4) 回填可能為空的 Chat A/B 範例腳本
-    await backfillChatMessagingSamples(context);
+    // 3) 執行一次性遷移（從 settings.json 到 globalState）
+    await migrateFromSettingsIfNeeded(context);
 
-    // 5) 初始化 SmartBackupManager
+    // 4) 初始化 SmartBackupManager
     _smartBackupManager = new SmartBackupManager(context);
     await _smartBackupManager.start();
 
-    // 6) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
+    // 5) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
     updateStatusBarItems(context, true);
+    
     // 啟動背景輪詢偵測同步變更
     startBackgroundPolling(context);
 
@@ -1703,11 +1725,11 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
   
-  outputChannel.appendLine('✅ Status Bar Helper 啟動完成');
-  console.log('✅ Status Bar Helper: 啟動完成');
+  outputChannel.appendLine(`${nowTime()} ✅ Status Bar Helper: successfully activated`);
+  console.log(`${nowTime()} ✅ Status Bar Helper: successfully activated`);
   } catch (error) {
-    outputChannel.appendLine(`❌ Status Bar Helper 啟動失敗: ${error}`);
-    console.error('❌ Status Bar Helper 啟動失敗:', error);
+    outputChannel.appendLine(`${nowTime()} ❌ Status Bar Helper failed to activate: ${error}`);
+    console.error(`${nowTime()} ❌ Status Bar Helper failed to activate:`, error);
     throw error;
   }
 }
