@@ -156,10 +156,16 @@ Security & Resource Management:
               display: flex;
               align-items: center;
               gap: 18px;
-              justify-content: flex-end;
+              justify-content: space-between;
               padding: 2px 0 0 0;
             "
           >
+            <span
+              class="sbh-doclink"
+              title="腳本開發指南提示詞"
+            >
+              📖 <span data-nls="promptForScriptDevelopmentGuide"></span>
+            </span>
             <button
               class="backup-manage-btn"
               style="
@@ -185,7 +191,7 @@ Security & Resource Management:
                 style="flex: 1; text-align: center"
                 id="backup-manage-label"
                 data-nls="backupManagement"
-                >備份管理</span
+                ></span
               >
             </button>
           </div>
@@ -210,6 +216,7 @@ Security & Resource Management:
       if (!window.vscode) {
         window.vscode = vscode;
       }
+      let currentLocale = '';
 
       // ============================================================================
       // Internationalization (I18n) System - Integrated with I18nHelper Module
@@ -694,6 +701,30 @@ const util = require('util');
       // Using Web Components for enhanced import/export functionality
 
       function initializeUI() {
+
+        const docLink = document.querySelector(".sbh-doclink");
+
+        docLink.addEventListener("click", () => {
+          const fileName = currentLocale === 'zh-tw' ? 'generate-script.prompt.md' : 'generate-script-en.prompt.md';
+          const promptUrl = `https://github.com/JiaHongL/status-bar-helper/blob/main/docs/${fileName}`;
+          try {
+            // 通過 RPC 調用主頁面的 openExternal 功能
+            if (window.vscode) {
+              window.vscode.postMessage({ 
+                command: 'openExternal', 
+                url: promptUrl 
+              });
+            } else {
+              // 後備方案：直接開啟連結
+              window.open(promptUrl, '_blank');
+            }
+          } catch (error) {
+            console.error('Failed to open share link:', error);
+            // 後備方案：直接開啟連結
+            window.open(promptUrl, '_blank');
+          }
+        });
+
         // Initialize List View Web Component
         listViewComponent = document.getElementById('list-view-component');
         if (listViewComponent) {
@@ -986,8 +1017,10 @@ const util = require('util');
           case "loadState":
             items = msg.items || [];
             typeDefs = msg.typeDefs;
+            currentLocale = msg.currentLocale || 'en';
             window.__lastSyncAt = msg.lastSyncAt || null;
             updateLastSyncDisplay();
+
 
             // Load translations using I18nHelper system
             if (msg.translations) {

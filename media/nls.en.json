@@ -180,5 +180,6 @@
   "exportSelected": "Confirm ({count})",
   "operationSuccessful": "Operation successful",
   "operationFailed": "Operation failed",
-  "category": "Category"
+  "category": "Category",
+  "promptForScriptDevelopmentGuide": "Script Development Guide (Prompt)"
 }
