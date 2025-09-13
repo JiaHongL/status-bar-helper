@@ -1,6 +1,13 @@
 /**
  * Confirmation Dialog Web Component
  * 將原有的 confirmation.js 重構為 Web Components 架構
+ *
+ * Attributes:
+ * - visible: boolean - 控制對話框顯示/隱藏
+ * - title: string - 對話框標題
+ * - message: string - 對話框訊息
+ * - type: string - 對話框類型 ('confirm', 'choice', 'toast')，Toast 類型預設無遮罩
+ * - no-overlay: boolean - 是否顯示遮罩層（設置此屬性時不顯示遮罩背景）
  */
 
 class ConfirmationDialog extends HTMLElement {
@@ -39,23 +46,40 @@ class ConfirmationDialog extends HTMLElement {
     const message = this.getAttribute('message') || '';
     const type = this.getAttribute('type') || 'confirm'; // confirm, choice, toast
     const visible = this.hasAttribute('visible');
+    const noOverlay = this.hasAttribute('no-overlay') || type === 'toast'; // Toast 類型預設無遮罩
+
+    // Toast 使用不同的定位方式，不佔據全屏
+    const hostStyles = type === 'toast' ? `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10000;
+      display: ${visible ? 'block' : 'none'};
+      pointer-events: none; /* Toast 不攔截點擊事件 */
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    ` : `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10000;
+      display: ${visible ? 'flex' : 'none'};
+      align-items: center;
+      justify-content: center;
+      background: ${noOverlay ? 'transparent' : 'rgba(0, 0, 0, 0.4)'};
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+    `;
 
     this.shadowRoot.innerHTML = `
       <style>
         /* 使用簡單的圖示符號，避免字體依賴 */
         :host {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 10000;
-          display: ${visible ? 'flex' : 'none'};
-          align-items: center;
-          justify-content: center;
-          background: rgba(0, 0, 0, 0.4);
-          font-family: var(--vscode-font-family);
-          font-size: var(--vscode-font-size);
+          ${hostStyles}
         }
 
         .dialog {
@@ -196,6 +220,7 @@ class ConfirmationDialog extends HTMLElement {
           align-items: center;
           gap: 8px;
           z-index: 10001;
+          pointer-events: auto; /* Toast 本身可以接收點擊事件 */
         }
 
         .toast.success {
@@ -328,28 +353,38 @@ class ConfirmationDialog extends HTMLElement {
   }
 
   setupEventListeners() {
-    // 點擊遮罩關閉
-    this.addEventListener('click', (e) => {
-      if (e.target === this) {
+    // 移除舊的事件監聽器
+    this.removeEventListener('click', this.handleHostClick);
+    this.removeEventListener('keydown', this.handleKeyDown);
+    this.shadowRoot.removeEventListener('click', this.handleShadowClick);
+
+    // 點擊遮罩關閉（只有在有遮罩且不是 Toast 時才有效）
+    this.handleHostClick = (e) => {
+      const type = this.getAttribute('type') || 'confirm';
+      if (e.target === this && !this.hasAttribute('no-overlay') && type !== 'toast') {
         this.close('Cancel');
       }
-    });
+    };
+    this.addEventListener('click', this.handleHostClick);
 
     // 按鈕點擊事件
-    this.shadowRoot.addEventListener('click', (e) => {
+    this.handleShadowClick = (e) => {
       const button = e.target.closest('.button');
       if (button) {
         const choice = button.dataset.choice;
         this.close(choice);
       }
-    });
+    };
+    this.shadowRoot.addEventListener('click', this.handleShadowClick);
 
-    // ESC 鍵關閉
-    this.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
+    // ESC 鍵關閉（Toast 不支援 ESC 關閉）
+    this.handleKeyDown = (e) => {
+      const type = this.getAttribute('type') || 'confirm';
+      if (e.key === 'Escape' && type !== 'toast') {
         this.close('Cancel');
       }
-    });
+    };
+    this.addEventListener('keydown', this.handleKeyDown);
   }
 
   escapeHtml(text) {
@@ -384,7 +419,7 @@ class ConfirmationDialog extends HTMLElement {
   }
 
   // Toast 自動關閉
-  showToast(type, message, duration = 3000) {
+  showToast(type, message, duration = 1000) {
     this.setAttribute('type', 'toast');
     this.setAttribute('toast-type', type);
     this.setAttribute('message', message);
@@ -422,6 +457,14 @@ class ConfirmationSystem {
     this.ensureDialog();
   }
 
+  getText(key, defaultValue) {
+    if (window.I18nHelper && window.I18nHelper.getNlsText) {
+      return window.I18nHelper.getNlsText(key, defaultValue);
+    }
+    return defaultValue || key;
+  }
+
+
   ensureDialog() {
     if (!this.dialog) {
       this.dialog = document.createElement('confirmation-dialog');
@@ -451,38 +494,34 @@ class ConfirmationSystem {
     return result === 'Delete';
   }
 
-  showToast(type, message, duration = 3000) {
+  showToast(type, message, duration = 1000) {
     const dialog = this.ensureDialog();
     dialog.showToast(type, message, duration);
   }
 
-  // 便捷方法
-  showSuccess(message, duration = 3000) {
-    this.showToast('success', message, duration);
+  showSuccess(message='operationSuccessful', duration = 1000) {
+    const translatedMessage = this.getText(message, 'Operation successful');
+    this.showToast('success', translatedMessage, duration);
   }
 
-  showError(message, duration = 3000) {
-    this.showToast('error', message, duration);
+  showError(message='operationFailed', duration = 1000) {
+    const translatedMessage = this.getText(message, 'Operation failed');
+    this.showToast('error', translatedMessage, duration);
   }
 
-  showWarning(message, duration = 3000) {
-    this.showToast('warning', message, duration);
+  showWarning(message='', duration = 1000) {
+    const translatedMessage = this.getText(message, 'Operation warning');
+    this.showToast('warning', translatedMessage, duration);
   }
 
-  showInfo(message, duration = 3000) {
-    this.showToast('info', message, duration);
+  showInfo(message='', duration = 1000) {
+    const translatedMessage = this.getText(message, 'Operation information');
+    this.showToast('info', translatedMessage, duration);
   }
 }
 
 // 建立全域實例
 window.ConfirmationSystem = new ConfirmationSystem();
-
-// 向後相容性 - 全域函式
-window.showChoiceDialog = (title, message, choices) => 
-  window.ConfirmationSystem.showChoiceDialog(title, message, choices);
-
-window.showToast = (type, message, duration) => 
-  window.ConfirmationSystem.showToast(type, message, duration);
 
 // 確保 I18nHelper 整合（如果可用）
 if (window.I18nHelper) {

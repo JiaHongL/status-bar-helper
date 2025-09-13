@@ -110,17 +110,6 @@ class ImportDialog extends HTMLElement {
       tooltipTh.textContent = this.getNlsText('tooltip', 'Tooltip');
     }
 
-    // 更新按鈕
-    const selectAllBtn = shadow.getElementById('select-all-btn');
-    if (selectAllBtn) {
-      selectAllBtn.textContent = this.getNlsText('selectAll', '全選');
-    }
-
-    const deselectAllBtn = shadow.getElementById('deselect-all-btn');
-    if (deselectAllBtn) {
-      deselectAllBtn.textContent = this.getNlsText('deselectAll', '全部取消選擇');
-    }
-
     const importBtn = shadow.getElementById('import-btn');
     if (importBtn) {
       importBtn.textContent = this.getNlsText('import', '匯入');
@@ -520,19 +509,11 @@ class ImportDialog extends HTMLElement {
               <hr class="thin-sep" />
             </div>
           </div>
-          <div class="selection-controls">
-            <div class="checkbox-container">
-              <input type="checkbox" id="select-all-checkbox">
-              <label for="select-all-checkbox">Select All</label>
-            </div>
-            <button class="btn-secondary" id="select-all-btn">Select All</button>
-            <button class="btn-secondary" id="deselect-all-btn">Deselect All</button>
-          </div>
           <div id="table-container" class="table-container">
             <table class="items-table" id="items-table">
               <thead>
                 <tr>
-                  <th style="width: 40px;"></th>
+                  <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
                   <th id="th-text">Text</th>
                   <th id="th-command">Command</th>
                   <th id="th-tooltip">Tooltip</th>
@@ -580,19 +561,9 @@ class ImportDialog extends HTMLElement {
 
     // Selection controls
     const selectAllCheckbox = shadow.getElementById('select-all-checkbox');
-    const selectAllBtn = shadow.getElementById('select-all-btn');
-    const deselectAllBtn = shadow.getElementById('deselect-all-btn');
     
     selectAllCheckbox.addEventListener('change', (e) => {
       this.toggleSelectAll(e.target.checked);
-    });
-    
-    selectAllBtn.addEventListener('click', () => {
-      this.toggleSelectAll(true);
-    });
-    
-    deselectAllBtn.addEventListener('click', () => {
-      this.toggleSelectAll(false);
     });
 
     // Import action
@@ -688,9 +659,9 @@ class ImportDialog extends HTMLElement {
 
     let txt = '';
     if (this.mergeStrategy === 'replace') {
-      txt = '取代模式';
+      txt = this.getNlsText('replaceAll', '取代');
     } else if (this.mergeStrategy === 'append') {
-      txt = '新增 / ' + (this.conflictPolicy === 'newId' ? '重名改名' : '重名略過');
+      txt = this.getNlsText('add', '新增') + '/ ' + (this.conflictPolicy === 'newId' ? this.getNlsText('renameOnConflict', '重名改名') : this.getNlsText('skipOnConflict', '重名略過'));
     }
     summaryEl.textContent = txt;
   }

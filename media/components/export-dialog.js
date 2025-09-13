@@ -36,22 +36,6 @@ class ExportDialog extends HTMLElement {
       title.textContent = this.getNlsText('selectItemsToExport', '選擇要匯出的項目');
     }
 
-    // 更新選擇控制按鈕
-    const selectAllLabel = shadow.querySelector('label[for="select-all-checkbox"]');
-    if (selectAllLabel) {
-      selectAllLabel.textContent = this.getNlsText('selectAll', '全選');
-    }
-
-    const selectAllBtn = shadow.getElementById('select-all-btn');
-    if (selectAllBtn) {
-      selectAllBtn.textContent = this.getNlsText('selectAll', '全選');
-    }
-
-    const deselectAllBtn = shadow.getElementById('deselect-all-btn');
-    if (deselectAllBtn) {
-      deselectAllBtn.textContent = this.getNlsText('deselectAll', '全部取消選擇');
-    }
-
     // 更新表格標題
     const headers = shadow.querySelectorAll('th');
     if (headers[1]) {
@@ -153,24 +137,6 @@ class ExportDialog extends HTMLElement {
         display: flex;
         flex-direction: column;
         min-height: 0; /* 允許內容縮小 */
-      }
-
-      .selection-controls {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 16px;
-        align-items: center;
-        flex-shrink: 0; /* 控制項不縮小 */
-      }
-
-      .checkbox-container {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .checkbox-container input[type="checkbox"] {
-        margin: 0;
       }
 
       .btn-secondary {
@@ -311,19 +277,11 @@ class ExportDialog extends HTMLElement {
           <button class="close-btn" id="close-btn" title="Close" aria-label="Close dialog">×</button>
         </div>
         <div class="dialog-content">
-          <div class="selection-controls">
-            <div class="checkbox-container">
-              <input type="checkbox" id="select-all-checkbox">
-              <label for="select-all-checkbox">Select All</label>
-            </div>
-            <button class="btn-secondary" id="select-all-btn">Select All</button>
-            <button class="btn-secondary" id="deselect-all-btn">Deselect All</button>
-          </div>
           <div id="table-container" class="table-container">
             <table class="items-table" id="items-table">
               <thead>
                 <tr>
-                  <th></th>
+                  <th><input type="checkbox" id="select-all-checkbox"></th>
                   <th>Text</th>
                   <th>Command</th>
                   <th>Tooltip</th>
@@ -372,19 +330,9 @@ class ExportDialog extends HTMLElement {
 
     // Selection controls
     const selectAllCheckbox = shadow.getElementById('select-all-checkbox');
-    const selectAllBtn = shadow.getElementById('select-all-btn');
-    const deselectAllBtn = shadow.getElementById('deselect-all-btn');
     
     selectAllCheckbox.addEventListener('change', (e) => {
       this.toggleSelectAll(e.target.checked);
-    });
-    
-    selectAllBtn.addEventListener('click', () => {
-      this.toggleSelectAll(true);
-    });
-    
-    deselectAllBtn.addEventListener('click', () => {
-      this.toggleSelectAll(false);
     });
 
     // Export action

@@ -250,8 +250,4 @@
         // 內部實例（供除錯用）
         _instance: i18nHelper
     };
-
-    // 模組載入完成提示
-    console.log('📖 I18n Helper Module loaded successfully (v1.0.0)');
-
 })();

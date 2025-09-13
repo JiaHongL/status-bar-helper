@@ -33,13 +33,6 @@ body {
   font-family: var(--vscode-editor-font-family, monospace); 
 }
 
-/* Compact mode responsive classes */
-@media (max-width: 1100px) {
-  .last-sync .last-sync-text { 
-    display: none; 
-  }
-}
-
 body.compact .list-title > span { 
   display: none; 
 }

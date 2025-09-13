@@ -166,9 +166,9 @@ class ListViewComponent extends HTMLElement {
               <th data-nls="labelTooltip">${this.getText('labelTooltip', 'Item & Tooltip')}</th>
               <th style="width: 80px; text-align: center;" data-nls="status">${this.getText('status', 'Status')}</th>
               <th style="width: 80px; text-align: center;" data-nls="visible">${this.getText('visible', 'Visible')}</th>
-              <th style="width: 100px; text-align: center;" data-nls="runAtStartup">${this.getText('runAtStartup', 'Run at Startup')}</th>
-              <th style="width: 80px; text-align: center;" data-nls="cmdId">${this.getText('cmdId', 'Command ID')}</th>
-              <th style="width: 140px; text-align: center;" data-nls="actions">${this.getText('actions', 'Actions')}</th>
+              <th style="width: 120px; text-align: center;" data-nls="runAtStartup">${this.getText('runAtStartup', 'Run at Startup')}</th>
+              <th class="command-th" style="width: 80px; text-align: center;" data-nls="cmdId">${this.getText('cmdId', 'Command ID')}</th>
+              <th style="width: 120px; text-align: center;" data-nls="actions">${this.getText('actions', 'Actions')}</th>
             </tr>
           </thead>
           <tbody id="items-list-body">
@@ -482,7 +482,7 @@ class ListViewComponent extends HTMLElement {
       }
 
       /* Responsive adjustments */
-      @media (max-width: 860px) {
+      @media (max-width: 900px) {
         .item-tooltip {
           display: none;
         }
@@ -495,6 +495,16 @@ class ListViewComponent extends HTMLElement {
         table.list-table th,
         table.list-table td {
           padding: 4px 6px;
+        }
+      }
+      @media (max-width: 1000px) {
+        .command-th, .command-td {
+          display: none;
+        }
+      }
+      @media (max-width: 1100px) {
+        .running-txt{
+          display: none;
         }
       }
     `;
@@ -636,7 +646,7 @@ class ListViewComponent extends HTMLElement {
       <td>
         <div class="td-content-wrapper justify-center">
           ${isRunning 
-            ? `<span class="running-dot">${this.getText('running', 'Running')}</span>`
+            ? `<span class="running-dot"><span class="running-txt">${this.getText('running', 'Running')}</span></span>`
             : `<span style="opacity:.5">—</span>`
           }
         </div>
@@ -657,10 +667,10 @@ class ListViewComponent extends HTMLElement {
           </label>
         </div>
       </td>
-      <td>
+      <td class="command-td">
         <div class="td-content-wrapper justify-center">
           <div class="command-cell">
-            <button class="copy-btn" title="Copy ${this._escapeHtml(item.command || '')}">
+            <button class="copy-btn" data-index="${originalIndex}" title="Copy ${this._escapeHtml(item.command || '')}">
               <i class="codicon codicon-clippy"></i>
             </button>
             <input type="text" readonly class="command-input" style="display: none;" value="${this._escapeHtml(item.command || '')}" />
@@ -699,7 +709,6 @@ class ListViewComponent extends HTMLElement {
     if (!button) {
       return;
     }
-
     const index = parseInt(button.dataset.index);
     if (isNaN(index)) {
       return;
@@ -743,14 +752,16 @@ class ListViewComponent extends HTMLElement {
     if (!button) {
       return;
     }
-
     const input = button.parentElement.querySelector('.command-input');
     if (input && input.value) {
+      const originalText = button.innerHTML;
+      button.innerHTML = '<i class="codicon codicon-check"></i>';
       navigator.clipboard.writeText(input.value).then(() => {
+        setTimeout(() => {
+            button.innerHTML = originalText;
+        }, 500);
         this._dispatchItemEvent('command-copied', { command: input.value });
-      }).catch(err => {
-        // Silently handle clipboard failure
-      });
+      }).catch(err => {});
     }
   }
 

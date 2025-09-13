@@ -103,6 +103,9 @@ export class SettingsPanel {
   /** 面板專用的 VM 執行狀態定時器（用於「Run」按鈕預覽） */
   private sendRunningSetIntervalId: NodeJS.Timeout | undefined;
 
+  /** 最近一次成功同步的時間戳 */
+  lastSyncAt = null; // timestamp of last successful sync
+
   /**
    * Settings Panel 建構函數
    * @param panel VS Code webview 面板實例
@@ -119,6 +122,7 @@ export class SettingsPanel {
     this.sendRunningSetIntervalId = setInterval(()=>{
       this._sendRunningToWebview();
       this._sendStoredDataToWebview();
+      this._checkLastSync();
     }, 2500);
 
     this._panel = panel;
@@ -358,6 +362,7 @@ export class SettingsPanel {
                 next = current.concat(appended);
               }
               await saveAllToGlobal(SettingsPanel.extensionContext, next);
+              await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
               this._sendStateToWebview();
               this._panel.webview.postMessage({ command: 'importDone', items: next });
               vscode.window.showInformationMessage(localize('import.success', 'Settings imported successfully.'));
@@ -591,11 +596,10 @@ export class SettingsPanel {
     const translations = this._loadTranslations();
     const currentLocale = vscode.env.language;
 
-    let lastSyncAt: number | null = null;
     try {
       vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'hostRun', fn: 'lastSyncInfo', args: [] })
         .then((r:any) => {
-          if (r && r.ok) { lastSyncAt = r.data?.lastSyncAt ?? null; }
+          if (r && r.ok) { this.lastSyncAt = r.data?.lastSyncAt ?? null; }
           this._panel.webview.postMessage({
             command: 'loadState',
             items,
@@ -604,7 +608,7 @@ export class SettingsPanel {
             typeDefs,
             translations,
             currentLocale,
-            lastSyncAt
+            lastSyncAt: this.lastSyncAt
           });
           this._sendRunningToWebview();
         });
@@ -620,7 +624,7 @@ export class SettingsPanel {
       typeDefs,
       translations,
       currentLocale,
-      lastSyncAt
+      lastSyncAt: this.lastSyncAt
     });
     this._sendRunningToWebview();
   }
@@ -654,6 +658,21 @@ export class SettingsPanel {
       console.warn('Failed to load webview translations:', error);
       return {};
     }
+  }
+
+  private _checkLastSync(){
+    try {
+      vscode.commands.executeCommand('statusBarHelper._bridge', { ns: 'hostRun', fn: 'lastSyncInfo', args: [] })
+        .then((r:any) => {
+          if(this.lastSyncAt !== r.data?.lastSyncAt){
+            this.lastSyncAt = r.data?.lastSyncAt ?? null;
+            this._panel.webview.postMessage({
+              command: 'sync:lastSyncAt',
+              lastSyncAt: this.lastSyncAt
+            });
+          }
+        });
+    } catch {}
   }
 
   private async _sendStoredDataToWebview(){
@@ -692,24 +711,14 @@ export class SettingsPanel {
     );
 
     const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
-    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'codicon.css'));
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
     const componentsBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
-    const i18nHelperUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils', 'i18n-helper.js'));
-    const confirmationDialogUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'confirmation-dialog.js'));
-    const listViewComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'list-view.js'));
-    const monacoEditorComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'monaco-editor.js'));
-    const editPageComponentUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components', 'edit-page.js'));
+    const utilsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils'));
 
     htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
-    htmlContent = htmlContent.replace(/{{codiconsUri}}/g, codiconsUri.toString());
     htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
     htmlContent = htmlContent.replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString());
-    htmlContent = htmlContent.replace(/{{i18nHelperUri}}/g, i18nHelperUri.toString());
-    htmlContent = htmlContent.replace(/{{confirmationDialogUri}}/g, confirmationDialogUri.toString());
-    htmlContent = htmlContent.replace(/{{listViewComponentUri}}/g, listViewComponentUri.toString());
-    htmlContent = htmlContent.replace(/{{monacoEditorComponentUri}}/g, monacoEditorComponentUri.toString());
-    htmlContent = htmlContent.replace(/{{editPageComponentUri}}/g, editPageComponentUri.toString());
+    htmlContent = htmlContent.replace(/{{utilsUri}}/g, utilsUri.toString());
 
     return htmlContent;
   }

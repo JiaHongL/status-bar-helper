@@ -415,7 +415,7 @@ class DataView extends HTMLElement {
 
         /* Size Column */
         .data-size-cell {
-          text-align: right;
+          text-align: left;
           font-family: var(--vscode-editor-font-family);
           font-size: 0.85em;
           color: var(--vscode-descriptionForeground);
@@ -423,7 +423,7 @@ class DataView extends HTMLElement {
 
         /* Actions Column */
         .data-actions-cell {
-          text-align: right;
+          text-align: center;
         }
 
         .data-delete-btn {
@@ -514,8 +514,8 @@ class DataView extends HTMLElement {
             <tr>
               <th style="width: 180px" data-nls="type">Type</th>
               <th data-nls="keyPath">Key / Path</th>
-              <th style="width: 120px" data-nls="size">Size</th>
-              <th style="width: 100px; text-align: right" data-nls="actions">Actions</th>
+              <th style="width: 80px" data-nls="size">Size</th>
+              <th style="width: 50px; text-align: center" data-nls="actions">Actions</th>
             </tr>
           </thead>
           <tbody id="data-table-body">
@@ -577,7 +577,7 @@ class DataView extends HTMLElement {
       const filteredData = this._filteredData || [];
       
       if (!filteredData.length) {
-        await window.showChoiceDialog(
+        await window.ConfirmationSystem.showChoiceDialog(
           this.getNlsText("nothingToDelete", "沒有可刪除的資料"),
           this.getNlsText("nothingToDeleteDesc", "目前列表為空。"),
           [this.getNlsText("ok", "好")]
@@ -585,9 +585,9 @@ class DataView extends HTMLElement {
         return;
       }
 
-      const choice = await window.showChoiceDialog(
-        this.getNlsText("clearFilteredData", "清除目前列表"),
-        this.getNlsText("clearFilteredDataDesc", `確定要刪除目前列表的 ${filteredData.length} 項資料嗎？此操作無法復原。`),
+      const choice = await window.ConfirmationSystem.showChoiceDialog(
+        this.getNlsText("clearFiltered", "清除目前列表"),
+        this.getNlsText("clearFilteredMessage", `確定要刪除目前列表的 ${filteredData.length} 項資料嗎？此操作無法復原。`).replace('{0}', String(filteredData.length)),
         [this.getNlsText("delete", "刪除"), this.getNlsText("cancel", "取消")]
       );
       
@@ -618,7 +618,7 @@ class DataView extends HTMLElement {
           const row = this._filteredData[index];
           
           // Show confirmation dialog using global showChoiceDialog
-          const choice = await window.showChoiceDialog(
+          const choice = await window.ConfirmationSystem.showChoiceDialog(
             this.getNlsText('deleteConfirm', 'Delete Data'),
             this.getNlsText('deleteDataMessage', 'Are you sure you want to delete the data at "{path}"?').replace('{path}', key),
             [this.getNlsText('delete', 'Delete'), this.getNlsText('cancel', 'Cancel')]

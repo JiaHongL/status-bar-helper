@@ -55,8 +55,6 @@ const util = require('util');
     this.initializeEventListeners();
     this.initializeIconDropdown();
     this.initializeSplitter();
-    
-    console.log('📝 Edit Page Web Component initialized');
   }
 
   disconnectedCallback() {
@@ -120,15 +118,14 @@ const util = require('util');
     const tooltipInput = this.querySelector('#edit-tooltip');
     
     let text = labelInput ? labelInput.value.trim() : '';
-    if (this.selectedIcon && text) {
+    if (this.selectedIcon) {
       text = `\$(${this.selectedIcon}) ${text}`;
     }
     
     return {
-      text,
+      text: text,
       tooltip: tooltipInput ? tooltipInput.value : '',
       script: this.monacoEditor ? this.monacoEditor.value : '',
-      icon: this.selectedIcon
     };
   }
 
@@ -205,7 +202,6 @@ const util = require('util');
       }
       
       const monacoReadyHandler = (e) => {
-        console.log('Monaco Editor ready in Edit Page');
         this.layoutEditor();
       };
       
@@ -380,7 +376,6 @@ const util = require('util');
       text: this.currentItem.text || '',
       tooltip: this.currentItem.tooltip || '',
       script: this.currentItem.script || '',
-      icon: this.selectedIcon || ''
     };
     
     return JSON.stringify(current) !== JSON.stringify(original);
@@ -549,7 +544,7 @@ const util = require('util');
 
   // 渲染圖示列表
   renderIcons(filter = '') {
-    const iconList = this.querySelector('#icon-list');
+    const iconList = this.iconDropdown.querySelector('#icon-list');
     if (!iconList) {
       return;
     }
@@ -754,8 +749,6 @@ const util = require('util');
     });
     
     this.eventHandlers.clear();
-    
-    console.log('📝 Edit Page Web Component cleaned up');
   }
 
   // 國際化輔助方法
@@ -772,6 +765,11 @@ const util = require('util');
     if (this.monacoEditor) {
       this.monacoEditor.setAttribute('monaco-uri', uri);
     }
+  }
+
+  // 獲取 Monaco Editor 實例
+  getMonacoEditor(){
+    return this.monacoEditor;
   }
 
   // 設置國際化資料
@@ -799,5 +797,3 @@ const util = require('util');
 
 // 註冊 Web Component
 customElements.define('edit-page', EditPageComponent);
-
-console.log('📝 Edit Page Web Component defined');

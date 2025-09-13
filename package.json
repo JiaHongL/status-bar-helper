@@ -2,7 +2,7 @@
   "name": "status-bar-helper",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -99,8 +99,7 @@
     "build": "vsce package",
     "publish:patch": "vsce publish patch",
     "publish:minor": "vsce publish minor",
-    "publish:major": "vsce publish major",
-    "nls:check": "node tools/check-nls.mjs"
+    "publish:major": "vsce publish major"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

@@ -205,13 +205,16 @@ class BackupManager extends HTMLElement {
           min-height: 0;
         }
 
-        .backup-actions {
+        .sb-modal-footer {
+          padding: 12px 20px;
+          border-top: 1px solid var(--vscode-panel-border);
+          background: var(--vscode-editor-background);
           display: flex;
-          justify-content: flex-end;
+          justify-content: center; /* 置中 */
           align-items: center;
-          margin-bottom: 16px;
+          gap: 8px;
         }
-
+          
         .sb-btn {
           display: inline-flex;
           align-items: center;
@@ -375,12 +378,6 @@ class BackupManager extends HTMLElement {
             </button>
           </div>
           <div class="sb-modal-body">
-            <div class="backup-actions">
-              <button class="sb-btn" id="create-backup-btn">
-                <span class="codicon codicon-save"></span>
-                <span id="create-backup-label">立即備份</span>
-              </button>
-            </div>
             <div class="sb-table-container">
               <table class="sb-table">
                 <thead>
@@ -404,6 +401,12 @@ class BackupManager extends HTMLElement {
             <div class="backup-hint">
               <span id="backup-hint-label">所有備份僅儲存在本機，請定期自行備份重要資料。</span>
             </div>
+          </div>
+          <div class="sb-modal-footer">
+            <button class="sb-btn sb-btn-primary" id="create-backup-btn">
+              <span class="codicon codicon-save"></span>
+              <span id="create-backup-label">立即備份</span>
+            </button>
           </div>
         </div>
       </div>
@@ -452,6 +455,7 @@ class BackupManager extends HTMLElement {
     this.visible = true;
     this.requestBackupList();
     this.dispatchEvent(new CustomEvent('dialog-opened'));
+    this.updateTexts();
   }
 
   // 隱藏對話框
@@ -695,15 +699,9 @@ class BackupManager extends HTMLElement {
   // 多語系文字取得
   getText(key, defaultValue) {
     // 嘗試使用全域的 I18nHelper
-    if (window.I18nHelper && typeof window.I18nHelper.getNlsText === 'function') {
+    if (window.I18nHelper && window.I18nHelper.getNlsText) {
       return window.I18nHelper.getNlsText(key, defaultValue);
     }
-    
-    // 降級到全域 nls 物件
-    if (window.nls && window.nls[key]) {
-      return window.nls[key];
-    }
-    
     return defaultValue || key;
   }
 

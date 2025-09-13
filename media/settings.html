@@ -66,7 +66,7 @@ Security & Resource Management:
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>StatusBar Helper Settings</title>
     <link rel="stylesheet" href="{{monacoUri}}/editor/editor.main.css" />
-    <link rel="stylesheet" href="{{codiconsUri}}" />
+    <link rel="stylesheet" href="{{stylesUri}}/codicon.css" />
 
     <!-- CSS Modules -->
     <link rel="stylesheet" href="{{stylesUri}}/base.css" />
@@ -75,23 +75,20 @@ Security & Resource Management:
     <link rel="stylesheet" href="{{stylesUri}}/list-view.css" />
     <link rel="stylesheet" href="{{stylesUri}}/edit-page.css" />
 
-    <!-- 
-        ==========================================================================
-        CSS Framework - VS Code Theme Integration & Responsive Design
-        ==========================================================================
-        
-        Design Principles:
-        - Follow VS Code design tokens for seamless integration
-        - Responsive breakpoints: <860px (compact), <1100px (hide sync text)
-        - Modern gradient color system with light/dark theme support
-        - Icon-first interface with consistent 22-28px button sizing
-        - Accessible design with proper ARIA labels and keyboard navigation
-        -->
+    <!-- JavaScript Modules -->
+    <script src="{{utilsUri}}/i18n-helper.js"></script>
+    <script src="{{utilsUri}}/vscode-icons.js"></script>
+
+    <!-- monaco editor source -->
+    <script src="{{monacoUri}}/loader.js"></script>
+
   </head>
   <body>
     <!-- list view wrapper -->
     <div id="list-view-wrapper">
+      <!-- List View -->
       <div id="list-view">
+        <!-- List View Title Bar -->
         <div class="list-title-bar">
           <div class="list-title">
             <i class="codicon codicon-list-selection"></i>
@@ -138,10 +135,9 @@ Security & Resource Management:
             </button>
           </div>
         </div>
-        
         <!-- List View Web Component -->
-        <list-view id="list-view-component" codicons-uri="{{codiconsUri}}"></list-view>
-        
+        <list-view id="list-view-component" codicons-uri="{{stylesUri}}/codicon.css"></list-view>
+        <!-- Backup Status Footer -->
         <div id="backup-status-root" style="margin: 0; padding: 0">
           <div
             style="
@@ -195,26 +191,17 @@ Security & Resource Management:
           </div>
         </div>
       </div>
-
+      
+      <!-- Data View -->
       <div id="data-view">
         <!-- Data View Web Component -->
-        <data-view id="data-view-component" codicons-uri="{{codiconsUri}}"></data-view>
+        <data-view id="data-view-component" codicons-uri="{{stylesUri}}/codicon.css"></data-view>
       </div>
     </div>
 
     <!-- edit view -->
     <edit-page id="edit-page-component"></edit-page>
 
-    <!-- JavaScript Modules -->
-    <script src="{{i18nHelperUri}}"></script>
-    <!-- Web Components (experimental) -->
-    <script src="{{confirmationDialogUri}}"></script>
-    <script src="{{listViewComponentUri}}"></script>
-    <script src="{{monacoEditorComponentUri}}"></script>
-    <script src="{{editPageComponentUri}}"></script>
-    
-    <script src="{{monacoUri}}/loader.js"></script>
-    <script src="{{monacoUri}}/vscode-icons.js"></script>
     <script>
 
       // VS Code API 取得與全域暴露
@@ -399,6 +386,7 @@ Security & Resource Management:
               command: "backup:delete", 
               backupId: e.detail.backupId 
             });
+            window.ConfirmationSystem.showSuccess();
           });
         }
       }
@@ -582,7 +570,7 @@ Security & Resource Management:
           const row = target.closest("tr");
           const keyPathEl = row.querySelector(".mono");
           const keyPath = keyPathEl ? keyPathEl.textContent : "";
-          const choice = await showChoiceDialog(
+          const choice = await window.ConfirmationSystem.showChoiceDialog(
             getNlsText("deleteConfirm", "Delete Data"),
             getNlsText(
               "deleteDataMessage",
@@ -595,6 +583,7 @@ Security & Resource Management:
               command: "data:delete",
               row: storedRows[index],
             });
+            window.ConfirmationSystem.showSuccess();
           }
         });
 
@@ -695,53 +684,8 @@ const util = require('util');
       function bindImportButton() {
         const importBtn = document.getElementById("import-btn");
         if (importBtn) {
-          importBtn.onclick = async () => {
-            try {
-              // Trigger file input to let user select a JSON file
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.json';
-              input.style.display = 'none';
-              
-              input.onchange = async (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                  try {
-                    const text = await file.text();
-                    const items = JSON.parse(text);
-                    
-                    if (!Array.isArray(items)) {
-                      window.ConfirmationSystem.showWarning('Invalid JSON format. Expected array of items.');
-                      return;
-                    }
-                    
-                    // Show import preview dialog using Web Component
-                    const importDialog = document.getElementById('import-dialog');
-                    const result = await window.ImportSystem.showImportPreview(items);
-                    
-                    if (result && result.items.length > 0) {
-                      // Send import command to host
-                      vscode.postMessage({
-                        command: "applyImportSettings",
-                        items: result.items,
-                        mergeStrategy: result.mergeStrategy,
-                        conflictPolicy: result.conflictPolicy
-                      });
-                    }
-                  } catch (error) {
-                    window.ConfirmationSystem.showWarning('Failed to parse JSON file: ' + error.message);
-                  }
-                }
-              };
-              
-              document.body.appendChild(input);
-              input.click();
-              document.body.removeChild(input);
-              
-            } catch (error) {
-              console.error('Import error:', error);
-              window.ConfirmationSystem.showWarning('Import failed: ' + error.message);
-            }
+          importBtn.onclick = () => {
+            vscode.postMessage({ command:'importSettings' });
           };
         }
       }
@@ -796,7 +740,7 @@ const util = require('util');
             const item = items[index];
             if (item) {
               const label = item.text.replace(/^\$\(([^)]+)\) /, '');
-              const choice = await showChoiceDialog(
+              const choice = await window.ConfirmationSystem.showChoiceDialog(
                 getNlsText("deleteConfirm", "Delete Item"),
                 getNlsText(
                   "deleteMessage",
@@ -808,6 +752,7 @@ const util = require('util');
                 items.splice(index, 1);
                 saveAndPostSettings();
                 refreshListView();
+                window.ConfirmationSystem.showSuccess();
               }
             }
           });
@@ -858,6 +803,7 @@ const util = require('util');
             });
             // 延遲刷新，確保後端處理完成
             setTimeout(() => {
+              window.ConfirmationSystem.showSuccess();
               refreshStoredData();
             }, 100);
           });
@@ -873,6 +819,7 @@ const util = require('util');
               });
               // 延遲刷新，確保後端處理完成
               setTimeout(() => {
+                window.ConfirmationSystem.showSuccess();
                 refreshStoredData();
               }, 100);
             }
@@ -886,9 +833,7 @@ const util = require('util');
         monacoEditorComponent = document.getElementById('monaco-editor-component');
         if (monacoEditorComponent) {
           // Set up event listeners for Monaco Editor component
-          monacoEditorComponent.addEventListener('monaco-ready', () => {
-            console.log('Monaco Editor component is ready');
-          });
+          monacoEditorComponent.addEventListener('monaco-ready', () => {});
 
           // Content changed handling is now done by Edit Page Web Component
           // Set initial NLS data
@@ -914,6 +859,7 @@ const util = require('util');
             clearDraftIfMatch(item.command);
             clearEditing();
             showListView();
+            window.ConfirmationSystem.showSuccess();
           });
 
           editPageComponent.addEventListener('cancel-edit', (e) => {
@@ -923,7 +869,7 @@ const util = require('util');
           });
 
           editPageComponent.addEventListener('confirm-discard', async (e) => {
-            const choice = await showChoiceDialog(
+            const choice = await window.ConfirmationSystem.showChoiceDialog(
               getNlsText("discardChanges", "Discard Changes"),
               getNlsText("discardMessage", "You have unsaved changes. Are you sure you want to discard them?"),
               [getNlsText("discard", "Discard"), getNlsText("cancel", "Cancel")]
@@ -1034,13 +980,14 @@ const util = require('util');
       // Initialize after DOM is ready
       setTimeout(initializeUI, 100);
 
-      window.addEventListener("message", (e) => {
+      window.addEventListener("message", async(e) => {
         const msg = e.data;
         switch (msg.command) {
           case "loadState":
             items = msg.items || [];
             typeDefs = msg.typeDefs;
             window.__lastSyncAt = msg.lastSyncAt || null;
+            updateLastSyncDisplay();
 
             // Load translations using I18nHelper system
             if (msg.translations) {
@@ -1055,16 +1002,6 @@ const util = require('util');
             } else {
               showListView();
             }
-            // 若 Script Store 開啟，通知 Web Component 重新整理
-            try {
-              const scriptStoreComponent = document.getElementById("script-store-component");
-              if (scriptStoreComponent && scriptStoreComponent.visible) {
-                // Web Component 會自動處理重新整理
-                console.log('Notifying Script Store Web Component to refresh');
-              }
-            } catch {
-              /* noop */
-            }
             break;
           case "importDone":
             items = msg.items || [];
@@ -1072,8 +1009,17 @@ const util = require('util');
             break;
           case "importPreviewData":
             // Use Web Components for import preview
-            console.log('Import preview data received, using modern Web Components');
             // TODO: Implement Web Component import preview
+            const result = await window.ImportSystem.showImportPreview(msg.items || []);
+            if (result && result.items.length > 0) {
+              // Send import command to host
+              vscode.postMessage({
+                command: "applyImportSettings",
+                items: result.items,
+                mergeStrategy: result.mergeStrategy,
+                conflictPolicy: result.conflictPolicy
+              });
+            }
             break;
           case "runLog": {
             const out = document.getElementById("run-output");
@@ -1095,9 +1041,9 @@ const util = require('util');
             renderStoredData(msg.rows || []);
             break;
           case "themeChanged":
-            if (currentEditor) {
-              const themeName = msg.isDark ? "vs-dark" : "vs";
-              monaco.editor.setTheme(themeName);
+            const editPage = document.getElementById('edit-page-component');
+            if (editPage) {
+              editPage.getMonacoEditor().updateTheme();
             }
             break;
           case "vm:setRunning": {
@@ -1106,20 +1052,17 @@ const util = require('util');
             refreshListView();
             break;
           }
-          case "sync:refreshTime": {
+          case "sync:lastSyncAt": {
             window.__lastSyncAt = msg.lastSyncAt || null;
             updateLastSyncDisplay();
             break;
           }
           case "backup:create:result": {
             if (msg.success) {
-              showToast(
-                getNlsText("backupCreateSuccess", "備份建立成功"),
-                "success"
-              );
+              window.ConfirmationSystem.showSuccess();
               window.vscode.postMessage({ command: "backup:list" });
             } else {
-              showToast(
+              window.ConfirmationSystem.showToast(
                 msg.message || getNlsText("backupCreateFailed", "建立備份失敗"),
                 "error"
               );
@@ -1134,10 +1077,10 @@ const util = require('util');
           }
           case "backup:restore:result": {
             if (msg.success) {
-              showToast("備份還原成功", "success");
+              window.ConfirmationSystem.showSuccess();
               refreshListView();
             } else {
-              showToast(msg.message || "還原備份失敗", "error");
+              window.ConfirmationSystem.showError();
             }
             break;
           }
@@ -1156,6 +1099,7 @@ const util = require('util');
         const hr = Math.floor(min / 60);
         return `${hr}h ago`;
       }
+
       function updateLastSyncDisplay() {
         const el = document.getElementById("last-sync-indicator");
         if (!el) return;
@@ -1174,7 +1118,7 @@ const util = require('util');
         const abs = new Date(window.__lastSyncAt).toLocaleString();
         el.title = `Last sync at ${abs}`;
       }
-      setInterval(updateLastSyncDisplay, 5 * 60 * 1000);
+      setInterval(updateLastSyncDisplay, 60 * 1000);
 
       // ============================================================================
       // Safe Module Loading with Retry Logic (Phase 3)
@@ -1194,17 +1138,6 @@ const util = require('util');
             return;
           } else {
             console.warn('Failed to load required modules after maximum retries. Using emergency fallbacks.');
-            // Provide emergency fallbacks
-            if (typeof window.showChoiceDialog === 'undefined') {
-              window.showChoiceDialog = function(title, message, choices) {
-                return Promise.resolve(confirm(message) ? choices[0] : null);
-              };
-            }
-            if (typeof window.showToast === 'undefined') {
-              window.showToast = function(message) {
-                console.log('Toast:', message);
-              };
-            }
           }
         }
         
@@ -1306,7 +1239,7 @@ const util = require('util');
     </script>
 
     <!-- Script Store Web Component -->
-    <script-store id="script-store-component" visible="false" codicons-uri="{{codiconsUri}}"></script-store>
+    <script-store id="script-store-component" visible="false" codicons-uri="{{stylesUri}}/codicon.css"></script-store>
 
     <!-- Export Dialog Web Component -->
     <export-dialog id="export-dialog"></export-dialog>
@@ -1316,6 +1249,15 @@ const util = require('util');
     
     <!-- Backup Manager Web Component -->
     <backup-manager id="backup-manager"></backup-manager>
+
+    <!-- Load Confirmation Dialog Component -->
+    <script src="{{componentsBaseUri}}/confirmation-dialog.js"></script>
+
+    <!-- Load Monaco Editor Components -->
+    <script src="{{componentsBaseUri}}/monaco-editor.js"></script>
+
+    <!-- Load Data View Component -->
+    <script src="{{componentsBaseUri}}/edit-page.js"></script>
     
     <!-- Load Export Dialog Component -->
     <script src="{{componentsBaseUri}}/export-dialog.js"></script>

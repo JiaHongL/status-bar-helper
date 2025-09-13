@@ -42,7 +42,6 @@ class MonacoEditorComponent extends HTMLElement {
     // 屬性預設值
     this._value = '';
     this._language = 'javascript';
-    this._theme = 'auto';
     this._readOnly = false;
     this._monacoUri = null;
     this._itemCommand = null;
@@ -101,17 +100,6 @@ class MonacoEditorComponent extends HTMLElement {
       if (model) {
         monaco.editor.setModelLanguage(model, this._language);
       }
-    }
-  }
-  
-  get theme() {
-    return this._theme;
-  }
-  
-  set theme(val) {
-    this._theme = val || 'auto';
-    if (this._editor && this._isReady) {
-      this._updateTheme();
     }
   }
   
@@ -201,29 +189,24 @@ class MonacoEditorComponent extends HTMLElement {
   
   // 初始化 Monaco 編輯器
   _initializeMonaco() {
-    console.log('Monaco Editor: Initializing with URI:', this._monacoUri);
     
     // 如果已經有全域的 Monaco，直接使用
     if (typeof window !== 'undefined' && window.monaco) {
-      console.log('Monaco Editor: Using existing global Monaco');
       this._createEditor();
       return;
     }
     
     // 如果已經有全域的 require 配置，嘗試載入 Monaco
     if (typeof require !== 'undefined' && require.config) {
-      console.log('Monaco Editor: Using existing require config');
       this._loadMonaco();
       return;
     }
     
     // 確保 require 已配置
     if (!this._monacoUri) {
-      console.error('Monaco URI not set. Please set monaco-uri attribute or ensure require is configured.');
       return;
     }
     
-    console.log('Monaco Editor: Loading Monaco from', this._monacoUri);
     // 配置 require（如果尚未配置）
     const script = document.createElement('script');
     script.src = `${this._monacoUri}/loader.js`;
@@ -396,14 +379,11 @@ class MonacoEditorComponent extends HTMLElement {
   
   // 決定編輯器主題
   _getTheme() {
-    if (this._theme === 'auto') {
-      return document.body.classList.contains("vscode-light") ? "vs" : "vs-dark";
-    }
-    return this._theme;
+    return document.body.classList.contains("vscode-light") ? "vs" : "vs-dark";
   }
   
   // 更新主題
-  _updateTheme() {
+  updateTheme() {
     if (this._editor && this._isReady) {
       monaco.editor.setTheme(this._getTheme());
     }
@@ -411,7 +391,6 @@ class MonacoEditorComponent extends HTMLElement {
   
   // 應用類型定義
   _applyTypeDefs() {
-    console.log('Applying type definitions:', this._typeDefs);
     if (!this._typeDefs || !monaco) {
       return;
     }

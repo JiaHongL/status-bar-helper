@@ -44,7 +44,6 @@
 
 .field:nth-child(3) { 
   min-width: 240px; 
-  flex-grow: 1; 
 }
 
 .actions { 
@@ -290,12 +289,11 @@ edit-page .icon-field {
 
 edit-page .label-field {
   flex: 1;
-  min-width: 200px;
+  min-width: 100px;
 }
 
 edit-page .tooltip-field {
-  flex: 1;
-  min-width: 200px;
+  flex: 2;
 }
 
 edit-page .actions {

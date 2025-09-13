@@ -173,7 +173,14 @@
   "loading": "載入中...",
   "ok": "確定",
   "noDataFound": "找不到資料",
-  "noDataDescription": "沒有符合篩選條件的儲存資料。"
+  "noDataDescription": "沒有符合篩選條件的儲存資料。",
+  "add": "新增",
+  "renameOnConflict": "重名改名",
+  "skipOnConflict": "重名略過",
+  "exportSelected": "確認 ({count})",
+  "operationSuccessful": "操作成功",
+  "operationFailed": "操作失敗",
+  "category": "類別"
 }
 
 

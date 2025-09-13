@@ -173,5 +173,12 @@
   "ok": "OK",
   "uninstall": "Remove",
   "noDataFound": "No data found",
-  "noDataDescription": "No stored data matches your filter criteria."
+  "noDataDescription": "No stored data matches your filter criteria.",
+  "add": "Add New",
+  "renameOnConflict": "Rename Duplicates",
+  "skipOnConflict": "Skip Duplicates",
+  "exportSelected": "Confirm ({count})",
+  "operationSuccessful": "Operation successful",
+  "operationFailed": "Operation failed",
+  "category": "Category"
 }

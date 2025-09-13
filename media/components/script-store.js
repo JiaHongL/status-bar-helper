@@ -608,8 +608,8 @@ class ScriptStore extends HTMLElement {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: min(1100px, 90vw);
-          height: min(80vh, 800px);
+          width: 96vw;
+          height: 96vh;
           display: flex;
           flex-direction: column;
           background: var(--vscode-editor-background);
@@ -694,22 +694,6 @@ class ScriptStore extends HTMLElement {
           border-radius: 4px;
         }
 
-        .script-diff.collapsed pre {
-          max-height: 140px;
-          overflow: hidden;
-          position: relative;
-        }
-
-        .script-diff.collapsed pre:after {
-          content: '…';
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 4px 8px;
-          background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--vscode-editor-background));
-        }
-
         .script-diff-header {
           display: flex;
           gap: 8px;
@@ -770,7 +754,7 @@ class ScriptStore extends HTMLElement {
         }
         .split-pre {
           display: flex;
-          height: 400px;
+          height: 550px;
           overflow: hidden;
         }
         .split-pre pre {
@@ -808,9 +792,6 @@ class ScriptStore extends HTMLElement {
         }
         .script-diff .diff-add { 
           background: rgba(0, 160, 0, .25); 
-        }
-        .script-diff.collapsed .split-pre {
-          height: 200px;
         }
         .field-diff {
           margin: 8px 0;
@@ -1000,7 +981,7 @@ class ScriptStore extends HTMLElement {
     if (colTooltip) colTooltip.textContent = this.getText('tooltip', 'Tooltip');
 
     const colTags = this.shadowRoot.getElementById('col-tags');
-    if (colTags) colTags.textContent = this.getText('tags', 'Tags');
+    if (colTags) colTags.textContent = this.getText('category', 'Category');
 
     const colStatus = this.shadowRoot.getElementById('col-status');
     if (colStatus) colStatus.textContent = this.getText('status', 'Status');
@@ -1172,7 +1153,7 @@ class ScriptStore extends HTMLElement {
           const confirmed = await this.showConfirmDialog(
             this.getText('updateConfirm', 'Update script "{name}"?').replace('{name}', scriptName),
             '',
-            this.getText('update', 'Update'),
+            this.getText('ok', 'Ok'),
             this.getText('cancel', 'Cancel')
           );
           if (confirmed) {
@@ -1484,9 +1465,9 @@ class ScriptStore extends HTMLElement {
 
     emptyMessage.style.display = 'none';
 
-    // 排序：New > Update > Installed，然後按標籤排序
+    // 排序：Update > New > Installed，然後按標籤排序
     const sortedCatalog = [...this._filteredCatalog].sort((a, b) => {
-      const statusOrder = { new: 0, update: 1, installed: 2 };
+      const statusOrder = { update: 0, new: 1, installed: 2 };
       const aOrder = statusOrder[a.status] ?? 3;
       const bOrder = statusOrder[b.status] ?? 3;
       
@@ -1565,11 +1546,10 @@ class ScriptStore extends HTMLElement {
         </td>
         <td>
           <div class="ss-actions">
-            ${!isInstalled ? `
-              <button data-action="install" data-command="${this.escapeHtml(entry.command)}" 
-                      title="${this.getText('install', 'Install')}" 
-                      ${this._installing ? 'disabled' : ''}>
-                <i class="codicon codicon-cloud-download"></i>
+            ${!isInstalled && !hasUpdate ? `
+              <button data-action="view" data-command="${this.escapeHtml(entry.command)}" 
+                      title="${this.getText('view', 'View')}">
+                <i class="codicon codicon-eye"></i>
               </button>
             ` : ''}
             ${hasUpdate ? `
@@ -1579,11 +1559,18 @@ class ScriptStore extends HTMLElement {
                 <i class="codicon codicon-sync"></i>
               </button>
             ` : ''}
-            <button data-action="view" data-command="${this.escapeHtml(entry.command)}" 
-                    title="${this.getText('view', 'View')}">
-              <i class="codicon codicon-eye"></i>
-            </button>
-            ${isInstalled ? `
+            ${!isInstalled && !hasUpdate ? `
+              <button 
+                data-action="install" 
+                data-command="${this.escapeHtml(entry.command)}" 
+                data-text="${this.escapeHtml(entry.text || entry.command)}"
+                title="${this.getText('install', 'Install')}" 
+                ${this._installing ? 'disabled' : ''}
+              >
+                <i class="codicon codicon-cloud-download"></i>
+              </button>
+            ` : ''}
+            ${isInstalled || hasUpdate ? `
               <button data-action="uninstall" data-command="${this.escapeHtml(entry.command)}" 
                       title="${this.getText('uninstall', 'Remove')}"
                       ${this._installing ? 'disabled' : ''}>
@@ -1626,7 +1613,8 @@ class ScriptStore extends HTMLElement {
 
     const action = button.dataset.action;
     const command = button.dataset.command;
-    
+    const text = button.dataset?.text || command;
+
     if (!action || !command) {
       console.error('handleTableClick: missing action or command', { action, command });
       return;
@@ -1634,7 +1622,16 @@ class ScriptStore extends HTMLElement {
     
     switch (action) {
       case 'install':
-        await this.installScript(command);
+        const message = `${this.getText('confirmInstall', 'Are you sure you want to install the following items?')}\n\n${text}`;
+        const confirmed = await this.showConfirmDialog(
+          this.getText('installScript', 'Install Scripts'),
+          message,
+          this.getText('install', 'Install'),
+          this.getText('cancel', 'Cancel')
+        );
+        if (confirmed) {
+          await this.installScript(command);
+        }
         break;
       case 'update':
         // 顯示 diff 並提供更新按鈕
@@ -1944,8 +1941,7 @@ class ScriptStore extends HTMLElement {
     
     const linesBefore = scriptBefore.split(/\r?\n/).length;
     const linesAfter = scriptAfter.split(/\r?\n/).length;
-    const collapse = linesBefore > 400 || linesAfter > 400;
-    const diffRows = this.simpleLineDiff(scriptBefore, scriptAfter).slice(0, collapse ? 400 : undefined);
+    const diffRows = this.simpleLineDiff(scriptBefore, scriptAfter);
     
     const preL = diffRows.map(r => {
       let cls = '';
@@ -1977,11 +1973,9 @@ class ScriptStore extends HTMLElement {
       return `<div class="ln ${cls}">${content || ''}</div>`;
     }).join('\n');
 
-    return `<div class="script-diff ${collapse ? 'collapsed' : ''}">
-      <div class="script-diff-header">Script Diff (${linesBefore} → ${linesAfter} lines)${collapse ? '<span style="margin-left:auto;">(collapsed)</span>' : ''}
-        ${collapse ? '<button type="button" data-action="expand-script">Expand</button>' : ''}
-      </div>
-      <div class="split-pre" data-collapse="${collapse ? 1 : 0}"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
+    return `<div class="script-diff}">
+      <div class="script-diff-header">Script Diff (${linesBefore} → ${linesAfter} lines)</div>
+      <div class="split-pre"><pre id="ss-pre-before">${preL}</pre><pre id="ss-pre-after">${preR}</pre></div>
     </div>`;
   }  // 顯示差異對話框
   async showDiff(cmd, showUpdateButton = false) {
@@ -2028,10 +2022,6 @@ class ScriptStore extends HTMLElement {
       };
       const textDiff = this.highlightDiff(before.text, after.text);
       const tooltipDiff = this.highlightDiff(before.tooltip, after.tooltip);
-      const tagsDiff = this.highlightDiff(
-        (before.tags || []).join(", "),
-        (after.tags || []).join(", ")
-      );
       const scriptBefore = before.script || "";
       const scriptAfter = after.script || "";
       
@@ -2050,37 +2040,8 @@ class ScriptStore extends HTMLElement {
             <div class="after">${tooltipDiff.afterText || '<i style="opacity:.5">—</i>'}</div>
           </div>
         </div>
-        <div class="field-diff ${tagsDiff.changed ? "changed" : ""}">
-          <div class="label">${this.getText("tags", "Tags")}</div>
-          <div class="pair">
-            <div class="before">${tagsDiff.beforeText || '<i style="opacity:.5">—</i>'}</div>
-            <div class="after">${tagsDiff.afterText || '<i style="opacity:.5">—</i>'}</div>
-          </div>
-        </div>
         ${this.renderScriptDiff(scriptBefore, scriptAfter, cmd)}
       `;
-      
-      // 處理展開按鈕
-      body.querySelectorAll('button[data-action="expand-script"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const wrapper = btn.closest('.script-diff');
-          if (wrapper) {
-            wrapper.classList.remove('collapsed');
-            btn.remove();
-            // 重新渲染完整差異 (按照備份文件的方式，直接顯示原始內容)
-            const beforePre = body.querySelector('#ss-pre-before');
-            const afterPre = body.querySelector('#ss-pre-after');
-            if (beforePre && afterPre) {
-              beforePre.innerHTML = scriptBefore.split(/\r?\n/).map(l => 
-                `<div class="ln">${this.escapeHtml(l)}</div>`
-              ).join('\n');
-              afterPre.innerHTML = scriptAfter.split(/\r?\n/).map(l => 
-                `<div class="ln">${this.escapeHtml(l)}</div>`
-              ).join('\n');
-            }
-          }
-        });
-      });
     } catch (e) {
       body.innerHTML =
         '<div style="padding:8px; color:var(--vscode-errorForeground);">Diff error: ' +
