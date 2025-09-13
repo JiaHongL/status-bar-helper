@@ -55,36 +55,14 @@ On this page, you can write and test status bar item scripts with a clean icon-b
 ## 🔧 Commands & Shortcuts
 
 - **Status Bar Helper: Settings** — Open settings page from command palette
-- **Gear button in bottom right** — Quick access to settings page
-
-![Commands](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-3.png)
+  ![Commands](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-3_1.png)
+  
+- **Gear button in bottom right** — Quick access to settings page  
+  ![Commands](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-3_2.png)
 
 ---
 
 ## 🎯 Built-in Examples
-
-### Script Store
-
-The Script Store aggregates curated examples defined in `script-store.defaults.<locale>.json` (currently `en` & `zh-tw`).
-
-Features:
-
-- Remote-first with GitHub raw fetch (3s timeout / 256KB limit) → fallback to packaged JSON
-- Locale resolution via `vscode.env.language` (only `zh-tw` / `zh-hant` → Traditional Chinese; others → English)
-- **NEW Badge Indicator**: Script Store button displays count of new scripts with visual update hints
-- Status badges: NEW / INSTALLED / UPDATE (hash of script + text + tooltip + tags)
-- **Status Priority Sorting**: New > Update > Installed order
-- Per-item or bulk install (bulk is atomic: any failure rolls back all)
-- **Batch Install Confirmation**: Displays detailed item list confirmation before installation
-- **Improved Diff UX**: Bottom button layout (Cancel/Update), eliminating confusing simultaneous dialogs
-- **Icon-based Actions**: View/Install/Update/Remove with intuitive icon design
-- **Modern Color System**: Gradient backgrounds and theme-adaptive status badges
-- Safety filters: reject scripts containing `eval(`, `new Function`, or excessive `process.env` access
-- 5‑minute in-memory catalog cache (future: ETag planned)
-
-Planned (Phase 2): remote catalog ETag cache, `scriptUrl` lazy loading, richer token diff, user locale override.
-
-This extension comes with several practical examples to help you get started quickly:
 
 - **Minimal Log Demo**: Demonstrates how to use VS Code + Node.js APIs, including file access, workspace information retrieval, and output display.
 - **Git Add**: Example of executing terminal commands from VS Code extension (git add .) with proper error handling.
@@ -106,6 +84,10 @@ This extension comes with several practical examples to help you get started qui
 ![Demo 3](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/03.gif)
 
 ---
+
+## Script Development Guide (For AI Model Reference)
+
+If you want to automatically generate scripts for use with Status Bar Helper via AI, you can refer to this prompt. It will clearly guide the AI to write scripts that conform to the extension's supported specifications and can run correctly in the environment. [Click here to view](https://github.com/JiaHongL/status-bar-helper/blob/main/docs/generate-script-en.prompt.md)
 
 ## StatusBarHelper.v1 API
 
