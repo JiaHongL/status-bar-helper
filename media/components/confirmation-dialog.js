@@ -46,6 +46,7 @@ class ConfirmationDialog extends HTMLElement {
     const message = this.getAttribute('message') || '';
     const type = this.getAttribute('type') || 'confirm'; // confirm, choice, toast
     const visible = this.hasAttribute('visible');
+    const toastHidden = this.hasAttribute('toast-hidden');
     const noOverlay = this.hasAttribute('no-overlay') || type === 'toast'; // Toast 類型預設無遮罩
 
     // Toast 使用不同的定位方式，不佔據全屏
@@ -56,7 +57,7 @@ class ConfirmationDialog extends HTMLElement {
       right: 0;
       bottom: 0;
       z-index: 10000;
-      display: ${visible ? 'block' : 'none'};
+      display: ${visible && !toastHidden ? 'block' : 'none'};
       pointer-events: none; /* Toast 不攔截點擊事件 */
       font-family: var(--vscode-font-family);
       font-size: var(--vscode-font-size);
@@ -395,6 +396,7 @@ class ConfirmationDialog extends HTMLElement {
 
   // 公開 API 方法
   show() {
+    this.removeAttribute('toast-hidden'); // 清除 Toast 隱藏狀態
     this.setAttribute('visible', '');
     this.isVisible = true;
     return new Promise((resolve) => {
@@ -420,6 +422,7 @@ class ConfirmationDialog extends HTMLElement {
 
   // Toast 自動關閉
   showToast(type, message, duration = 1000) {
+    this.removeAttribute('toast-hidden'); // 清除之前的隱藏狀態
     this.setAttribute('type', 'toast');
     this.setAttribute('toast-type', type);
     this.setAttribute('message', message);
@@ -430,7 +433,11 @@ class ConfirmationDialog extends HTMLElement {
       if (toast) {
         toast.classList.add('hiding');
         setTimeout(() => {
-          this.removeAttribute('visible');
+          // 只在當前類型仍然是 toast 時才隱藏，避免影響其他對話框
+          if (this.getAttribute('type') === 'toast') {
+            this.setAttribute('toast-hidden', ''); // 標記 Toast 已隱藏
+            this.removeAttribute('visible');
+          }
         }, 300);
       }
     }, duration);

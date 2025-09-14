@@ -836,6 +836,8 @@ async function ensureDefaultItems(context: vscode.ExtensionContext) {
   let defaults: SbhItem[] = [];
   try {
     defaults = await loadDefaultsFromJson(context);
+    // 僅保留 tags 含 預設項目
+    defaults = defaults.filter(i => i.tags?.includes('default'));
   } catch (e) {
     console.warn('[sbh] loadDefaultsFromJson failed, fallback to TS constants:', (e as any)?.message || e);
     // 已無 TS 常數；若 JSON 失敗，提供最小 fallback 2 個腳本

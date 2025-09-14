@@ -5,38 +5,38 @@
 The following four documents **the model should first attempt to read and understand** (if the environment has network access). After reading, the model must be able to implement scripts according to the types and API specifications found in these documents.
 
 1.  SBH README (Package Overview)  
-    [https://github.com/JiaHongL/status-bar-helper/blob/main/README.md](https://github.com/JiaHongL/status-bar-helper/blob/main/README.md)
+    [https://github.com/JiaHongL/status-bar-helper/blob/main/README.en.md](https://github.com/JiaHongL/status-bar-helper/blob/main/README.en.md)
 
-      - Purpose: To understand the overall design goals of Status Bar Helper, how scripts are loaded and executed, and common use cases (e.g., triggers, sidebar, storage, etc.).
+    - Purpose: To understand the overall design goals of Status Bar Helper, how scripts are loaded and executed, and common use cases (e.g., triggers, sidebar, storage, etc.).
 
 2.  SBH Type Definitions (SBH's Own API Types — **raw file**, must-read)  
     [https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts)
 
-      - Purpose: To directly reference the `statusBarHelper.v1` type definitions (including `storage`, `files`, `secret`, `sidebar`, `vm`, etc.) to avoid generating code that does not conform to the actual API.
-      - Key points you need to "understand" (summarized from `sbh.d.ts`):
-          - `storage`: Two-level access (`global` / `workspace`), each providing Promise APIs like `get(key, default?)`, `set`, `remove`, and `keys()` for persistent key/value storage (note that `workspace` may not be available if no workspace is open).
-          - `files`: Provides full file I/O (`dirs()`, `readText`/`writeText`, `readJSON`/`writeJSON`, `readBytes`/`writeBytes`, `exists`, `list`, `listStats`, `remove`, `clearAll`). All are Promises and require a `scope: 'global' | 'workspace'` and a relative path.
-          - `secret`: Encrypted storage for sensitive data (`get` / `set` / `delete` / `keys()`), used for storing tokens or secrets.
-          - `sidebar`: Sidebar/webview management (`open(spec)` can accept raw HTML or `{ html?, focus?, onClose? }`; has `postMessage`, `onMessage(handler)` (returns a disposable), `close()`, and `onClose(handler)`; if a session already exists, `open` will replace the old session and trigger the old session's `onClose('replaced')`).
-          - `vm`: VM lifecycle and inter-script communication (`stop` / `onStop` / `reason` / `stopByCommand`, `open(cmdId, payload?)`, `sendMessage`, `onMessage`). **Note: The type file does not provide any display methods (e.g., the previously assumed `vm.setLabel` does not exist) — the VM is primarily responsible for execution control and message passing.**
+    - Purpose: To directly reference the `statusBarHelper.v1` type definitions (including `storage`, `files`, `secret`, `sidebar`, `vm`, etc.) to avoid generating code that does not conform to the actual API.
+    - Key points you need to "understand" (summarized from `sbh.d.ts`):
+      - `storage`: Two-level access (`global` / `workspace`), each providing Promise APIs like `get(key, default?)`, `set`, `remove`, and `keys()` for persistent key/value storage (note that `workspace` may not be available if no workspace is open).
+      - `files`: Provides full file I/O (`dirs()`, `readText`/`writeText`, `readJSON`/`writeJSON`, `readBytes`/`writeBytes`, `exists`, `list`, `listStats`, `remove`, `clearAll`). All are Promises and require a `scope: 'global' | 'workspace'` and a relative path.
+      - `secret`: Encrypted storage for sensitive data (`get` / `set` / `delete` / `keys()`), used for storing tokens or secrets.
+      - `sidebar`: Sidebar/webview management (`open(spec)` can accept raw HTML or `{ html?, focus?, onClose? }`; has `postMessage`, `onMessage(handler)` (returns a disposable), `close()`, and `onClose(handler)`; if a session already exists, `open` will replace the old session and trigger the old session's `onClose('replaced')`).
+      - `vm`: VM lifecycle and inter-script communication (`stop` / `onStop` / `reason` / `stopByCommand`, `open(cmdId, payload?)`, `sendMessage`, `onMessage`). **Note: The type file does not provide any display methods (e.g., the previously assumed `vm.setLabel` does not exist) — the VM is primarily responsible for execution control and message passing.**
 
 3.  VS Code d.ts (Official VS Code API Reference)  
     [https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts](https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts)
 
-      - Purpose: To confirm which `vscode` APIs can be safely used in extensions/scripts (e.g., `commands.executeCommand`, `window.showInformationMessage`, `workspace.workspaceFolders`, URI/fsPath, etc.), using these official APIs as a fallback for display or workspace operations when necessary.
+    - Purpose: To confirm which `vscode` APIs can be safely used in extensions/scripts (e.g., `commands.executeCommand`, `window.showInformationMessage`, `workspace.workspaceFolders`, URI/fsPath, etc.), using these official APIs as a fallback for display or workspace operations when necessary.
 
 4.  Node.js Types (DefinitelyTyped — types/node v20)  
     [https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20)
 
-      - Purpose: To confirm the signatures of the Node built-in modules that will be used (sync vs. async, callback vs. Promise) to avoid API misuse.
-      - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`. If the execution environment cannot read the types, the **model must explicitly list its assumptions about the Node APIs in `SBH-SCRIPT-META.assumptions` (e.g., callback/Promise signatures)**.
-      - The current d.ts hint for VS Code extensions is based on Node v20, but it will actually run based on the user's Node version. You can also write scripts using newer versions like v22.x, v24.x, etc.
+    - Purpose: To confirm the signatures of the Node built-in modules that will be used (sync vs. async, callback vs. Promise) to avoid API misuse.
+    - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`. If the execution environment cannot read the types, the **model must explicitly list its assumptions about the Node APIs in `SBH-SCRIPT-META.assumptions` (e.g., callback/Promise signatures)**.
+    - The current d.ts hint for VS Code extensions is based on Node v20, but it will actually run based on the user's Node version. You can also write scripts using newer versions like v22.x, v24.x, etc.
 
 5.  SBH Default Script Reference
 
-      - [https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts)
+    - [https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts)
 
------
+---
 
 ## 1. How to Import Related Modules for Scripts
 
@@ -57,7 +57,7 @@ const util = require("util");
 const fsp = require("fs").promises;
 ```
 
------
+---
 
 ## 2. Demonstrating statusBarHelper.v1.vm
 
@@ -104,12 +104,12 @@ const { vm } = statusBarHelper.v1;
 
 Key points:
 
-  - `vm.open` / `vm.sendMessage` / `vm.onMessage` → inter-VM messaging
-  - `vm.stopByCommand` / `vm.stop` → stopping a specified or self-VM
-  - `vm.onStop` → cleaning up resources (e.g., closing a WebviewPanel)
-  - If it's a one-time script, remember to call `vm.stop()` at the end to terminate it.
+- `vm.open` / `vm.sendMessage` / `vm.onMessage` → inter-VM messaging
+- `vm.stopByCommand` / `vm.stop` → stopping a specified or self-VM
+- `vm.onStop` → cleaning up resources (e.g., closing a WebviewPanel)
+- If it's a one-time script, remember to call `vm.stop()` at the end to terminate it.
 
------
+---
 
 ## 3. Demonstrating secret / storage / files
 
@@ -133,12 +133,12 @@ const { secret, storage, files, vm } = statusBarHelper.v1;
 
 Key points:
 
-  - `secret.set`/`get`/`delete`/`keys` → storing tokens or sensitive information
-  - `storage.global` and `storage.workspace` → key/value storage
-  - `files.readText`/`writeText`/`readJSON`/`writeJSON`/`readBytes`/`writeBytes` → file access
-  - `files.exists`/`list`/`listStats`/`remove` → file management
+- `secret.set`/`get`/`delete`/`keys` → storing tokens or sensitive information
+- `storage.global` and `storage.workspace` → key/value storage
+- `files.readText`/`writeText`/`readJSON`/`writeJSON`/`readBytes`/`writeBytes` → file access
+- `files.exists`/`list`/`listStats`/`remove` → file management
 
------
+---
 
 ## 4. Demonstrating workspaceFolders + exec
 
@@ -160,11 +160,11 @@ if (workspaceFolders && workspaceFolders.length > 0) {
 
 Key points:
 
-  - Use `workspaceFolders[0].uri.fsPath` as `cwd`.
-  - Use `child_process.exec` to execute Git or shell commands.
-  - Use `vscode.window.showInformationMessage` / `showErrorMessage` to display results.
+- Use `workspaceFolders[0].uri.fsPath` as `cwd`.
+- Use `child_process.exec` to execute Git or shell commands.
+- Use `vscode.window.showInformationMessage` / `showErrorMessage` to display results.
 
------
+---
 
 ## 5. Demonstrating createWebviewPanel
 
@@ -185,13 +185,13 @@ panel.webview.html = `
 
 Key points:
 
-  - `createWebviewPanel(viewType, title, column, options)`
-  - Inject HTML with `panel.webview.html`.
-  - CSP must be set with `<meta http-equiv="Content-Security-Policy" …>`.
-  - The `<script>` tag must include `nonce="${nonce}"`.
-  - Use `vm.onStop` and `panel.onDidDispose` to clean up resources.
+- `createWebviewPanel(viewType, title, column, options)`
+- Inject HTML with `panel.webview.html`.
+- CSP must be set with `<meta http-equiv="Content-Security-Policy" …>`.
+- The `<script>` tag must include `nonce="${nonce}"`.
+- Use `vm.onStop` and `panel.onDidDispose` to clean up resources.
 
------
+---
 
 ## 6. Demonstrating sidebar
 
@@ -217,12 +217,12 @@ panel.webview.onDidReceiveMessage((m) => sidebar.postMessage(m));
 
 Key points:
 
-  - `sidebar.open({ html, onClose })` → opens the sidebar.
-  - `sidebar.postMessage` / `sidebar.onMessage` → communicates with the VM or WebviewPanel.
-  - `sidebar.close` / `sidebar.onClose` → closes and listens for close events.
-  - Can be combined with `vscode.window.createWebviewPanel` for two-way interaction.
+- `sidebar.open({ html, onClose })` → opens the sidebar.
+- `sidebar.postMessage` / `sidebar.onMessage` → communicates with the VM or WebviewPanel.
+- `sidebar.close` / `sidebar.onClose` → closes and listens for close events.
+- Can be combined with `vscode.window.createWebviewPanel` for two-way interaction.
 
------
+---
 
 ## 7. Demonstrating createStatusBarItem / showInputBox / showQuickPick
 
@@ -260,12 +260,12 @@ const { vm } = statusBarHelper.v1;
 
 Key points:
 
-  - `createStatusBarItem` → creates a custom status bar item.
-  - `showQuickPick` → dynamic menu.
-  - `showInputBox` → custom input (including `validateInput`).
-  - Can be combined with `setInterval` to implement tools like a pomodoro timer.
+- `createStatusBarItem` → creates a custom status bar item.
+- `showQuickPick` → dynamic menu.
+- `showInputBox` → custom input (including `validateInput`).
+- Can be combined with `setInterval` to implement tools like a pomodoro timer.
 
------
+---
 
 ## 8. Demonstrating withProgress / activeTab.input
 
@@ -295,24 +295,26 @@ const { vm } = statusBarHelper.v1;
 
 Key points:
 
-  - `withProgress({ location, title }, task)` → displays progress for long-running tasks.
-  - `tabGroups.activeTabGroup?.activeTab?.input` → gets information about the active tab (file or Webview).
+- `withProgress({ location, title }, task)` → displays progress for long-running tasks.
+- `tabGroups.activeTabGroup?.activeTab?.input` → gets information about the active tab (file or Webview).
 
------
+---
 
 ## 9. Demonstrating vscode.commands.executeCommand
 
 ```js
-const vscode = require('vscode');
+const vscode = require("vscode");
 const { vm } = statusBarHelper.v1;
 
 (async () => {
   try {
     // Execute VS Code's built-in "toggle light/dark themes" command
-    await vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes');
+    await vscode.commands.executeCommand(
+      "workbench.action.toggleLightDarkThemes"
+    );
   } catch (e) {
     // If the execution fails, show an error message
-    vscode.window.showErrorMessage('Toggle theme failed: ' + (e?.message || e));
+    vscode.window.showErrorMessage("Toggle theme failed: " + (e?.message || e));
   } finally {
     // Whether successful or not, the script must stop the VM at the end
     vm.stop();
@@ -322,17 +324,17 @@ const { vm } = statusBarHelper.v1;
 
 Key points:
 
-  - `vscode.commands.executeCommand(commandId, ...args)` → executes a VS Code command.
+- `vscode.commands.executeCommand(commandId, ...args)` → executes a VS Code command.
 
------
+---
 
 ## Others
 
-  - Pay special attention to the use of CSP and `nonce`.
-      - CSP must be set with `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`.
-      - `<script nonce="${nonce}">` is paired with `const nonce = Math.random().toString(36).slice(2);`.
-      - To use the VS Code API, you must call `const vscode = acquireVsCodeApi();` inside the script.
-  - If you use string templates in HTML, be careful to escape backticks and `${}`, for example:
+- Pay special attention to the use of CSP and `nonce`.
+  - CSP must be set with `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`.
+  - `<script nonce="${nonce}">` is paired with `const nonce = Math.random().toString(36).slice(2);`.
+  - To use the VS Code API, you must call `const vscode = acquireVsCodeApi();` inside the script.
+- If you use string templates in HTML, be careful to escape backticks and `${}`, for example:
 
 ```js
 const panel = vscode.window.createWebviewPanel(

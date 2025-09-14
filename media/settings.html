@@ -601,7 +601,7 @@ Security & Resource Management:
           Math.random().toString(36).slice(2, 7);
         const defaultScript = `// Press Ctrl+S (or Cmd+S) to save
 const vscode = require('vscode');
-const { storage, files, vm } = statusBarHelper.v1;
+const { storage, files, vm, sidebar } = statusBarHelper.v1;
 const { setTimeout, clearTimeout, setInterval, clearInterval } = require('timers');
 const { randomUUID } = require('crypto');
 const fs = require('fs');
