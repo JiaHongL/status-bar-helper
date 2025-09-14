@@ -105,6 +105,12 @@ const util = require('util');
       this.monacoEditor.value = item.script || '';
       this.monacoEditor.typeDefs = this.typeDefs;
     }
+
+    // 清除 outputEl 內容
+    const outputEl = this.querySelector('#run-output');
+    if (outputEl) {
+      outputEl.textContent = '';
+    }
     
     // 觸發事件
     this.dispatchEvent(new CustomEvent('item-loaded', {

@@ -544,33 +544,152 @@ function runScriptInVm(
     } as Console;
   };
 
-  // 深層 proxy vscode（原本就有）
-  const makeDeepVscodeProxy = (root: any) => {
-    const cache = new WeakMap<object, any>();
-    const wrapFn = (fn: Function, thisArg: any) => (...args: any[]) => {
-  if (signal.aborted) { throw new Error(localize('err.execStopped', 'Execution stopped')); }
-      const ret = Reflect.apply(fn, thisArg, args);
-      if (ret && typeof ret === 'object' && typeof (ret as any).dispose === 'function') {
-        try { disposables.add(ret as vscode.Disposable); } catch {}
-      }
-      return ret;
+  // 用來收集並追蹤所有可釋放資源，像是 VM 停止時，相關在 VM 使用的 VS Code API 都要釋放 (停止)
+  function buildVscodeFacade(raw: typeof import('vscode'), ctx: {
+    signal: AbortSignal,
+    disposables: Set<vscode.Disposable>
+  }) {
+    const { signal, disposables } = ctx;
+
+    const guard = () => { if (signal.aborted) throw new Error('Execution stopped'); };
+
+    const track = (val: any) => {
+      const addOne = (x: any) => { if (x && typeof x.dispose === 'function') { try { disposables.add(x); } catch {} } };
+      Array.isArray(val) ? val.forEach(addOne) : addOne(val);
+      return val;
     };
-    const proxify = (obj: any): any => {
-    if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) { return obj; }
-    if (cache.has(obj)) { return cache.get(obj); }
-      const p = new Proxy(obj, {
-        get(t, prop, recv) {
-          const v = Reflect.get(t, prop, recv);
-      if (typeof v === 'function') { return wrapFn(v, t); }
-      if (v && (typeof v === 'object' || typeof v === 'function')) { return proxify(v); }
-          return v;
-        }
+
+    const out: any = Object.create(raw);
+
+    const wrapEventProp = (nsOut: any, nsRaw: any, key: string) => {
+      try {
+        const ev = (nsRaw as any)[key];
+        if (typeof ev !== 'function') return;
+        Object.defineProperty(nsOut, key, {
+          configurable: true, enumerable: true,
+          get() {
+            const current = (nsRaw as any)[key];
+            if (typeof current !== 'function') return current;
+            const wrapped: vscode.Event<any> = (listener: any, thisArgs?: any, disposablesArg?: vscode.Disposable[]) => {
+              guard();
+              const d = current(listener, thisArgs, disposablesArg);
+              return track(d);
+            };
+            return wrapped;
+          },
+        });
+      } catch {}
+    };
+
+    const defineFn = (target: any, name: string, fn: Function) => {
+      Object.defineProperty(target, name, {
+        value: fn,
+        configurable: true,
+        enumerable: true,
+        writable: true, // ← 讓我們能覆蓋自己這層（不影響 raw）
       });
-      cache.set(obj, p);
-      return p;
     };
-    return proxify(root);
-  };
+
+    const wrapNamespace = (nsName: keyof typeof raw, extra?: (nsOut:any, nsRaw:any)=>void) => {
+      const nsRaw: any = (raw as any)[nsName];
+      if (!nsRaw) return;
+
+      const nsOut: any = Object.create(nsRaw);
+
+      // 1) 包所有「值為 function」的 own props（避免動到 accessor）
+      for (const key of Object.getOwnPropertyNames(nsRaw)) {
+        const d = Object.getOwnPropertyDescriptor(nsRaw, key);
+        if (!d || !('value' in d) || typeof d.value !== 'function') continue;
+        const orig = d.value as Function;
+
+        // commands.* 特殊：同名去重
+        if (nsName === 'commands' && (key === 'registerCommand' || key === 'registerTextEditorCommand')) {
+          const byId = new Map<string, vscode.Disposable>();
+          defineFn(nsOut, key, (id: string, fn: any, thisArg?: any) => {
+            guard();
+            try { byId.get(id)?.dispose(); } catch {}
+            const disp = orig.call(nsRaw, id, fn, thisArg);
+            byId.set(id, disp);
+            return track(disp);
+          });
+          continue;
+        }
+
+        // 一般函式：guard + 自動 track 回傳
+        defineFn(nsOut, key, (...args: any[]) => {
+          guard();
+          return track(orig.apply(nsRaw, args));
+        });
+      }
+
+      // 2) 包 onDid*/onWill* 事件（多為 accessor）
+      const eventNames = new Set<string>([
+        ...Object.getOwnPropertyNames(nsRaw).filter(n => /^onDid|^onWill/.test(n)),
+        ...Object.keys(nsRaw).filter(n => /^onDid|^onWill/.test(n)),
+      ]);
+      eventNames.forEach(n => wrapEventProp(nsOut, nsRaw, n));
+
+      // 3) 自訂補強：常見工廠/註冊（可能是 accessor 或不同版本差異）
+      extra?.(nsOut, nsRaw);
+
+      // 把子命名空間掛到 facade
+      Object.defineProperty(out, nsName, { value: nsOut, enumerable: true, configurable: true });
+    };
+
+    // ---- window ----
+    wrapNamespace('window', (o, r) => {
+      if (typeof r.createStatusBarItem === 'function') {
+        defineFn(o, 'createStatusBarItem', (...a:any[]) => { guard(); return track(r.createStatusBarItem(...a)); });
+      }
+      if (typeof r.createOutputChannel === 'function') {
+        defineFn(o, 'createOutputChannel', (...a:any[]) => { guard(); return track(r.createOutputChannel(...a)); });
+      }
+      if (typeof r.createTextEditorDecorationType === 'function') {
+        defineFn(o, 'createTextEditorDecorationType', (...a:any[]) => { guard(); return track(r.createTextEditorDecorationType(...a)); });
+      }
+      if (typeof r.createWebviewPanel === 'function') {
+        defineFn(o, 'createWebviewPanel', (...a:any[]) => { guard(); return track(r.createWebviewPanel(...a)); });
+      }
+      if (typeof (r as any).registerWebviewViewProvider === 'function') {
+        defineFn(o, 'registerWebviewViewProvider', (...a:any[]) => { guard(); return track((r as any).registerWebviewViewProvider(...a)); });
+      }
+      if (typeof r.registerTreeDataProvider === 'function') {
+        defineFn(o, 'registerTreeDataProvider', (...a:any[]) => { guard(); return track(r.registerTreeDataProvider(...a)); });
+      }
+      if (typeof r.createTerminal === 'function') {
+        defineFn(o, 'createTerminal', (...a:any[]) => { guard(); return track(r.createTerminal(...a)); });
+      }
+    });
+
+    // ---- workspace ----
+    wrapNamespace('workspace', (o, r) => {
+      if (typeof r.createFileSystemWatcher === 'function') {
+        defineFn(o, 'createFileSystemWatcher', (...a:any[]) => { guard(); return track(r.createFileSystemWatcher(...a)); });
+      }
+      if (typeof r.registerTextDocumentContentProvider === 'function') {
+        defineFn(o, 'registerTextDocumentContentProvider', (...a:any[]) => { guard(); return track(r.registerTextDocumentContentProvider(...a)); });
+      }
+      if (typeof (r as any).registerFileSystemProvider === 'function') {
+        defineFn(o, 'registerFileSystemProvider', (...a:any[]) => { guard(); return track((r as any).registerFileSystemProvider(...a)); });
+      }
+    });
+
+    // 其它命名空間
+    wrapNamespace('languages');
+    wrapNamespace('debug');
+    wrapNamespace('tasks');
+    wrapNamespace('notebooks');
+    wrapNamespace('scm');
+    wrapNamespace('env');       // ← 這裡就包含 createTelemetryLogger，用 defineProperty 遮蔽
+    wrapNamespace('commands');  // 含同名去重
+
+    Object.defineProperty(out, '__disposeAll', {
+      value: () => { for (const d of Array.from(disposables)) { try { d.dispose(); } catch {} } },
+      configurable: true
+    });
+
+    return out as typeof import('vscode');
+  }
 
   const sandbox: any = {
     fs, path, process,
@@ -584,11 +703,52 @@ function runScriptInVm(
     }
   };
   sandbox.Buffer = require('buffer').Buffer;
-  sandbox.vscode = makeDeepVscodeProxy(vscode);
+  sandbox.vscode = buildVscodeFacade(vscode, { signal, disposables });
 
   // 注入 sbh 與 vm API
   const api = buildSbh();
 
+  // ---- VM 專屬 sidebar 包裝：自動收 Disposable + VM 停止時關閉 ----
+  (api as any).v1.sidebar = (() => {
+    const base = (api as any).v1.sidebar;
+    let openedByThisVm = false;
+
+    const guard = () => {
+      if (signal.aborted) throw new Error(localize('err.execStopped', 'Execution stopped'));
+    };
+    const track = (d: any) => {
+      if (d && typeof d.dispose === 'function') {
+        try { disposables.add(d as vscode.Disposable); } catch {}
+      }
+      return d;
+    };
+
+    const wrapped = {
+      open: (spec: any) => {            // 可能回傳 Disposable，就一起收
+        guard();
+        openedByThisVm = true;
+        return track(base.open(spec));
+      },
+      postMessage: (msg: any) => {      // 停止後就略過送訊息
+        if (signal.aborted) return false;
+        return base.postMessage(msg);
+      },
+      onMessage: (handler: (m:any)=>void) => track(base.onMessage(handler)),
+      close: () => { openedByThisVm = false; return base.close(); },
+      onClose: (handler: ()=>void) => track(base.onClose(handler)),
+    };
+
+    // VM 結束時，若是這顆 VM 打開的，就幫忙關掉
+    signal.addEventListener('abort', () => {
+      if (openedByThisVm) {
+        try { base.close(); } catch {}
+      }
+    }, { once: true });
+
+    return wrapped;
+  })();
+
+  // ---- vm API ----
   (api as any).v1.vm = {
     onStop: (handler: (r:any)=>void) => {
       if (signal.aborted) { queueMicrotask(() => handler((signal as any).reason)); return () => {}; }
