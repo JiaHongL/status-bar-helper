@@ -15,6 +15,14 @@ A VS Code extension that allows you to add custom buttons to the status bar. You
 - **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, detect updates via hash signature, NEW badge indicator showing available script counts, and modern UI with confirmation dialogs.
 - **Intuitive Icon Interface**: All action buttons use consistent VS Code Codicons for a clean and user-friendly experience.
 
+
+## Sponsor the Author
+
+If you find this tool useful, feel free to buy the author a coffee. Thank you for your support!
+
+<a href="https://www.buymeacoffee.com/Joe.lin" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
+
 ## 📖 Usage Guide
 
 ### Settings Page
@@ -89,12 +97,18 @@ On this page, you can write and test status bar item scripts with a clean icon-b
 
 If you want to automatically generate scripts for use with Status Bar Helper via AI, you can refer to this prompt. It will clearly guide the AI to write scripts that conform to the extension's supported specifications and can run correctly in the environment. [Click here to view](https://github.com/JiaHongL/status-bar-helper/blob/main/docs/generate-script-en.prompt.md)
 
+---
+
 ## StatusBarHelper.v1 API
 
 [API definition](https://github.com/JiaHongL/status-bar-helper/blob/main/types/status-bar-helper/sbh.d.ts)
 
 ---
 
-Made with ❤️ by **[Joe]**
+## 💡 Note
+
+This extension allows running custom scripts, which are written or provided by users themselves, offering great flexibility and automation. Please only use scripts from trusted or verified sources to ensure safety and stability; any issues or risks are the sole responsibility of the user.
 
 ---
+
+Made with ❤️ by **[Joe]**

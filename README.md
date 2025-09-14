@@ -16,6 +16,12 @@
 - Script Store（第一階段 + 遠端預覽）：集中瀏覽範例腳本（本地 + 遠端優先），檢視差異並單筆或批次安裝（原子回滾）、更新偵測（hash）。
 - 直觀圖示介面：所有操作按鈕採用一致的 VS Code Codicons，提供簡潔易用的操作體驗。
 
+## 贊助作者
+
+如果您覺得這個小工具實用，歡迎請作者喝杯咖啡，感謝您的支持！
+
+<a href="https://www.buymeacoffee.com/Joe.lin" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## 📖 使用說明
 
 ### 設定頁
@@ -105,9 +111,13 @@
 
 > 備註：每個 VM 執行完成後不會自動關閉，必須由使用者自行呼叫 vm.stop() 來結束；可搭配 vm.onStop() 監聽 VM 關閉事件。
 
+---
+
 ## Script 開發指南 (給 AI Model 閱讀使用)
 
 若您希望透過 AI 自動生成可用於 Status Bar Helper 的 Script，可以參考這份 prompt。內容將明確指引 AI 依據擴充套件支援的規範，撰寫能在環境中正常執行的 Script。[點此查看](https://github.com/JiaHongL/status-bar-helper/blob/main/docs/generate-script.prompt.md)
+
+---
 
 ## StatusBarHelper.v1 API
 
@@ -115,6 +125,10 @@
 
 ---
 
-Made with ❤️ by **[Joe]**
+## 💡 小提醒
+
+本擴充支援執行自訂腳本，這些腳本皆由使用者自行撰寫或提供，能帶來高度彈性與自動化能力。請僅使用可信來源或自行驗證過的腳本，以確保安全與穩定；若因此產生任何問題或風險，均由使用者自行承擔。
 
 ---
+
+Made with ❤️ by **[Joe]**
