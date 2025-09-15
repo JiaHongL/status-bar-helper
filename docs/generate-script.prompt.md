@@ -29,7 +29,7 @@ The following four documents **the model should first attempt to read and unders
     [https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20)
 
     - Purpose: To confirm the signatures of the Node built-in modules that will be used (sync vs. async, callback vs. Promise) to avoid API misuse.
-    - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`. If the execution environment cannot read the types, the **model must explicitly list its assumptions about the Node APIs in `SBH-SCRIPT-META.assumptions` (e.g., callback/Promise signatures)**.
+    - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`. 
     - The current d.ts hint for VS Code extensions is based on Node v20, but it will actually run based on the user's Node version. You can also write scripts using newer versions like v22.x, v24.x, etc.
 
 5.  SBH Default Script Reference
@@ -56,6 +56,11 @@ const { exec, spawn } = require("child_process");
 const util = require("util");
 const fsp = require("fs").promises;
 ```
+
+Key points:
+
+- Please refer to the import method above. Since the script runs in a Node.js environment, you must use `require()`.
+- After writing your script, remember to check that any modules you use are imported at the top of the file.
 
 ---
 
@@ -107,11 +112,12 @@ Key points:
 - `vm.open` / `vm.sendMessage` / `vm.onMessage` → inter-VM messaging
 - `vm.stopByCommand` / `vm.stop` → stopping a specified or self-VM
 - `vm.onStop` → cleaning up resources (e.g., closing a WebviewPanel)
-- If it's a one-time script, remember to call `vm.stop()` at the end to terminate it.
+- If you are running a one-time script without opening any `createWebviewPanel()` or `sidebar.open()`, remember to call vm.stop() at the end to terminate the script.
+- If the script uses `createWebviewPanel()` or `sidebar.open()`, you do not need to call vm.stop(), because vm.stop() will also close the webviewPanel or sidebar.
 
 ---
 
-## 3. Demonstrating secret / storage / files
+## 3. Demonstrating statusBarHelper.v1.secret / statusBarHelper.v1.storage / statusBarHelper.v1.files
 
 ```js
 const { secret, storage, files, vm } = statusBarHelper.v1;
@@ -137,6 +143,7 @@ Key points:
 - `storage.global` and `storage.workspace` → key/value storage
 - `files.readText`/`writeText`/`readJSON`/`writeJSON`/`readBytes`/`writeBytes` → file access
 - `files.exists`/`list`/`listStats`/`remove` → file management
+- If you want to read files within the project, please use `vscode.workspace.fs` instead of `statusBarHelper.v1.files`
 
 ---
 
@@ -193,7 +200,7 @@ Key points:
 
 ---
 
-## 6. Demonstrating sidebar
+## 6. Demonstrating statusBarHelper.v1.sidebar
 
 Key points: `sidebar.open()`, `postMessage`, `onMessage`, synchronous closing.
 

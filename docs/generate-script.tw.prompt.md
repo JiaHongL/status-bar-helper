@@ -29,7 +29,7 @@
    https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20
 
    - 目的：確認會用到的 Node 內建模組簽章（同步 vs 非同步、callback vs Promise），避免誤用 API。
-   - 有限範圍原則（**不要嘗試讀整個 repo**）：僅讀與腳本實作直接相關的型別檔，例如 `child_process.d.ts`、`fs.d.ts`、`path.d.ts`、`os.d.ts`、`process.d.ts`、`crypto.d.ts`、`timers.d.ts`、`stream.d.ts`。若執行環境無法讀取 types，**Model 必須在 `SBH-SCRIPT-META.assumptions` 明確列出採用的 Node API 假設（例如 callback/Promise 簽章）**。
+   - 有限範圍原則（**不要嘗試讀整個 repo**）：僅讀與腳本實作直接相關的型別檔，例如 `child_process.d.ts`、`fs.d.ts`、`path.d.ts`、`os.d.ts`、`process.d.ts`、`crypto.d.ts`、`timers.d.ts`、`stream.d.ts`。
   - VS Code 擴充目前的 d.ts 提示基於 Node v20，但實際上會依使用者環境的 Node 版本運作，你也可以使用 v22.x、v24.x 等較新版本來撰寫 script。
 
 5. SBH 預設腳本參考
@@ -55,6 +55,10 @@ const { exec, spawn } = require("child_process");
 const util = require("util");
 const fsp = require("fs").promises;
 ```
+
+重點
+- 請參考上方引入的方式，因為是在 node 環境下執行，所以需要使用 `require()`。
+- 寫完腳本後，記得檢查程式碼使用到的模組是否有在上方引入。
 
 ---
 
@@ -106,11 +110,12 @@ const { vm } = statusBarHelper.v1;
 - vm.open / vm.sendMessage / vm.onMessage → VM 之間互傳訊息
 - vm.stopByCommand / vm.stop → 停止指定或自身 VM
 - vm.onStop → 清理資源（例如關閉 WebviewPanel）
-- 若是跑一次性的腳本，結尾記得呼叫 vm.stop() 結束
+- 若是跑一次性的腳本，沒有開啟任何 `createWebviewPanel()` 或 `sidebar.open()`，結尾記得呼叫 vm.stop() 結束腳本
+- 若是跑完腳本，有使用到 `createWebviewPanel()` 或 `sidebar.open()`，則不需要呼叫 vm.stop()，因為  vm.stop() 也會把 webviewPanel 或 sidebar 關掉
 
 ---
 
-## 3. 示範 secret / storage / files
+## 3. 示範 statusBarHelper.v1.secret / statusBarHelper.v1.storage / statusBarHelper.v1.files
 
 ```js
 const { secret, storage, files, vm } = statusBarHelper.v1;
@@ -136,6 +141,7 @@ const { secret, storage, files, vm } = statusBarHelper.v1;
 - storage.global 與 storage.workspace → key/value 儲存
 - files.readText/writeText/readJSON/writeJSON/readBytes/writeBytes → 檔案存取
 - files.exists/list/listStats/remove → 檔案管理
+- 若是要讀取讀取專案內的檔案，請使用 vscode.workspace.fs，而非 statusBarHelper.v1.files
 
 ---
 
@@ -192,7 +198,7 @@ panel.webview.html = `
 
 ---
 
-## 6. 示範 sidebar
+## 6. 示範 statusBarHelper.v1.sidebar
 
 重點：`sidebar.open()`、`postMessage`、`onMessage`、同步關閉。
 
