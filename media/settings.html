@@ -906,6 +906,12 @@ const util = require('util');
               [getNlsText("discard", "Discard"), getNlsText("cancel", "Cancel")]
             );
             if (choice === getNlsText("discard", "Discard")) {
+              if (!items?.map(i => i?.command).includes(e.detail.item.command)) {
+                vscode.postMessage({
+                  command: "stopByCommand",
+                  itemCommand: e.detail.item.command,
+                });
+              }
               clearDraftIfMatch(e.detail.item.command);
               clearEditing();
               showListView();
