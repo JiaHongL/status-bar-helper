@@ -1,43 +1,44 @@
-# Status Bar Helper — Script 開發指南 (給 AI Model 閱讀使用)
+# Status Bar Helper — Script Development Guide (For AI Model Use)
 
-## 必讀參考文件（**Model 必須嘗試讀取並理解**）
+## Essential Reference Documents (**Model Must Attempt to Read and Understand**)
 
-以下四份文件 **Model 應該先嘗試讀取並理解**（若環境可存取網路）。讀完後，Model 要能在產出腳本時依這些文件中的型別與 API 規範實作。
+The following four documents **the model should first attempt to read and understand** (if the environment has network access). After reading, the model must be able to implement scripts according to the types and API specifications found in these documents.
 
-1. SBH README（套件總覽）  
-   https://github.com/JiaHongL/status-bar-helper/blob/main/README.md
+1.  SBH README (Package Overview)  
+    [https://github.com/JiaHongL/status-bar-helper/blob/main/README.md](https://github.com/JiaHongL/status-bar-helper/blob/main/README.md)
 
-   - 目的：了解 Status Bar Helper 的整體設計目標、腳本載入與執行方式、以及常見使用情境（例如 triggers、sidebar、storage 等）。
+    - Purpose: To understand the overall design goals of Status Bar Helper, how scripts are loaded and executed, and common use cases (e.g., triggers, sidebar, storage, etc.).
 
-2. SBH Type Definitions（SBH 自己的 API 型別 — **raw 檔案**，必讀）  
-   https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts
+2.  SBH Type Definitions (SBH's Own API Types — **raw file**, must-read)  
+    [https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts)
 
-   - 目的：直接參考 `statusBarHelper.v1` 的型別定義（包含 `storage`、`files`、`secret`、`sidebar`、`vm` 等介面），以免產出與實際 API 不符的程式。
-   - 你要「看得懂」的重點（從 `sbh.d.ts` 摘要）：
-     - `storage`：兩層存取（`global` / `workspace`），各自提供 `get(key, default?)`、`set`、`remove`、`keys()` 等 Promise API，用於持久化 key/value（注意 workspace 在沒有開 workspace 時可能不可用）。
-     - `files`：提供完整檔案 I/O（`dirs()`、`readText`/`writeText`、`readJSON`/`writeJSON`、`readBytes`/`writeBytes`、`exists`、`list`、`listStats`、`remove`、`clearAll`），所有皆為 Promise，且需帶 `scope: 'global' | 'workspace'` 與相對路徑。
-     - `secret`：加密的機敏儲存（`get` / `set` / `delete` / `keys()`），用來存放 token / 機密。
-     - `sidebar`：sidebar/webview 管理（`open(spec)` 可傳 raw HTML 或 `{ html?, focus?, onClose? }`；有 `postMessage`、`onMessage(handler)`（回傳 disposable）、`close()`、`onClose(handler)`；若已存在 session，`open` 會 replace 舊 session 並觸發舊 session 的 `onClose('replaced')`）。
-     - `vm`：VM 生命週期與跨腳本通訊（`stop` / `onStop` / `reason` / `stopByCommand`、`open(cmdId, payload?)`、`sendMessage`、`onMessage`）。**注意：型別檔沒有提供任何顯示用方法（例如先前假設的 `vm.setLabel` 並不存在）——VM 主要負責執行控制與訊息傳遞。**
+    - Purpose: To directly reference the `statusBarHelper.v1` type definitions (including `storage`, `files`, `secret`, `sidebar`, `vm`, etc.) to avoid generating code that does not conform to the actual API.
+    - Key points you need to "understand" (summarized from `sbh.d.ts`):
+      - `storage`: Two-level access (`global` / `workspace`), each providing Promise APIs like `get(key, default?)`, `set`, `remove`, and `keys()` for persistent key/value storage (note that `workspace` may not be available if no workspace is open).
+      - `files`: Provides full file I/O (`dirs()`, `readText`/`writeText`, `readJSON`/`writeJSON`, `readBytes`/`writeBytes`, `exists`, `list`, `listStats`, `remove`, `clearAll`). All are Promises and require a `scope: 'global' | 'workspace'` and a relative path.
+      - `secret`: Encrypted storage for sensitive data (`get` / `set` / `delete` / `keys()`), used for storing tokens or secrets.
+      - `sidebar`: Sidebar/webview management (`open(spec)` can accept raw HTML or `{ html?, focus?, onClose? }`; has `postMessage`, `onMessage(handler)` (returns a disposable), `close()`, and `onClose(handler)`; if a session already exists, `open` will replace the old session and trigger the old session's `onClose('replaced')`).
+      - `vm`: VM lifecycle and inter-script communication (`stop` / `onStop` / `reason` / `stopByCommand`, `open(cmdId, payload?)`, `sendMessage`, `onMessage`). **Note: The type file does not provide any display methods (e.g., the previously assumed `vm.setLabel` does not exist) — the VM is primarily responsible for execution control and message passing.**
 
-3. VS Code d.ts（官方 VSCode API 參考）  
-   https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts
+3.  VS Code d.ts (Official VS Code API Reference)  
+    [https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts](https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts)
 
-   - 目的：確認在擴充/腳本中可以安全使用的 `vscode` API（例如 `commands.executeCommand`、`window.showInformationMessage`、`workspace.workspaceFolders`、URI/fsPath 等），必要時用這些官方 API 作為顯示或 workspace 操作的 fallback。
+    - Purpose: To confirm which `vscode` APIs can be safely used in extensions/scripts (e.g., `commands.executeCommand`, `window.showInformationMessage`, `workspace.workspaceFolders`, URI/fsPath, etc.), using these official APIs as a fallback for display or workspace operations when necessary.
 
-4. Node.js 型別（DefinitelyTyped — types/node v20）  
-   https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20
+4.  Node.js Types (DefinitelyTyped — types/node v20)  
+    [https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20)
 
-   - 目的：確認會用到的 Node 內建模組簽章（同步 vs 非同步、callback vs Promise），避免誤用 API。
-   - 有限範圍原則（**不要嘗試讀整個 repo**）：僅讀與腳本實作直接相關的型別檔，例如 `child_process.d.ts`、`fs.d.ts`、`path.d.ts`、`os.d.ts`、`process.d.ts`、`crypto.d.ts`、`timers.d.ts`、`stream.d.ts`。若執行環境無法讀取 types，**Model 必須在 `SBH-SCRIPT-META.assumptions` 明確列出採用的 Node API 假設（例如 callback/Promise 簽章）**。
-  - VS Code 擴充目前的 d.ts 提示基於 Node v20，但實際上會依使用者環境的 Node 版本運作，你也可以使用 v22.x、v24.x 等較新版本來撰寫 script。
+    - Purpose: To confirm the signatures of the Node built-in modules that will be used (sync vs. async, callback vs. Promise) to avoid API misuse.
+    - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`. If the execution environment cannot read the types, the **model must explicitly list its assumptions about the Node APIs in `SBH-SCRIPT-META.assumptions` (e.g., callback/Promise signatures)**.
+    - The current d.ts hint for VS Code extensions is based on Node v20, but it will actually run based on the user's Node version. You can also write scripts using newer versions like v22.x, v24.x, etc.
 
-5. SBH 預設腳本參考
-  - https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts
+5.  SBH Default Script Reference
+
+    - [https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts)
 
 ---
 
-## 1. 怎麼撰寫腳本的相關模組引用
+## 1. How to Import Related Modules for Scripts
 
 ```js
 const vscode = require("vscode");
@@ -58,7 +59,7 @@ const fsp = require("fs").promises;
 
 ---
 
-## 2. 示範 statusBarHelper.v1.vm
+## 2. Demonstrating statusBarHelper.v1.vm
 
 ```js
 const vscode = require("vscode");
@@ -101,16 +102,16 @@ const { vm } = statusBarHelper.v1;
 })();
 ```
 
-重點
+Key points:
 
-- vm.open / vm.sendMessage / vm.onMessage → VM 之間互傳訊息
-- vm.stopByCommand / vm.stop → 停止指定或自身 VM
-- vm.onStop → 清理資源（例如關閉 WebviewPanel）
-- 若是跑一次性的腳本，結尾記得呼叫 vm.stop() 結束
+- `vm.open` / `vm.sendMessage` / `vm.onMessage` → inter-VM messaging
+- `vm.stopByCommand` / `vm.stop` → stopping a specified or self-VM
+- `vm.onStop` → cleaning up resources (e.g., closing a WebviewPanel)
+- If it's a one-time script, remember to call `vm.stop()` at the end to terminate it.
 
 ---
 
-## 3. 示範 secret / storage / files
+## 3. Demonstrating secret / storage / files
 
 ```js
 const { secret, storage, files, vm } = statusBarHelper.v1;
@@ -130,16 +131,16 @@ const { secret, storage, files, vm } = statusBarHelper.v1;
 })();
 ```
 
-重點
+Key points:
 
-- secret.set/get/delete/keys → 儲存 token 或機敏資訊
-- storage.global 與 storage.workspace → key/value 儲存
-- files.readText/writeText/readJSON/writeJSON/readBytes/writeBytes → 檔案存取
-- files.exists/list/listStats/remove → 檔案管理
+- `secret.set`/`get`/`delete`/`keys` → storing tokens or sensitive information
+- `storage.global` and `storage.workspace` → key/value storage
+- `files.readText`/`writeText`/`readJSON`/`writeJSON`/`readBytes`/`writeBytes` → file access
+- `files.exists`/`list`/`listStats`/`remove` → file management
 
 ---
 
-## 4. 示範 workspaceFolders + exec
+## 4. Demonstrating workspaceFolders + exec
 
 ```js
 const vscode = require("vscode");
@@ -150,22 +151,22 @@ const workspaceFolders = vscode.workspace.workspaceFolders;
 if (workspaceFolders && workspaceFolders.length > 0) {
   const cwd = workspaceFolders[0].uri.fsPath;
   exec("git add .", { cwd }, (err) => {
-    if (err) vscode.window.showErrorMessage("Git Add 失敗");
-    else vscode.window.showInformationMessage("✅ git add . 成功");
+    if (err) vscode.window.showErrorMessage("Git Add failed");
+    else vscode.window.showInformationMessage("✅ git add . successful");
     vm.stop();
   });
 }
 ```
 
-重點：
+Key points:
 
-- 取 workspaceFolders[0].uri.fsPath 作為 cwd
-- 用 child_process.exec 執行 git 或 shell 指令
-- 透過 vscode.window.showInformationMessage / showErrorMessage 顯示結果
+- Use `workspaceFolders[0].uri.fsPath` as `cwd`.
+- Use `child_process.exec` to execute Git or shell commands.
+- Use `vscode.window.showInformationMessage` / `showErrorMessage` to display results.
 
 ---
 
-## 5. 示範 createWebviewPanel
+## 5. Demonstrating createWebviewPanel
 
 ```js
 const panel = vscode.window.createWebviewPanel(
@@ -182,19 +183,19 @@ panel.webview.html = `
 `;
 ```
 
-重點：
+Key points:
 
-- createWebviewPanel(viewType, title, column, options)
-- panel.webview.html 注入 HTML
-- CSP 必須設定 <meta http-equiv="Content-Security-Policy" …>
-- script tag 記得加上 nonce="${nonce}"
-- vm.onStop 與 panel.onDidDispose 清理資源
+- `createWebviewPanel(viewType, title, column, options)`
+- Inject HTML with `panel.webview.html`.
+- CSP must be set with `<meta http-equiv="Content-Security-Policy" …>`.
+- The `<script>` tag must include `nonce="${nonce}"`.
+- Use `vm.onStop` and `panel.onDidDispose` to clean up resources.
 
 ---
 
-## 6. 示範 sidebar
+## 6. Demonstrating sidebar
 
-重點：`sidebar.open()`、`postMessage`、`onMessage`、同步關閉。
+Key points: `sidebar.open()`, `postMessage`, `onMessage`, synchronous closing.
 
 ```js
 const { sidebar, vm } = statusBarHelper.v1;
@@ -214,16 +215,16 @@ sidebar.onMessage((m) => panel.webview.postMessage(m));
 panel.webview.onDidReceiveMessage((m) => sidebar.postMessage(m));
 ```
 
-重點
+Key points:
 
-- sidebar.open({ html, onClose }) → 開啟 sidebar
-- sidebar.postMessage / sidebar.onMessage → 與 VM 或 WebviewPanel 溝通
-- sidebar.close / sidebar.onClose → 關閉與監聽關閉事件
-- 搭配 vscode.window.createWebviewPanel 可做雙邊互動
+- `sidebar.open({ html, onClose })` → opens the sidebar.
+- `sidebar.postMessage` / `sidebar.onMessage` → communicates with the VM or WebviewPanel.
+- `sidebar.close` / `sidebar.onClose` → closes and listens for close events.
+- Can be combined with `vscode.window.createWebviewPanel` for two-way interaction.
 
 ---
 
-## 7. 示範 createStatusBarItem / showInputBox / showQuickPick
+## 7. Demonstrating createStatusBarItem / showInputBox / showQuickPick
 
 ```js
 const vscode = require("vscode");
@@ -246,7 +247,7 @@ const { vm } = statusBarHelper.v1;
     ]);
     if (choice === "Custom…") {
       const minutes = await vscode.window.showInputBox({
-        prompt: "輸入分鐘數",
+        prompt: "Enter minutes",
         value: "25",
       });
       vscode.window.showInformationMessage(`Start ${minutes} min`);
@@ -257,18 +258,18 @@ const { vm } = statusBarHelper.v1;
 })();
 ```
 
-重點：
+Key points:
 
-- createStatusBarItem → 建立自訂狀態列項目
-- showQuickPick → 動態選單
-- showInputBox → 自訂輸入（含 validateInput）
-- 可結合 setInterval 實作番茄鐘等工具
+- `createStatusBarItem` → creates a custom status bar item.
+- `showQuickPick` → dynamic menu.
+- `showInputBox` → custom input (including `validateInput`).
+- Can be combined with `setInterval` to implement tools like a pomodoro timer.
 
 ---
 
-## 8. 示範 withProgress / activeTab.input
+## 8. Demonstrating withProgress / activeTab.input
 
-結合範例
+Combined example:
 
 ```js
 const vscode = require("vscode");
@@ -278,11 +279,11 @@ const { vm } = statusBarHelper.v1;
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "處理中...",
+      title: "Processing...",
       cancellable: false,
     },
     async (progress) => {
-      progress.report({ message: "分析目前的 active tab" });
+      progress.report({ message: "Analyzing the current active tab" });
       await new Promise((r) => setTimeout(r, 1000));
       const active = vscode.window.tabGroups.activeTabGroup?.activeTab?.input;
       console.log("active tab input =", active);
@@ -292,41 +293,48 @@ const { vm } = statusBarHelper.v1;
 })();
 ```
 
-重點
+Key points:
 
-- withProgress({ location, title }, task) → 長時間任務顯示進度
-- tabGroups.activeTabGroup?.activeTab?.input → 取得目前使用中 tab 的資訊（檔案或 Webview）
+- `withProgress({ location, title }, task)` → displays progress for long-running tasks.
+- `tabGroups.activeTabGroup?.activeTab?.input` → gets information about the active tab (file or Webview).
 
-## 9. 示範 vscode.commands.executeCommand
+---
+
+## 9. Demonstrating vscode.commands.executeCommand
 
 ```js
-const vscode = require('vscode');
+const vscode = require("vscode");
 const { vm } = statusBarHelper.v1;
 
 (async () => {
   try {
-    // 執行 VS Code 內建的「切換亮/暗主題」指令
-    await vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes');
+    // Execute VS Code's built-in "toggle light/dark themes" command
+    await vscode.commands.executeCommand(
+      "workbench.action.toggleLightDarkThemes"
+    );
   } catch (e) {
-    // 如果執行失敗，顯示錯誤訊息
-    vscode.window.showErrorMessage('Toggle theme failed: ' + (e?.message || e));
+    // If the execution fails, show an error message
+    vscode.window.showErrorMessage("Toggle theme failed: " + (e?.message || e));
   } finally {
-    // 無論成功或失敗，腳本最後要停止 VM
+    // Whether successful or not, the script must stop the VM at the end
     vm.stop();
   }
 })();
 ```
 
-重點
-- vscode.commands.executeCommand(commandId, ...args) → 執行 VS Code 指令
+Key points:
 
-## 其他
+- `vscode.commands.executeCommand(commandId, ...args)` → executes a VS Code command.
 
-- 特別注意 CSP 與 nonce 的使用
-  - CSP 必須設定 `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`
-  - `<script nonce="${nonce}">` 搭配 `const nonce = Math.random().toString(36).slice(2);`
-  - 若要使用 VSCode API，必須在 script 裡面呼叫 `const vscode = acquireVsCodeApi();`
-- 如在 html 使用字串模板，請注意跳脫反引號與 `${}`,例如：
+---
+
+## Others
+
+- Pay special attention to the use of CSP and `nonce`.
+  - CSP must be set with `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`.
+  - `<script nonce="${nonce}">` is paired with `const nonce = Math.random().toString(36).slice(2);`.
+  - To use the VS Code API, you must call `const vscode = acquireVsCodeApi();` inside the script.
+- If you use string templates in HTML, be careful to escape backticks and `${}`, for example:
 
 ```js
 const panel = vscode.window.createWebviewPanel(
@@ -348,5 +356,7 @@ panel.webview.html = `
 `;
 ```
 
-請先閱讀以上參考文件；接著我會提供腳本需求。請依文件中的 API 與型別規範產出可執行的腳本程式碼。
-如果你已經準備好，請回覆 「請開始」，之後我會輸入需求。
+Please read the reference documents above. I will then provide the script requirements. Please produce executable script code according to the API and type specifications in the documents.
+
+If you are ready, please reply with "Please begin," and I will then provide the requirements.
+

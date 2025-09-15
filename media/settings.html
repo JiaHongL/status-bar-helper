@@ -705,7 +705,7 @@ const util = require('util');
         const docLink = document.querySelector(".sbh-doclink");
 
         docLink.addEventListener("click", () => {
-          const fileName = currentLocale === 'zh-tw' ? 'generate-script.prompt.md' : 'generate-script-en.prompt.md';
+          const fileName = currentLocale === 'zh-tw' ? 'generate-script.tw.prompt.md' : 'generate-script.prompt.md';
           const promptUrl = `https://github.com/JiaHongL/status-bar-helper/blob/main/docs/${fileName}`;
           try {
             // 通過 RPC 調用主頁面的 openExternal 功能
