@@ -23,17 +23,19 @@
 3. VS Code d.ts（官方 VSCode API 參考）  
    https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts
 
-   - 目的：確認在擴充/腳本中可以安全使用的 `vscode` API（例如 `commands.executeCommand`、`window.showInformationMessage`、`workspace.workspaceFolders`、URI/fsPath 等），必要時用這些官方 API 作為顯示或 workspace 操作的 fallback。
+   - 目的：確認在擴充/腳本中可以安全使用的 `vscode` API（例如 `commands.executeCommand`、`window.showInformationMessage`、`workspace.workspaceFolders`、`window.showInputBox`、`window.showQuickPick` 等），必要時用這些官方 API 作為顯示或 workspace 操作的 fallback。
 
 4. Node.js 型別（DefinitelyTyped — types/node v20）  
    https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20
 
    - 目的：確認會用到的 Node 內建模組簽章（同步 vs 非同步、callback vs Promise），避免誤用 API。
    - 有限範圍原則（**不要嘗試讀整個 repo**）：僅讀與腳本實作直接相關的型別檔，例如 `child_process.d.ts`、`fs.d.ts`、`path.d.ts`、`os.d.ts`、`process.d.ts`、`crypto.d.ts`、`timers.d.ts`、`stream.d.ts`。
-  - VS Code 擴充目前的 d.ts 提示基於 Node v20，但實際上會依使用者環境的 Node 版本運作，你也可以使用 v22.x、v24.x 等較新版本來撰寫 script。
+
+- VS Code 擴充目前的 d.ts 提示基於 Node v20，但實際上會依使用者環境的 Node 版本運作，你也可以使用 v22.x、v24.x 等較新版本來撰寫 script。
 
 5. SBH 預設腳本參考
-  - https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts
+
+- https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/src/default-items.ts
 
 ---
 
@@ -57,6 +59,7 @@ const fsp = require("fs").promises;
 ```
 
 重點
+
 - 請參考上方引入的方式，因為是在 node 環境下執行，所以需要使用 `require()`。
 - 寫完腳本後，記得檢查程式碼使用到的模組是否有在上方引入。
 
@@ -111,7 +114,7 @@ const { vm } = statusBarHelper.v1;
 - vm.stopByCommand / vm.stop → 停止指定或自身 VM
 - vm.onStop → 清理資源（例如關閉 WebviewPanel）
 - 若是跑一次性的腳本，沒有開啟任何 `createWebviewPanel()` 或 `sidebar.open()`，結尾記得呼叫 vm.stop() 結束腳本
-- 若是跑完腳本，有使用到 `createWebviewPanel()` 或 `sidebar.open()`，則不需要呼叫 vm.stop()，因為  vm.stop() 也會把 webviewPanel 或 sidebar 關掉
+- 若是跑完腳本，有使用到 `createWebviewPanel()` 或 `sidebar.open()`，則不需要呼叫 vm.stop()，因為 vm.stop() 也會把 webviewPanel 或 sidebar 關掉
 
 ---
 
@@ -306,16 +309,18 @@ const { vm } = statusBarHelper.v1;
 ## 9. 示範 vscode.commands.executeCommand
 
 ```js
-const vscode = require('vscode');
+const vscode = require("vscode");
 const { vm } = statusBarHelper.v1;
 
 (async () => {
   try {
     // 執行 VS Code 內建的「切換亮/暗主題」指令
-    await vscode.commands.executeCommand('workbench.action.toggleLightDarkThemes');
+    await vscode.commands.executeCommand(
+      "workbench.action.toggleLightDarkThemes"
+    );
   } catch (e) {
     // 如果執行失敗，顯示錯誤訊息
-    vscode.window.showErrorMessage('Toggle theme failed: ' + (e?.message || e));
+    vscode.window.showErrorMessage("Toggle theme failed: " + (e?.message || e));
   } finally {
     // 無論成功或失敗，腳本最後要停止 VM
     vm.stop();
@@ -324,6 +329,7 @@ const { vm } = statusBarHelper.v1;
 ```
 
 重點
+
 - vscode.commands.executeCommand(commandId, ...args) → 執行 VS Code 指令
 
 ## 其他
@@ -355,4 +361,5 @@ panel.webview.html = `
 ```
 
 請先閱讀以上參考文件；接著我會提供腳本需求。請依文件中的 API 與型別規範產出可執行的腳本程式碼。
+
 如果你已經準備好，請回覆 「請開始」，之後我會輸入需求。
