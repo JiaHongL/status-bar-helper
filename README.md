@@ -2,7 +2,7 @@
 
 [English](README.md) | [繁體中文](README.tw.md)
 
-A VS Code extension that allows you to add custom buttons to the status bar. You can write JavaScript scripts and integrate with VS Code APIs to create unique and practical features.
+This is an extension that lets you add custom buttons to the VS Code status bar. You can write JavaScript scripts, or integrate with the VS Code API and native Node.js modules, to create a wide variety of unique and practical features.
 
 ## ✨ Key Features
 
