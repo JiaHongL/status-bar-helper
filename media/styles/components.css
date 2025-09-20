@@ -270,11 +270,11 @@ input:checked + .slider:before {
   opacity: 1;
 }
 
-.sbh-doclink {
+.sbh-doclink,
+.by-me-a-coffee {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 140px;
   justify-content: center;
   font-size: 13px;
   font-weight: 500;
@@ -292,7 +292,8 @@ input:checked + .slider:before {
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.sbh-doclink:hover {
+.sbh-doclink:hover,
+.by-me-a-coffee:hover {
   background: var(
     --vscode-toolbar-hoverBackground,
     var(--vscode-editor-hoverHighlightBackground)
@@ -301,7 +302,8 @@ input:checked + .slider:before {
   color: var(--vscode-textLink-foreground);
 }
 
-.sbh-doclink:focus-visible {
+.sbh-doclink:focus-visible,
+.by-me-a-coffee:focus-visible {
   outline: 1px solid var(--vscode-focusBorder);
   outline-offset: 2px;
 }

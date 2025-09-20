@@ -181,5 +181,6 @@
   "operationSuccessful": "Operation successful",
   "operationFailed": "Operation failed",
   "category": "Category",
-  "promptForScriptDevelopmentGuide": "Script Development Guide (Prompt)"
+  "promptForScriptDevelopmentGuide": "Script Development Guide (Prompt)",
+  "byMeACoffee": "Buy me a coffee"
 }
