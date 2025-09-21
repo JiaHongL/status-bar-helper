@@ -12,7 +12,6 @@ This is an extension that lets you add custom buttons to the VS Code status bar.
 - **Data Access API**: Access Storage and File system through extension API for convenient data management.
 - **Independent VM Execution**: Each script runs in an independent Node.js VM environment without interference, using only native Node modules.
 - **Security & Isolation**: Scripts execute in a controlled environment, avoiding impact on VS Code stability and security.
-- **Script Store (Phase 1 + Remote Preview)**: Browse curated sample scripts (local + remote fallback), view diffs (text / tooltip / tags / script), install or bulk install with rollback safety, detect updates via hash signature, NEW badge indicator showing available script counts, and modern UI with confirmation dialogs.
 - **Intuitive Icon Interface**: All action buttons use consistent VS Code Codicons for a clean and user-friendly experience.
 
 

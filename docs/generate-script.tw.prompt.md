@@ -25,13 +25,12 @@
 
    - 目的：確認在擴充/腳本中可以安全使用的 `vscode` API（例如 `commands.executeCommand`、`window.showInformationMessage`、`workspace.workspaceFolders`、`window.showInputBox`、`window.showQuickPick` 等），必要時用這些官方 API 作為顯示或 workspace 操作的 fallback。
 
-4. Node.js 型別（DefinitelyTyped — types/node v20）  
-   https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20
+4. Node.js 型別（DefinitelyTyped — types/node v22）  
+   https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v22
 
    - 目的：確認會用到的 Node 內建模組簽章（同步 vs 非同步、callback vs Promise），避免誤用 API。
    - 有限範圍原則（**不要嘗試讀整個 repo**）：僅讀與腳本實作直接相關的型別檔，例如 `child_process.d.ts`、`fs.d.ts`、`path.d.ts`、`os.d.ts`、`process.d.ts`、`crypto.d.ts`、`timers.d.ts`、`stream.d.ts`。
-
-- VS Code 擴充目前的 d.ts 提示基於 Node v20，但實際上會依使用者環境的 Node 版本運作，你也可以使用 v22.x、v24.x 等較新版本來撰寫 script。
+   - d.ts 預設對應 Node v22，執行時依照使用者環境 (Node v18 ~ v24)，撰寫時請遵循實際版本的語法與 API。
 
 5. SBH 預設腳本參考
 

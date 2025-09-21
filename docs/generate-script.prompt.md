@@ -25,12 +25,12 @@ The following four documents **the model should first attempt to read and unders
 
     - Purpose: To confirm which `vscode` APIs can be safely used in extensions/scripts (e.g., `commands.executeCommand`、`window.showInformationMessage`、`workspace.workspaceFolders`、`window.showInputBox`、`window.showQuickPick` etc.), using these official APIs as a fallback for display or workspace operations when necessary.
 
-4.  Node.js Types (DefinitelyTyped — types/node v20)  
-    [https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v20)
+4.  Node.js Types (DefinitelyTyped — types/node v22)  
+    [https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v22](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node/v22)
 
     - Purpose: To confirm the signatures of the Node built-in modules that will be used (sync vs. async, callback vs. Promise) to avoid API misuse.
     - Limited scope principle (**do not attempt to read the entire repo**): Read only the type files directly related to script implementation, such as `child_process.d.ts`, `fs.d.ts`, `path.d.ts`, `os.d.ts`, `process.d.ts`, `crypto.d.ts`, `timers.d.ts`, `stream.d.ts`.
-    - The current d.ts hint for VS Code extensions is based on Node v20, but it will actually run based on the user's Node version. You can also write scripts using newer versions like v22.x, v24.x, etc.
+    - The d.ts is based on Node v22 by default, but execution follows the user's environment (Node v18 ~ v24). When writing code, please follow the syntax and APIs of the actual Node version.
 
 5.  SBH Default Script Reference
 
