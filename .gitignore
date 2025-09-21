@@ -2,4 +2,8 @@ out/
 node_modules/
 .vscode-test/
 *.vsix
-media/vs/
+media/dist/
+vite.config.js
+vite.config.js.map
+main.js
+main.js.map

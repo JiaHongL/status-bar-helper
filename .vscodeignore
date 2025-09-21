@@ -22,3 +22,15 @@ vsc-extension-quickstart.md
 .vscode/
 .gitignore
 image/
+
+# media-src
+media-src/
+
+# 忽略編譯後的 JavaScript 檔案和 Source Maps
+vite.config.js
+vite.config.js.map
+main.js
+main.js.map
+
+# 忽略腳本
+scripts/

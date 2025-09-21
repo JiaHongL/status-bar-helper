@@ -6,7 +6,7 @@
 @font-face {
 	font-family: "codicon";
 	font-display: block;
-	src: url("./codicon.ttf") format("truetype");
+	src: url("./codicon.ttf?0a3cacc32b1287fa99b52a31880127dd") format("truetype");
 }
 
 .codicon[class*='codicon-'] {
@@ -658,4 +658,7 @@
 .codicon-edit-sparkle:before { content: "\ec51" }
 .codicon-copilot-snooze:before { content: "\ec52" }
 .codicon-send-to-remote-agent:before { content: "\ec53" }
+.codicon-comment-discussion-sparkle:before { content: "\ec54" }
+.codicon-chat-sparkle-warning:before { content: "\ec55" }
+.codicon-chat-sparkle-error:before { content: "\ec56" }
 .codicon-git-fetch:before { content: "\f101" }

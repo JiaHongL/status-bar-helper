@@ -20,6 +20,9 @@
 	"exclude": [
 		"test-import-export.ts",
 		"node_modules",
-		"out"
+		"out",
+		"media-src",        // ⬅️ Vite 原始碼
+    "media/dist",       // ⬅️ Vite 產物
+    "vite.config.ts"    // ⬅️ Vite 設定
 	]
 }

@@ -20,7 +20,6 @@ class EditPageComponent extends HTMLElement {
     this.currentItem = null;
     this.selectedIcon = '';
     this.typeDefs = null;
-    this.monacoUri = null; // Monaco URI for initialization
     
     // UI 元素引用
     this.monacoEditor = null;
@@ -202,10 +201,6 @@ const util = require('util');
     // Monaco Editor 事件
     this.monacoEditor = this.querySelector('#monaco-editor-component');
     if (this.monacoEditor) {
-      // 設置 Monaco URI（如果已經設置了）
-      if (this.monacoUri) {
-        this.monacoEditor.setAttribute('monaco-uri', this.monacoUri);
-      }
       
       const monacoReadyHandler = (e) => {
         this.layoutEditor();
@@ -543,8 +538,7 @@ const util = require('util');
     Object.assign(dropdown.style, {
       position: 'fixed',
       left: `${Math.round(rect.left)}px`,
-      top: `${Math.round(rect.bottom)}px`,
-      width: `${Math.round(rect.width)}px`
+      top: `${Math.round(rect.bottom)}px`
     });
   }
 
@@ -763,14 +757,6 @@ const util = require('util');
       return window.getNlsText(key, defaultValue);
     }
     return defaultValue || key;
-  }
-
-  // 設置 Monaco URI
-  setMonacoUri(uri) {
-    this.monacoUri = uri;
-    if (this.monacoEditor) {
-      this.monacoEditor.setAttribute('monaco-uri', uri);
-    }
   }
 
   // 獲取 Monaco Editor 實例

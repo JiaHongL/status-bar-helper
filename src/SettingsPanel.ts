@@ -699,28 +699,49 @@ export class SettingsPanel {
 
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const htmlPath = path.join(this._extensionUri.fsPath, 'media', 'settings.html');
-    let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+    let html = fs.readFileSync(htmlPath, 'utf8');
 
-  // Localize document title
-  const localizedTitle = localize('panel.title', 'StatusBar Helper Settings');
-  htmlContent = htmlContent.replace(/<title>.*?<\/title>/i, `<title>${localizedTitle}</title>`);
+    // Title
+    const localizedTitle = localize('panel.title', 'StatusBar Helper Settings');
+    html = html.replace(/<title>.*?<\/title>/i, `<title>${localizedTitle}</title>`);
 
-    htmlContent = htmlContent.replace(
+    // CSP（包含 worker-src blob:）
+    html = html.replace(
       /<head>/,
-      `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline'; worker-src ${webview.cspSource} blob:; font-src ${webview.cspSource}; img-src ${webview.cspSource} https: data:;">`
+      `<head><meta http-equiv="Content-Security-Policy"
+        content="default-src 'none';
+                style-src ${webview.cspSource} 'unsafe-inline';
+                script-src ${webview.cspSource} 'unsafe-inline';
+                worker-src ${webview.cspSource} blob:;
+                font-src ${webview.cspSource};
+                img-src ${webview.cspSource} https: data:;">`
     );
 
-    const monacoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'vs'));
-    const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
-    const componentsBaseUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
-    const utilsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils'));
+    // URIs
+    const distUri             = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'dist'));
+    const monacoCssUri        = vscode.Uri.joinPath(distUri, 'monaco-bundle.css');
 
-    htmlContent = htmlContent.replace(/{{monacoUri}}/g, monacoUri.toString());
-    htmlContent = htmlContent.replace(/{{stylesUri}}/g, stylesUri.toString());
-    htmlContent = htmlContent.replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString());
-    htmlContent = htmlContent.replace(/{{utilsUri}}/g, utilsUri.toString());
+    const utilsUri            = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'utils'));
+    const monacoLoaderUri     = vscode.Uri.joinPath(utilsUri, 'monaco-loader.js');
 
-    return htmlContent;
+    const stylesUri           = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'styles'));
+    const componentsBaseUri   = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'components'));
+
+    // 替換 placeholder（舊 {{monacoUri}} 不再需要）
+    html = html
+      .replace(/{{stylesUri}}/g,         stylesUri.toString())
+      .replace(/{{componentsBaseUri}}/g, componentsBaseUri.toString())
+      .replace(/{{utilsUri}}/g,          utilsUri.toString())
+      .replace(/{{monacoUri}}/g, '');
+
+    // 在 </head> 前插入 CSS + Loader（loader 會自行 import monaco-bundle.js）
+    html = html.replace(
+      /<\/head>/i,
+      `<link rel="stylesheet" href="${monacoCssUri}">\n` +
+      `<script type="module" src="${monacoLoaderUri}"></script>\n</head>`
+    );
+
+    return html;
   }
 
   public dispose() {

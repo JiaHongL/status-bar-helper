@@ -2,7 +2,7 @@
   "name": "status-bar-helper",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "1.8.7",
+  "version": "1.8.8",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -92,7 +92,16 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "postinstall": "npm run init:all",
+    "build:webview": "vite build",
+    "init:all": "npm run update:codicons -- init && npm run update:monaco -- init",
+    "update:all": "npm run update:codicons && npm run update:monaco",
+    "generate:codicons": "node ./scripts/generate-codicon-list.mjs",
+    "update:codicons:init": "npm run update:codicons -- init",
+    "update:monaco:init": "npm run update:monaco -- init",
+    "update:codicons": "node ./scripts/update-codicons.mjs",
+    "update:monaco": "node ./scripts/update-monaco.mjs",
+    "precompile": "npm run build:webview:if-needed",
     "compile": "npm run copy-files && tsc -p ./",
     "copy-files": "node ./scripts/copy-files.mjs",
     "watch": "tsc -watch -p ./",
@@ -110,11 +119,13 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^7.1.6",
+    "vite-plugin-monaco-editor": "^1.1.0"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.39",
-    "monaco-editor": "^0.52.2"
+    "@vscode/codicons": "0.0.40",
+    "monaco-editor": "0.53.0"
   },
   "files": [
     "out/**",
