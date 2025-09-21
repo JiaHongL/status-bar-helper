@@ -260,12 +260,110 @@ class MonacoEditorComponent extends HTMLElement {
       this._applyTypeDefs();
     }
 
+    // ★ 檢查並補齊剪貼簿功能（缺內建 action 才會啟用 shim）
+    this._ensureClipboardSupport();
+
     // 觸發準備完成事件
     this.dispatchEvent(
       new CustomEvent("monaco-ready", {
         detail: { editor: this._editor },
       })
     );
+
+  }
+
+  /**
+   * 檢查 Monaco 是否已有內建剪貼簿動作；若無，註冊 shim（支援 ⌘/Ctrl C/X/V）
+   *  monaco-editor 0.52.2 升到 0.53.0 後，內建的剪貼簿動作不見了，必須手動註冊
+   *  0.53.0 此版官方有大重構 esm 版本的程式碼，
+   */
+  _ensureClipboardSupport() {
+    if (!this._editor) return;
+
+    const hasBuiltIn = (() => {
+      const ids = this._editor.getActions().map(a => a.id);
+      return ids.some(id =>
+        id === 'editor.action.clipboardCopyAction' ||
+        id === 'editor.action.clipboardCutAction'  ||
+        id === 'editor.action.clipboardPasteAction'
+      );
+    })();
+
+    if (hasBuiltIn) {
+      console.log('[MonacoEditor] built-in clipboard present (no shim)');
+      return;
+    }
+
+    // --- shim helpers ---
+    const readFromHost = async () => {
+      try {
+        if (navigator.clipboard?.readText) return await navigator.clipboard.readText();
+      } catch {}
+      return await new Promise(resolve => {
+        const id = 'cb_' + Math.random().toString(36).slice(2);
+        const onMsg = (e) => {
+          if (e.data?.cmd === 'clipboard:read:resp' && e.data.id === id) {
+            window.removeEventListener('message', onMsg);
+            resolve(e.data.text || '');
+          }
+        };
+        window.addEventListener('message', onMsg);
+        window.vscode?.postMessage({ command: 'clipboard:read', id });
+        setTimeout(() => { window.removeEventListener('message', onMsg); resolve(''); }, 1500);
+      });
+    };
+
+    const writeToHost = async (text) => {
+      try {
+        if (navigator.clipboard?.writeText) return await navigator.clipboard.writeText(text ?? '');
+      } catch {}
+      window.vscode?.postMessage({ command: 'clipboard:write', text: text ?? '' });
+    };
+    // --- /shim helpers ---
+
+    // Copy
+    this._editor.addAction({
+      id: 'sbh.clipboard.copy',
+      label: 'Copy',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC],
+      precondition: 'editorTextFocus',
+      run: async (ed) => {
+        const model = ed.getModel();
+        const sels  = ed.getSelections() || [];
+        const text  = sels.map(r => model.getValueInRange(r)).join('\n');
+        if (text) await writeToHost(text);
+      }
+    });
+
+    // Cut
+    this._editor.addAction({
+      id: 'sbh.clipboard.cut',
+      label: 'Cut',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX],
+      precondition: 'editorTextFocus',
+      run: async (ed) => {
+        const model = ed.getModel();
+        const sels  = ed.getSelections() || [];
+        const text  = sels.map(r => model.getValueInRange(r)).join('\n');
+        if (text) {
+          await writeToHost(text);
+          ed.executeEdits('sbh-cut', sels.map(r => ({ range: r, text: '' })));
+        }
+      }
+    });
+
+    // Paste
+    this._editor.addAction({
+      id: 'sbh.clipboard.paste',
+      label: 'Paste',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV],
+      precondition: 'editorTextFocus',
+      run: async (ed) => {
+        const text = await readFromHost();
+        if (text) ed.trigger('sbh', 'type', { text });
+      }
+    });
+    console.log('[MonacoEditor] clipboard shim enabled');
   }
 
   // 設置事件監聽器
