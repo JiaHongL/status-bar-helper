@@ -126,17 +126,5 @@
   "dependencies": {
     "@vscode/codicons": "0.0.40",
     "monaco-editor": "0.53.0"
-  },
-  "files": [
-    "out/**",
-    "media/**",
-    "typedefs/**",
-    "package.json",
-    "package.nls.json",
-    "package.nls.zh-tw.json",
-    "package.nls.zh-hant.json",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE.txt"
-  ]
+  }
 }

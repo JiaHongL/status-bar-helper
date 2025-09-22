@@ -29,8 +29,17 @@ media-src/
 # 忽略編譯後的 JavaScript 檔案和 Source Maps
 vite.config.js
 vite.config.js.map
+vite.config.ts
 main.js
 main.js.map
 
 # 忽略腳本
 scripts/
+
+# 忽略特定的 JSON 檔案
+save-all-and-open-dev-tools.json
+
+# 忽略特定的 Markdown 檔案
+IMPLEMENTATION_SUMMARY.md
+core-modules.instructions.md
+agent-prompt.md
