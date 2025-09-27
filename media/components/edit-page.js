@@ -422,6 +422,9 @@ const util = require('util');
       return;
     }
 
+    // 初始狀態
+    searchInput.value = '';
+
     // 點擊觸發器
     const triggerHandler = () => {
       this.isIconDropdownOpen ? this.closeIconDropdown() : this.openIconDropdown();
@@ -476,6 +479,7 @@ const util = require('util');
     
     // 聚焦搜尋框
     if (searchInput) {
+      searchInput.value = '';
       searchInput.focus();
     }
     
