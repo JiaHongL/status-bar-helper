@@ -202,8 +202,6 @@ panel.webview.html = `
 
 ## 6. 示範 statusBarHelper.v1.sidebar
 
-重點：`sidebar.open()`、`postMessage`、`onMessage`、同步關閉。
-
 ```js
 const { sidebar, vm } = statusBarHelper.v1;
 const vscode = require("vscode");
