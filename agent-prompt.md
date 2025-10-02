@@ -10,7 +10,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-08-16
+LastMaintSync: 2025-10-02
 Update Triggers:
 1. 回應格式 / 檢查表項目新增或刪除
 2. Invariants（globalState 單一來源 / signature / polling 階梯 / 安全限制）任一調整
@@ -18,7 +18,10 @@ Update Triggers:
 4. Script Store 行為（remote fetch / cache TTL / 安全規則 / hash 組成）改動
 5. UI 斷點 (<1100 / <860) 或 running badge / 拖曳規則改動
 6. Typedef 注入或 sandbox 允許模組策略變動
+7. 前端模組化架構變更（Web Components / Vite / Monaco ESM / i18n）
+8. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新）
 Change Log:
+2025-10-02: Added frontend modularization, Vite build system, Monaco ESM, Web Components, i18n tools, Node v22.
 2025-08-16: Inserted maintenance triggers & remote-first Script Store invariant.
 -->
 
@@ -29,15 +32,32 @@ Change Log:
 
 ## 核心檔 & 職責
 
+**後端 (TypeScript)**:
+
 - `src/extension.ts`：VM sandbox 建立、Runtime 管理、Bridge 指令、Status Bar items lifecycle、自適應背景輪詢（20s→45s→90s→180s→300s→600s）、import/export host 端處理、SecretStorage 管理、智慧備份調度。
 - `src/SettingsPanel.ts`：Webview Panel 控制器（狀態同步、訊息路由、類型定義注入、Smart/Trusted Run、Stored Data 檢視）。
 - `src/SidebarManager.ts`：獨立側邊欄管理（webview 生命週期、HTML 內容載入、聚焦控制、替換防抖）。
 - `src/SmartBackupManager.ts`：智慧型定時備份（變更偵測、動態間隔調整、原子性操作）。
 - `src/secretKeyManager.ts`：機密儲存管理（SecretStorage 封裝、使用者確認機制）。
-- `media/settings.html`：UI（items list + drag reorder、running badge、last sync indicator、Monaco 初始化、import/export modal、responsive/compact 規則）。
 - `types/status-bar-helper/sbh.d.ts`：完整的 TypeScript API 定義（storage、files、secrets、sidebar、vm 等）。
 - 支援：`globalStateManager.ts`（GLOBAL_MANIFEST_KEY / GLOBAL_ITEMS_KEY）、`utils/importExport.ts`（parse/diff/apply）、`utils/backup.ts`（備份操作工具）。
-- Script Store：`extension.ts` bridge `scriptStore` namespace（remote-first catalog + 5min cache + 安全掃描）與 settings.html overlay。
+
+**前端 (Web Components + Vite)**:
+
+- `media/settings.html`：主頁面骨架（載入組件、Monaco 初始化、responsive/compact 規則）。
+- `media/components/`：Web Components（list-view, edit-page, script-store, import-dialog, export-dialog, backup-manager, data-view, monaco-editor, confirmation-dialog）。
+- `media/styles/`：CSS 模組（base, layout, components, list-view, edit-page, codicon）。
+- `media/utils/`：工具模組（i18n-helper, monaco-loader, vscode-icons）。
+- `media-src/main.ts`：Vite 構建入口（TypeScript → ESM）。
+- Script Store：`extension.ts` bridge `scriptStore` namespace（remote-first catalog + 5min cache + 安全掃描）+ `script-store.js` 組件。
+
+**構建工具**:
+
+- `vite.config.ts`：Vite 前端構建配置。
+- `scripts/copy-files.mjs`：複製 typedefs 與 nls 至 out/（替代 cpx）。
+- `scripts/update-monaco.mjs`：Monaco Editor 版本更新腳本。
+- `scripts/update-codicons.mjs`：Codicons 字型與 CSS 更新腳本。
+- `tools/check-nls.mjs`：多國語系完整性檢查工具。
 
 ## 不變量 / Invariants
 
@@ -94,8 +114,11 @@ Change Log:
 - [ ] 大小/路徑限制未突破
 - [ ] typedef 已同步（若 API 有增修）
 - [ ] UI 響應式與 Running badge 規則不破壞
-- [ ] 多語系字串通過 `localize`（若新增顯示文字）
+- [ ] 多語系字串通過 `i18n-helper.js` 的 `t()`（若新增顯示文字）
 - [ ] Import/Export 格式守恆（欄位順序與未知欄位保留）
+- [ ] Web Components 事件通訊正確（CustomEvent 向上傳遞）
+- [ ] CSS 使用 `--vscode-*` 或 `--sbh-*` 變數（避免硬編碼顏色）
+- [ ] NLS 完整性檢查通過（執行 `npm run check-nls`）
 - [ ] Script Store 安全限制（size/hash/unsafe pattern）與原子回滾維持
 
 ## 禁止 / 拒絕（需明確說明）

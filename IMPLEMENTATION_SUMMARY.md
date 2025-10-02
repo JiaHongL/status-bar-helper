@@ -2,9 +2,20 @@
 
 ## 🎯 專案概述
 
-Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、智慧備份、機密管理等完整功能。版本已發展至 **v1.7.4**，具備企業級的安全性與穩定性。
+Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、智慧備份、機密管理等完整功能。版本已發展至 **v1.8.13**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
 
-## 🔄 最新功能（v1.5.0 - v1.7.4）
+## 🔄 最新功能（v1.5.0 - v1.8.13）
+
+### v1.8.13 - 前端模組化重構完成
+
+- ✅ **前端模組化架構**：完整的 Web Components 化重構（Phase 1-8）
+- ✅ **CSS 模組化**：分離為 base.css、layout.css、components.css 等模組
+- ✅ **Web Components**：List View、Edit Page、Script Store、Import/Export、Backup Manager、Data View 全面組件化
+- ✅ **多國語系工具**：i18n-helper.js 統一語系管理，NLS 檢查工具確保翻譯完整性
+- ✅ **技術升級**：Monaco Editor 0.53 (ESM)、Codicons 更新機制、Node.js v22 類型支援
+- ✅ **Vite 構建系統**：新增現代化前端構建工具鏈
+- ✅ **範例改善**：更新預設腳本範例與多語言提示文件
+- ✅ **Bug 修復**：VM 資源釋放、Monaco 複製/貼上功能、Windows 備份 ID 等問題修復
 
 ### v1.7.4 - 程式碼範例優化
 
@@ -66,14 +77,137 @@ Extension Host (extension.ts)
     ├── File Operations (Text/JSON/Binary)
     ├── Secret Storage (Secure Credentials)
     └── Sidebar Control (Open/Close/Replace)
+
+Frontend Architecture (media/)
+├── Web Components (components/)
+│   ├── list-view.js - 項目列表組件
+│   ├── edit-page.js - 編輯頁面組件
+│   ├── script-store.js - 腳本商店組件
+│   ├── import-dialog.js - 匯入對話框
+│   ├── export-dialog.js - 匯出對話框
+│   ├── backup-manager.js - 備份管理組件
+│   ├── data-view.js - 資料檢視組件
+│   ├── monaco-editor.js - Monaco 編輯器包裝
+│   └── confirmation-dialog.js - 確認對話框
+├── Utilities (utils/)
+│   ├── i18n-helper.js - 國際化工具
+│   ├── monaco-loader.js - Monaco 動態載入
+│   └── vscode-icons.js - 圖示工具
+├── Styles (styles/)
+│   ├── base.css - 基礎變數與重置
+│   ├── layout.css - 版面配置
+│   ├── components.css - 組件樣式
+│   ├── list-view.css - 列表檢視樣式
+│   └── edit-page.css - 編輯頁面樣式
+└── Build System
+    ├── Vite - 現代化前端構建
+    ├── TypeScript (media-src/) - 類型安全開發
+    └── ESM Monaco Editor - 模組化編輯器
 ```
 
 ### API 生態系統
 
+- **v1.8.x**: 前端模組化重構、Monaco ESM、Vite 構建系統、Node.js v22 支援
 - **v1.7.x**: 完整的 TypeScript 支援與機密儲存
 - **v1.6.x**: 側邊欄管理與擴展 API 整合
 - **v1.5.x**: 智慧備份與企業級資料保護
 - **向後相容**: 所有 API 變更均維持向後相容性
+
+## 🎨 前端模組化重構（v1.8.x）
+
+### Phase 1-8 完整實作
+
+#### Phase 1: CSS 模組化
+
+- ✅ 分離 base.css（變數與重置）、layout.css（版面配置）
+- ✅ 建立 components.css、list-view.css、edit-page.css
+- ✅ Codicons 字型與樣式獨立管理
+
+#### Phase 2: 多國語系模組化
+
+- ✅ 建立 `media/utils/i18n-helper.js` 統一語系管理
+- ✅ 所有組件透過 `t(key)` 存取翻譯
+- ✅ NLS 檢查工具 (`tools/check-nls.mjs`) 確保翻譯完整性
+- ✅ 修正語系覆蓋與衝突問題
+
+#### Phase 3: Confirmation System
+
+- ✅ `confirmation-dialog.js` Web Component
+- ✅ 非阻塞式確認對話框，Promise-based API
+- ✅ 支援標題、訊息、主要/次要按鈕自訂
+
+#### Phase 4: Import Dialog
+
+- ✅ `import-dialog.js` Web Component
+- ✅ 封裝預覽、選擇、套用邏輯
+- ✅ 支援 Replace/Append 與 Skip/NewId 策略
+
+#### Phase 5: Export Dialog
+
+- ✅ `export-dialog.js` Web Component
+- ✅ 項目選擇、JSON 預覽、複製/儲存功能
+- ✅ 完整的國際化支援
+
+#### Phase 6: Backup Manager
+
+- ✅ `backup-manager.js` Web Component
+- ✅ 備份列表、還原、刪除功能
+- ✅ 自動/手動備份整合
+
+#### Phase 7: Script Store
+
+- ✅ `script-store.js` Web Component
+- ✅ Catalog 載入、安裝、更新、差異檢視
+- ✅ NEW 徽章系統與批次安裝
+
+#### Phase 8: Data View
+
+- ✅ `data-view.js` Web Component
+- ✅ 儲存資料檢視與管理
+- ✅ Global/Workspace 範圍切換
+
+### 技術特色
+
+#### Web Components 架構
+
+- 自訂元素封裝 (`<list-view>`, `<edit-page>`, 等)
+- Shadow DOM 隔離（選擇性使用）
+- 生命週期管理 (connectedCallback, disconnectedCallback)
+- 事件驅動通訊
+
+#### Monaco Editor 升級
+
+- Monaco 0.53.0 ESM 版本
+- 動態載入機制 (`monaco-loader.js`)
+- 修復 webview 複製/貼上問題
+- TypeScript 定義同步注入
+
+#### Codicons 管理
+
+- 自動更新腳本 (`scripts/update-codicons.mjs`)
+- 圖示清單產生工具
+- 版本化字型與 CSS 管理
+
+#### Vite 構建系統
+
+- `media-src/` TypeScript 源碼
+- `vite.config.ts` 構建配置
+- ESM 輸出至 `media/main.js`
+- 開發模式與生產優化
+
+### 構建流程
+
+```bash
+# 開發模式
+npm run compile      # TypeScript (tsc) + 複製資源
+npm run watch        # 監看模式編譯
+
+# 前端構建（可選）
+npm run build:frontend  # Vite 構建 media-src
+
+# 打包發布
+npm run build        # vsce package
+```
 
 ## 🎨 UI 圖示化升級
 

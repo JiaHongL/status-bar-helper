@@ -4,7 +4,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-08-16
+LastMaintSync: 2025-10-02
 Update Triggers (若發生務必同步本檔):
 1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun ...)
 2. 變更 items signature 欄位或 adaptive polling 階梯 / 閾值
@@ -19,20 +19,24 @@ Update Triggers (若發生務必同步本檔):
    - SettingsPanel.ts (Webview管理層架構) 
    - settings.html (UI頁面層架構)
    確保組件關係、數據流向、頁面結構的準確性與一致性
+10. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
 Instruction Change Log:
+2025-10-02: Sync with frontend modularization (Web Components), Vite build system, Monaco ESM upgrade, Node v22.
 2025-08-16: Sync with UI icon conversion & edit view tags removal. Updated responsive design and UI interaction patterns.
 -->
 
 ## Project quick facts
 - Name: **status-bar-helper**（VS Code Extension）
-- Version: **1.7.4**（最新穩定版）
+- Version: **1.8.13**（最新穩定版）
 - Stack: **TypeScript** + VS Code API（`vscode`），Node.js（`vm` 沙箱）
-- Build: `npm run compile`（`tsc` + `cpx` 複製 typedefs / nls），Package: `npm run build`（`vsce package`）
+- Build: `npm run compile`（`tsc` + 原生 `fs.cp` 複製 typedefs / nls），`npm run build:frontend`（Vite），Package: `npm run build`（`vsce package`）
+- Frontend: **Vite** + **Web Components** + **Monaco ESM 0.53**（`media-src/` → `media/main.js`）
 - Test: `@vscode/test-electron`；（尚未定義 npm test 腳本，可補 `vscode-test` 例行測）
 - Activation: `onStartupFinished`、`statusBarHelper.showSettings`
 - Commands: `statusBarHelper.showSettings`、`statusBarHelper._bridge`、`statusBarHelper._abortByCommand`、`statusBarHelper._refreshStatusBar`
 - Capabilities: 不支援 **Untrusted** 與 **Virtual** 工作區（`capabilities.untrustedWorkspaces/virtualWorkspaces` 均為 false）
 - **TypeScript 支援**: 完整的 API 類型定義 `types/status-bar-helper/sbh.d.ts`
+- **Node.js**: 類型提示基於 v22
 
 ## Coding style
 - TypeScript **strict** 開啟；**避免 `any`**；型別窄化優先
@@ -172,7 +176,67 @@ interface ScriptStoreEntryMeta {
 預先 clone items 陣列；逐項驗證 & 構建新陣列 → 成功後一次性寫入；失敗則放棄並回傳錯誤碼（不殘留部分狀態）。
 
   1) 主要邏輯：`settings.html` 內的 `COMPACT_BREAKPOINT` 與 CSS `.compact` class。
-  2) 如需逐欄隱藏（CmdId / RunAtStartup），請以 `@media` 或額外 class 控制，避免在 JS 動態插刪 DOM。 
+  2) 如需逐欄隱藏（CmdId / RunAtStartup），請以 `@media` 或額外 class 控制，避免在 JS 動態插刪 DOM。
+
+## 前端模組化架構（v1.8.x）
+
+### Web Components 架構
+專案採用 Web Components 標準實現前端模組化：
+
+**組件清單**（`media/components/`）：
+- `list-view.js`：狀態列項目列表組件
+- `edit-page.js`：項目編輯頁面組件
+- `script-store.js`：腳本商店組件（catalog、安裝、更新）
+- `import-dialog.js`：匯入對話框組件
+- `export-dialog.js`：匯出對話框組件
+- `backup-manager.js`：備份管理組件
+- `data-view.js`：儲存資料檢視組件
+- `monaco-editor.js`：Monaco 編輯器包裝組件
+- `confirmation-dialog.js`：確認對話框組件
+
+**開發規範**：
+1. 使用 `customElements.define()` 註冊自訂元素
+2. 生命週期方法：`connectedCallback()`、`disconnectedCallback()`
+3. 事件驅動通訊：`dispatchEvent(new CustomEvent(...))`
+4. 國際化：透過 `i18n-helper.js` 的 `t(key)` 函式
+5. 避免在組件間共享全域變數；使用 message passing
+
+### CSS 模組化
+- `styles/base.css`：CSS 變數、重置樣式、全域基礎
+- `styles/layout.css`：版面配置、container、grid/flex
+- `styles/components.css`：共用組件樣式（按鈕、對話框）
+- `styles/list-view.css`：列表檢視專用樣式
+- `styles/edit-page.css`：編輯頁面專用樣式
+- `styles/codicon.css` + `codicon.ttf`：VS Code 圖示字型
+
+### Vite 構建系統
+- **Source**: `media-src/main.ts`（TypeScript）
+- **Output**: `media/main.js`（ESM）
+- **Config**: `vite.config.ts`
+- **Commands**: 
+  - `npm run build:frontend`：生產構建
+  - Vite watch mode 可自行配置（目前使用 tsc watch）
+
+### Monaco Editor ESM
+- **版本**: Monaco Editor 0.53.0
+- **載入方式**: `media/utils/monaco-loader.js` 動態 ESM import
+- **整合**: `monaco-editor.js` Web Component 封裝
+- **修復**: webview 複製/貼上功能（CSP 相容）
+- **Typedef 注入**: `settings.html` 動態注入 `sbh.d.ts` 定義
+
+### 多國語系工具
+- **Core**: `media/utils/i18n-helper.js`
+- **NLS Files**: `media/nls.en.json`、`media/nls.zh-tw.json`
+- **API**: `t(key, fallback?)`、`setLanguage(locale)`
+- **檢查工具**: `tools/check-nls.mjs`（驗證翻譯完整性）
+- **使用方式**: 所有 UI 文字透過 `t()` 取得，避免硬編碼
+
+### 開發流程建議
+1. **新增組件**：建立 `media/components/xxx.js`，實作 Web Component 標準
+2. **樣式隔離**：新增對應 CSS 檔案或擴充 `components.css`
+3. **國際化**：新增 NLS key 至 `nls.*.json`，執行 `npm run check-nls` 驗證
+4. **測試**：在 `settings.html` 中載入組件，透過 F12 測試互動
+5. **構建**：`npm run compile` 編譯後端，`npm run build:frontend`（可選）編譯前端
 
 ---
 
@@ -186,3 +250,7 @@ interface ScriptStoreEntryMeta {
 - **ConflictPolicy**：`skip`（略過衝突）或 `newId`（產生新 ID）
 - **Adaptive Polling**：背景自適應輪詢策略，用於跨裝置同步變更偵測
 - **Last Sync Indicator**：顯示最近一次套用遠端變更時間的 UI 元件
+- **Web Components**：前端自訂元素架構，封裝 UI 組件邏輯
+- **Vite**：現代化前端構建工具，用於 TypeScript → ESM 轉譯
+- **Monaco ESM**：Monaco Editor 的 ES Module 版本（0.53.0+）
+- **i18n-helper**：多國語系工具模組，提供 `t()` 翻譯函式

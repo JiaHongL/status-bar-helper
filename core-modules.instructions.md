@@ -13,7 +13,7 @@ meta:
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-08-16
+LastMaintSync: 2025-10-02
 Update Triggers:
 1. Runtime VM 建立 / 中止流程或追蹤結構 (RUNTIMES / MESSAGE_*) 改動
 2. Bridge namespace / 函式簽章 / 回傳格式有新增或修改
@@ -22,7 +22,10 @@ Update Triggers:
 5. Webview message 指令或事件新增 / 改名
 6. 安全與大小限制修改 (KV / JSON / TEXT / Binary / Script)
 7. Typedef 注入機制或內容版本化策略調整
+8. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
+9. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新流程）
 Change Log:
+2025-10-02: Added frontend modularization, Vite build system, Monaco ESM upgrade, Web Components architecture.
 2025-08-16: Added scriptStore namespace description & update triggers block. Updated UI icon button specifications and edit view simplification.
 -->
 
@@ -153,6 +156,168 @@ Don't:
 - 在 Webview 直接假設同步資料即時性（取決於 polling）。
 - 靜默忽略 Bridge 錯誤（至少 `console.warn`）。
 - 在 `settings.html` 添加未經過濾的 user script 日誌到 DOM（已透過 `escapeHtml`）。
+- 直接在組件間共享全域變數（改用 CustomEvent 通訊）。
+- 硬編碼 UI 文字（必須透過 `i18n-helper.js` 的 `t()` 函式）。
+- 在 Web Component 中使用 Shadow DOM 造成樣式隔離問題（目前專案不使用 Shadow DOM）。
+
+## 11. Frontend Modularization Architecture (v1.8.x)
+
+### Web Components Structure
+前端採用 Web Components 標準實現模組化，每個主要 UI 區塊封裝為獨立自訂元素：
+
+**Components Directory** (`media/components/`):
+- `list-view.js`: 狀態列項目列表 (`<list-view>`)
+- `edit-page.js`: 項目編輯頁面 (`<edit-page>`)
+- `script-store.js`: 腳本商店 (`<script-store>`)
+- `import-dialog.js`: 匯入對話框 (`<import-dialog>`)
+- `export-dialog.js`: 匯出對話框 (`<export-dialog>`)
+- `backup-manager.js`: 備份管理 (`<backup-manager>`)
+- `data-view.js`: 儲存資料檢視 (`<data-view>`)
+- `monaco-editor.js`: Monaco 編輯器包裝 (`<monaco-editor>`)
+- `confirmation-dialog.js`: 確認對話框 (`<confirmation-dialog>`)
+
+**Component Lifecycle**:
+- `connectedCallback()`: 組件插入 DOM 時初始化
+- `disconnectedCallback()`: 組件移除時清理資源
+- 事件驅動通訊：使用 `CustomEvent` 向上傳遞訊息
+- 屬性監聽：透過 `attributeChangedCallback()` 響應屬性變更
+
+### CSS Modularization
+**Styles Directory** (`media/styles/`):
+- `base.css`: CSS 變數定義（顏色、間距、字型）、重置樣式
+- `layout.css`: 頁面佈局、容器、grid/flexbox 規則
+- `components.css`: 共用組件樣式（按鈕、對話框、表單元素）
+- `list-view.css`: 列表檢視專用樣式
+- `edit-page.css`: 編輯頁面專用樣式
+- `codicon.css` + `codicon.ttf`: VS Code Codicons 字型與樣式
+
+**CSS Variables Convention**:
+- `--vscode-*`: 使用 VS Code 主題變數確保一致性
+- `--sbh-*`: 專案自訂變數（避免與 VS Code 變數衝突）
+
+### Vite Build System
+**Configuration** (`vite.config.ts`):
+- **Input**: `media-src/main.ts` (TypeScript 源碼)
+- **Output**: `media/main.js` (ESM bundle)
+- **Mode**: 生產構建（`npm run build:frontend`）
+- **Features**: TypeScript 轉譯、Tree shaking、最小化
+
+**Build Commands**:
+```bash
+npm run compile          # TypeScript (tsc) + 複製資源 (fs.cp)
+npm run build:frontend   # Vite 構建前端 (可選)
+npm run watch           # TypeScript watch mode
+npm run build           # vsce package
+```
+
+**File Copy Script** (`scripts/copy-files.mjs`):
+- 替代原本的 `cpx` 依賴
+- 使用 Node.js 原生 `fs.cp` API
+- 複製 `types/` 與 `media/nls*.json` 至 `out/`
+
+### Monaco Editor ESM Integration
+
+**Monaco 0.53.0 Upgrade**:
+- 切換至 ESM 版本 (`monaco-editor/esm/vs/editor/editor.api`)
+- 動態載入器 (`media/utils/monaco-loader.js`)
+- Web Component 包裝 (`media/components/monaco-editor.js`)
+
+**Webview Copy/Paste Fix**:
+- 修復 Monaco 0.53 在 webview CSP 限制下的複製/貼上問題
+- 實作自訂剪貼簿處理邏輯
+- 保持 VS Code 主題一致性
+
+**TypeScript Definitions Injection**:
+- `settings.html` 動態注入 `sbh.d.ts` 內容
+- 提供完整的 API IntelliSense
+- 與 Bridge API 保持同步
+
+**Monaco Update Script** (`scripts/update-monaco.mjs`):
+- 自動更新 Monaco Editor 版本
+- 驗證 ESM 模組可用性
+- 更新構建配置
+
+### Codicons Management
+
+**Update Script** (`scripts/update-codicons.mjs`):
+- 自動下載最新 Codicons 字型與 CSS
+- 驗證字型檔案完整性
+- 版本化管理
+
+**Icon List Generator** (`scripts/generate-codicon-list.mjs`):
+- 解析 `codicon.css` 生成可用圖示清單
+- 供前端圖示選擇器使用
+- 支援搜尋與過濾
+
+### Internationalization (i18n)
+
+**i18n Helper** (`media/utils/i18n-helper.js`):
+- **API**: `t(key, fallback?)` - 取得翻譯字串
+- **API**: `setLanguage(locale)` - 切換語言
+- **Files**: `media/nls.en.json`, `media/nls.zh-tw.json`
+- **Integration**: 所有組件透過 `t()` 存取翻譯
+
+**NLS Checker** (`tools/check-nls.mjs`):
+- 驗證所有語言檔案的 key 完整性
+- 偵測缺失或多餘的翻譯 key
+- CI/CD 整合準備
+
+**Usage Pattern**:
+```javascript
+import { t } from './utils/i18n-helper.js';
+element.textContent = t('key.path', 'Default Text');
+```
+
+### Development Workflow
+
+**Adding New Component**:
+1. 建立 `media/components/my-component.js`
+2. 實作 `customElements.define('my-component', MyComponent)`
+3. 新增對應 CSS（若需要）
+4. 在 `media/nls.*.json` 新增翻譯 key
+5. 執行 `npm run check-nls` 驗證
+6. 在 `settings.html` 中使用 `<my-component>`
+
+**Styling Guidelines**:
+- 優先使用 `--vscode-*` 變數確保主題一致性
+- 新增專案自訂變數時使用 `--sbh-` 前綴
+- 避免硬編碼顏色值
+- 使用相對單位（rem, em）而非絕對像素
+
+**Testing in Webview**:
+1. 修改組件程式碼
+2. 執行 `npm run compile`（或 watch mode）
+3. 在 VS Code 中開啟 Status Bar Helper 設定面板
+4. 使用 F12 開啟 DevTools 測試互動
+5. 檢查 Console 中的錯誤訊息
+
+### Migration Notes (Phase 1-8)
+
+**Completed Migrations**:
+- ✅ Phase 1: CSS 模組化（分離變數、佈局、組件樣式）
+- ✅ Phase 2: 多國語系工具化（i18n-helper + NLS checker）
+- ✅ Phase 3: Confirmation Dialog 組件化
+- ✅ Phase 4-5: Import/Export 對話框組件化
+- ✅ Phase 6: Backup Manager 組件化
+- ✅ Phase 7: Script Store 組件化
+- ✅ Phase 8: Data View 與 List View 組件化
+
+**Architecture Benefits**:
+- 組件可重用性提升
+- 責任分離更清晰
+- 維護成本降低
+- 測試隔離性改善
+- 國際化統一管理
+
+### Future Enhancements
+
+**Planned Improvements**:
+- Vite watch mode 整合（目前使用 tsc watch）
+- Web Component 單元測試框架
+- Monaco Editor 更豐富的 IntelliSense 提示
+- Codicons 圖示選擇器 UI 改進
+- i18n 熱重載（開發模式）
+- CSS-in-JS 考量（可選）
 
 ---
 維護者：更新本檔後，可視情況在 `README` 或 `IMPLEMENTATION_SUMMARY.md` 加超連結；保持 root 下易被發現。
