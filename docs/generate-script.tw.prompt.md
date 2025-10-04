@@ -329,6 +329,82 @@ const { vm } = statusBarHelper.v1;
 
 - vscode.commands.executeCommand(commandId, ...args) → 執行 VS Code 指令
 
+---
+
+## 10. 示範 statusBarHelper.v1.explorerAction
+
+```js
+const vscode = require("vscode");
+const { explorerAction, vm } = statusBarHelper.v1;
+
+(async () => {
+  // 基本使用：顯示檔案資訊
+  await explorerAction.register({
+    description: "$(info) 顯示檔案資訊",
+    handler: async (ctx) => {
+      const filePath = ctx.uri?.fsPath;
+      if (filePath) {
+        vscode.window.showInformationMessage(`檔案路徑: ${filePath}`);
+      }
+    },
+  });
+
+  // 多檔選取：批次處理
+  await explorerAction.register({
+    description: "$(rocket) 批次處理檔案",
+    handler: async (ctx) => {
+      // 處理單檔或多檔選取
+      const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+      vscode.window.showInformationMessage(`選取了 ${files.length} 個檔案`);
+
+      for (const fileUri of files) {
+        console.log("處理:", fileUri.fsPath);
+        // 在這裡執行批次處理邏輯
+      }
+    },
+  });
+
+  // 條件執行：只處理特定檔案類型
+  await explorerAction.register({
+    description: "$(symbol-method) 編譯 TypeScript",
+    handler: async (ctx) => {
+      if (!ctx.uri?.fsPath.endsWith(".ts")) {
+        vscode.window.showWarningMessage("此功能僅支援 .ts 檔案");
+        return;
+      }
+      vscode.window.showInformationMessage(`編譯: ${ctx.uri.fsPath}`);
+      // 執行編譯邏輯
+    },
+  });
+
+  // 使用 onDispose 清理資源
+  const action = await explorerAction.register({
+    description: "$(database) 查詢檔案資料庫",
+    handler: async (ctx) => {
+      console.log("查詢檔案:", ctx.uri?.fsPath);
+      // 執行資料庫查詢
+    },
+  });
+
+  action.onDispose(() => {
+    console.log("Explorer action 已移除，清理資源");
+    // 在這裡清理相關資源（例如關閉 vm）
+    vm.stop();
+  });
+})();
+```
+
+重點
+
+- explorerAction.register({ description, handler }) → 註冊檔案總管右鍵選單動作
+- description 支援 Codicons：使用 `$(icon)` 語法顯示圖示
+- handler 接收 context：包含 `uri`（單檔）或 `uris`（多選）
+- onDispose：可選的清理回調，在手動呼叫 `dispose()` 時觸發
+- 單一入口：所有動作都會顯示在「Status Bar Helper」選單下的 Quick Pick 中
+- 多檔支援：使用 `ctx.uris || (ctx.uri ? [ctx.uri] : [])` 同時處理單檔與多選情況
+
+---
+
 ## 其他
 
 - 特別注意 CSP 與 nonce 的使用

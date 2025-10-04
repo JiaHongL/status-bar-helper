@@ -335,6 +335,79 @@ Key points:
 
 ---
 
+## 10. Demonstrating statusBarHelper.v1.explorerAction
+
+```js
+const vscode = require("vscode");
+const { explorerAction, vm } = statusBarHelper.v1;
+
+(async () => {
+  // Basic usage: Display file information
+  await explorerAction.register({
+    description: "$(info) Show File Info",
+    handler: async (ctx) => {
+      const filePath = ctx.uri?.fsPath;
+      if (filePath) {
+        vscode.window.showInformationMessage(`File path: ${filePath}`);
+      }
+    },
+  });
+
+  // Multi-selection: Batch processing
+  await explorerAction.register({
+    description: "$(rocket) Batch Process Files",
+    handler: async (ctx) => {
+      // Handle single or multiple file selection
+      const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+      vscode.window.showInformationMessage(`Selected ${files.length} file(s)`);
+
+      for (const fileUri of files) {
+        console.log("Processing:", fileUri.fsPath);
+        // Execute batch processing logic here
+      }
+    },
+  });
+
+  // Conditional execution: Only process specific file types
+  await explorerAction.register({
+    description: "$(symbol-method) Compile TypeScript",
+    handler: async (ctx) => {
+      if (!ctx.uri?.fsPath.endsWith(".ts")) {
+        vscode.window.showWarningMessage("This command only works for .ts files");
+        return;
+      }
+      vscode.window.showInformationMessage(`Compiling: ${ctx.uri.fsPath}`);
+      // Execute compilation logic here
+    },
+  });
+
+  // Using onDispose for resource cleanup
+  const action = await explorerAction.register({
+    description: "$(database) Query File Database",
+    handler: async (ctx) => {
+      console.log("Querying file:", ctx.uri?.fsPath);
+      // Execute database query logic
+    },
+  });
+
+  action.onDispose(() => {
+    console.log("Explorer action removed, cleaning up resources");
+    // Clean up related resources here (e.g., close database connection)
+  });
+})();
+```
+
+Key points:
+
+- `explorerAction.register({ description, handler })` → registers a file explorer context menu action
+- `description` supports Codicons: use `$(icon)` syntax to display icons
+- `handler` receives context: contains `uri` (single file) or `uris` (multi-selection)
+- `onDispose`: Optional cleanup callback, triggered when `dispose()` is manually called
+- Single entry point: All actions appear under the "Status Bar Helper" menu in a Quick Pick
+- Multi-file support: Use `ctx.uris || (ctx.uri ? [ctx.uri] : [])` to handle both single and multiple file selections
+
+---
+
 ## Others
 
 - Pay special attention to the use of CSP and `nonce`.
