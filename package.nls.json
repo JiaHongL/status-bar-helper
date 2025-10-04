@@ -2,6 +2,7 @@
   "ext.displayName": "Status Bar Helper",
   "ext.description": "Create custom status bar buttons in VS Code with access to VS Code and Node.js APIs. Includes sample scripts like Log, Git, and Board, plus a visual settings panel.",
   "cmd.settings.title": "Status Bar Helper: Settings",
+  "cmd.explorerAction.title": "Status Bar Helper: Trigger Action Menu",
   "cfg.title": "Status Bar Helper",
   "cfg.showGearOnStartup.desc": "Show a gear shortcut in the status bar on startup.",
   "cfg.items.desc": "Items to show in the status bar (managed by the settings panel).",
@@ -16,6 +17,9 @@
   "err.scriptRunOnce": "❌ Script error (Run Once): {0}",
 
   "tooltip.settings": "Status Bar Helper Settings",
+
+  "explorerAction.noRegistrations": "No actions registered yet",
+  "explorerAction.selectAction": "Select an action to run",
 
   "item.log.text": "$(output) Log",
   "item.log.tooltip": "VS Code + Node. Output + bottom log",

@@ -1,8 +1,8 @@
 /**
  * StatusBarHelper API definition
- * Provides persistent storage (global/workspace) and file operations for custom scripts
  */
 interface StatusBarHelper {
+  
   v1: {
     /** Global and workspace storage management */
     storage: {
@@ -165,6 +165,91 @@ interface StatusBarHelper {
       */
       onMessage(handler: (fromCmdId: string, message: any) => void): () => void;
     };
+    /** File explorer right-click action integration */
+    explorerAction: {
+      /**
+       * Register an action to appear in the file explorer context menu
+       * 
+       * When users right-click on files/folders in the explorer and select
+       * "Status Bar Helper", a Quick Pick menu will show all registered actions.
+       * 
+       * The action will be automatically cleaned up when:
+       * - dispose() is called manually
+       * - The parent VM script is stopped
+       * 
+       * @param config Explorer action configuration
+       * @returns ExplorerActionHandle for managing the registration lifecycle
+       * 
+       * @example Basic usage - only description
+       * ```typescript
+       * await sbh.v1.explorerAction.register({
+       *   description: 'Display detailed file information',
+       *   handler: async (ctx) => {
+       *     vscode.window.showInformationMessage(`File: ${ctx.uri?.fsPath}`);
+       *   }
+       * });
+       * ```
+       * 
+       * @example With codicon
+       * ```typescript
+       * await sbh.v1.explorerMenu.register({
+       *   description: '$(info) Show File Info',
+       *   handler: async (ctx) => {
+       *     vscode.window.showInformationMessage(`File: ${ctx.uri?.fsPath}`);
+       *   }
+       * });
+       * ```
+       * 
+       * @example Multi-selection support
+       * ```typescript
+       * await sbh.v1.explorerAction.register({
+       *   description: '$(rocket) Batch process selected files',
+       *   handler: async (ctx) => {
+       *     const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+       *     vscode.window.showInformationMessage(`Processing ${files.length} file(s)`);
+       *     // Process each file
+       *     for (const fileUri of files) {
+       *       console.log('Processing:', fileUri.fsPath);
+       *     }
+       *   }
+       * });
+       * ```
+       * 
+       * @example With cleanup logic
+       * ```typescript
+       * const conn = await db.connect();
+       * 
+       * const action = await sbh.v1.explorerAction.register({
+       *   description: '$(database) Query file in database',
+       *   handler: async (ctx) => {
+       *     await conn.query('SELECT * FROM files WHERE path = ?', ctx.uri.fsPath);
+       *   }
+       * });
+       * 
+       * action.onDispose(() => {
+       *   console.log('Action disposed, closing database');
+       *   conn.close();
+       * });
+       * ```
+       * 
+       * @example Conditional execution
+       * ```typescript
+       * await sbh.v1.explorerAction.register({
+       *   description: '$(symbol-method) Compile TypeScript file',
+       *   handler: async (ctx) => {
+       *     // Filter for .ts files
+       *     if (!ctx.uri?.fsPath.endsWith('.ts')) {
+       *       vscode.window.showWarningMessage('This command only works for .ts files');
+       *       return;
+       *     }
+       *     // Compile logic here
+       *     console.log('Compiling:', ctx.uri.fsPath);
+       *   }
+       * });
+       * ```
+       */
+      register(config: ExplorerActionConfig): Promise<ExplorerActionHandle>;
+    };
   };
 }
 
@@ -172,3 +257,110 @@ interface StatusBarHelper {
 declare const statusBarHelper: StatusBarHelper; // Main API
 declare const sbh: StatusBarHelper;             // Short alias
 declare const SBH: StatusBarHelper;             // Uppercase alias
+
+// ============================================================================
+// Explorer Action API Types
+// ============================================================================
+
+/**
+ * Context information passed to explorer action handlers
+ */
+interface ExplorerActionContext {
+  /** 
+   * Primary selected file/folder URI
+   * - Single selection: the clicked item
+   * - Multi-selection: the item that was right-clicked (focus item)
+   */
+  uri?: any; // vscode.Uri
+  
+  /** 
+   * All selected URIs when multiple items are selected
+   * - Includes all items in the selection (including `uri`)
+   * - undefined for single selection
+   * 
+   * @example Handle both single and multi-selection
+   * const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+   */
+  uris?: any[]; // vscode.Uri[]
+}
+
+/**
+ * Configuration for registering an explorer action
+ */
+interface ExplorerActionConfig {
+  /** 
+   * Description shown in the Quick Pick menu
+   * Supports Codicons using $(icon) syntax for visual clarity
+   * 
+   * This is the only required text field - keep it concise but descriptive
+   * 
+   * @example Simple description
+   * 'Display file information'
+   * 
+   * @example With codicon
+   * '$(info) Show File Info'
+   * 
+   * @example Action-oriented
+   * '$(rocket) Batch process files'
+   * 
+   * @example Specific action
+   * '$(database) Query file in database'
+   * 
+   * @see https://microsoft.github.io/vscode-codicons/dist/codicon.html
+   */
+  description: string;
+  
+  /** 
+   * Handler function called when the action is selected from Quick Pick
+   * Receives context information about the selected files/folders
+   * 
+   * @example Single file handler
+   * handler: async (ctx) => {
+   *   if (ctx.uri) {
+   *     console.log('Processing:', ctx.uri.fsPath);
+   *   }
+   * }
+   * 
+   * @example Multi-selection handler
+   * handler: async (ctx) => {
+   *   const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+   *   for (const fileUri of files) {
+   *     console.log('Processing:', fileUri.fsPath);
+   *   }
+   * }
+   */
+  handler: (context: ExplorerActionContext) => void | Promise<void>;
+}
+
+/**
+ * Handle returned from explorer action registration
+ */
+interface ExplorerActionHandle {
+  /** 
+   * Auto-generated unique identifier for this registration
+   * @readonly
+   */
+  readonly menuId: string;
+  
+  /** 
+   * Unregister this action from the explorer menu
+   * Triggers onDispose listeners if registered
+   * @returns Promise that resolves when cleanup is complete
+   */
+  dispose(): Promise<void>;
+  
+  /**
+   * Register a callback to be invoked when this registration is disposed
+   * Note: Only triggered when dispose() is explicitly called, not when VM stops
+   * @param callback Function to call on disposal
+   * @returns Disposable to stop listening
+   * 
+   * @example
+   * const action = await sbh.v1.explorerAction.register({ ... });
+   * action.onDispose(() => {
+   *   console.log('Explorer action unregistered');
+   *   // Clean up resources
+   * });
+   */
+  onDispose(callback: () => void): { dispose(): void };
+}

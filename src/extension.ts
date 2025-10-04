@@ -41,7 +41,6 @@ import { localize } from './nls';
 import { SettingsPanel } from './SettingsPanel';
 import {
   parseAndValidate,
-  estimateSize,
   diff,
   applyImport,
   exportSelection,
@@ -317,6 +316,135 @@ type RuntimeCtx = {
 /** Active VM runtimes mapped by command ID */
 const RUNTIMES = new Map<string, RuntimeCtx>();
 
+/**
+ * Explorer Menu Registration
+ * 
+ * 設計原則：
+ * - 單一入口：所有腳本透過統一的 "Status Bar Helper" 選單項目註冊
+ * - Quick Pick：點擊後顯示 Quick Pick 讓使用者選擇要執行的腳本
+ * - 動態標題：Quick Pick 中的標題完全動態，無 VS Code 限制
+ * - 自動清理：VM 停止時自動移除該 VM 註冊的所有選單
+ */
+interface ExplorerMenuRegistration {
+  /** Auto-generated unique ID */
+  id: string;
+  /** Source VM command that registered this menu */
+  vmCommand: string;
+  /** Menu description (shown in Quick Pick) */
+  description: string;
+  /** User's handler function */
+  handler: (context: { uri?: vscode.Uri; uris?: vscode.Uri[] }) => void | Promise<void>;
+  /** onDispose listeners for this menu */
+  disposeListeners: Array<() => void>;
+}
+
+/**
+ * Global registry for all explorer menu registrations
+ * Key: registration ID, Value: registration data
+ */
+const explorerActionRegistrations = new Map<string, ExplorerMenuRegistration>();
+
+/**
+ * Counter for generating unique registration IDs
+ */
+let explorerActionIdCounter = 0;
+
+/**
+ * Register an explorer menu script
+ * @param vmCommand Source VM command
+ * @param description Menu description (supports codicons)
+ * @param handler Handler function
+ * @returns Registration ID
+ */
+function registerExplorerMenu(
+  vmCommand: string,
+  description: string,
+  handler: (context: { uri?: vscode.Uri; uris?: vscode.Uri[] }) => void | Promise<void>
+): string {
+  // Generate unique ID
+  const id = `explorerAction_${vmCommand}_${++explorerActionIdCounter}`;
+  
+  // Create registration
+  const registration: ExplorerMenuRegistration = {
+    id,
+    vmCommand,
+    description,
+    handler,
+    disposeListeners: []
+  };
+  
+  // Store in registry
+  explorerActionRegistrations.set(id, registration);
+  
+  return id;
+}
+
+/**
+ * Dispose an explorer menu registration
+ * @param id Registration ID
+ */
+function disposeExplorerMenu(id: string): void {
+  const registration = explorerActionRegistrations.get(id);
+  if (!registration) {
+    return; // Already disposed
+  }
+  
+  // Trigger onDispose listeners
+  for (const listener of registration.disposeListeners) {
+    try {
+      listener();
+    } catch (e) {
+      console.error('[Explorer Menu] onDispose listener error:', e);
+    }
+  }
+  
+  // Remove from registry
+  explorerActionRegistrations.delete(id);
+}
+
+/**
+ * Register the unified explorer menu command
+ * Shows Quick Pick with all registered scripts
+ */
+function registerExplorerMenuCommand(context: vscode.ExtensionContext): void {
+  const disposable = vscode.commands.registerCommand(
+    'statusBarHelper.explorerAction',
+    async (uri?: vscode.Uri, uris?: vscode.Uri[]) => {
+      // Collect all registered scripts
+      const items = Array.from(explorerActionRegistrations.values()).map(reg => ({
+        label: reg.description,
+        registration: reg
+      }));
+      
+      if (items.length === 0) {
+        vscode.window.showInformationMessage(
+          localize('explorerAction.noRegistrations', 'No actions registered yet')
+        );
+        return;
+      }
+      
+      // Show Quick Pick
+      const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: localize('explorerAction.selectAction', 'Select an action to run')
+      });
+      
+      if (!selected) {
+        return; // User cancelled
+      }
+      
+      try {
+        // Execute the selected script's handler
+        await selected.registration.handler({ uri, uris });
+      } catch (e) {
+        console.error('[Explorer Menu] Handler error:', e);
+        vscode.window.showErrorMessage(`Script execution error: ${e}`);
+      }
+    }
+  );
+  
+  context.subscriptions.push(disposable);
+}
+
 // ============================================================================
 // Inter-VM Message Bus - Script Communication System
 // ============================================================================
@@ -468,8 +596,10 @@ function buildSbh() {
         close:      () => sidebarMgr.close(),
         onClose:    (handler: ()=>void) => sidebarMgr.onClose(handler),
       },
-      // vm 會在 runScriptInVm 執行時注入
+      // vm 會在 runScriptInVm 執行時注入 (需要 command context)
       vm: {} as any,
+      // explorerAction 會在 runScriptInVm 執行時注入 (需要 command context)
+      explorerAction: {} as any,
     }
   };
 }
@@ -797,6 +927,93 @@ function runScriptInVm(
     }
   };
 
+  // ---- VM 專屬 explorerAction 包裝：自動收 Disposable + VM 停止時清理 ----
+  (api as any).v1.explorerAction = (() => {
+    const registeredMenus = new Set<string>(); // 追蹤這個 VM 註冊的 menuIds
+
+    const guard = () => {
+      if (signal.aborted) throw new Error(localize('err.execStopped', 'Execution stopped'));
+    };
+
+    const wrapped = {
+      register: async (config: any) => {
+        guard();
+
+        if (!config || typeof config !== 'object') {
+          throw new Error(localize('err.explorerActionRegisterInvalidConfig', 'explorerAction.register: config must be an object'));
+        }
+        if (!config.description || typeof config.description !== 'string') {
+          throw new Error(localize('err.explorerActionRegisterInvalidDescription', 'explorerAction.register: description is required'));
+        }
+        if (typeof config.handler !== 'function') {
+          throw new Error(localize('err.explorerActionRegisterInvalidHandler', 'explorerAction.register: handler must be a function'));
+        }
+
+        // 呼叫 bridge 註冊選單
+        const result = await vscode.commands.executeCommand('statusBarHelper._bridge', {
+          ns: 'explorerAction',
+          fn: 'register',
+          args: [command, config]
+        }) as any;
+
+        if (!result || !result.ok) {
+          throw new Error(result?.error || localize('err.explorerActionRegisterFailed', 'explorerAction.register: failed to register menu'));
+        }
+
+        const { menuId } = result.data;
+        registeredMenus.add(menuId);
+
+        // 返回 ExplorerMenuHandle
+        return {
+          get menuId() { return menuId; },
+          dispose: async () => {
+            if (signal.aborted) return; // VM 已停止，無需手動清理
+            registeredMenus.delete(menuId);
+            
+            const result = await vscode.commands.executeCommand('statusBarHelper._bridge', {
+              ns: 'explorerAction',
+              fn: 'dispose',
+              args: [menuId]
+            }) as any;
+
+            if (!result || !result.ok) {
+              throw new Error(result?.error || localize('err.explorerActionDisposeFailed', 'explorerAction.dispose: failed to dispose menu'));
+            }
+          },
+          onDispose: (cb: () => void) => {
+            if (typeof cb !== 'function') {
+              throw new Error(localize('err.explorerActionOnDisposeInvalidCallback', 'explorerAction.onDispose: callback must be a function'));
+            }
+            vscode.commands.executeCommand('statusBarHelper._bridge', {
+              ns: 'explorerAction',
+              fn: 'onDispose',
+              args: [menuId, cb]
+            });
+            return { dispose: () => {} };
+          }
+        };
+      }
+    };
+
+    // VM 結束時，自動清理這個 VM 註冊的所有選單
+    signal.addEventListener('abort', () => {
+      if (registeredMenus.size > 0) {
+        for (const menuId of registeredMenus) {
+          vscode.commands.executeCommand('statusBarHelper._bridge', {
+            ns: 'explorerAction',
+            fn: 'dispose',
+            args: [menuId]
+          }).then(undefined, (e: any) => {
+            console.error('[Explorer Menu] Failed to cleanup menu on VM abort:', e);
+          });
+        }
+        registeredMenus.clear();
+      }
+    }, { once: true });
+
+    return wrapped;
+  })();
+
   // 當 VM 結束時通知 webview（對 Trusted VM 也要有 runDone）
   sandbox.__sbhDone = (code: number) => {
     if (code === 0) {
@@ -1040,7 +1257,7 @@ async function loadDefaultsFromJson(context: vscode.ExtensionContext): Promise<S
           if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return reject(new Error('http ' + res.statusCode)); }
           let size = 0; let chunks: Buffer[] = [];
           res.on('data', (d: Buffer) => { size += d.length; if (size > SIZE_LIMIT) { res.destroy(new Error('size limit')); return; } chunks.push(d); });
-          res.on('end', () => { clearTimeout(timer); try { resolve(Buffer.concat(chunks).toString('utf8')); } catch (e) { reject(e); } });
+          res.on('end', () => { clearTimeout(timer); try { resolve(Buffer.concat(chunks as any).toString('utf8')); } catch (e) { reject(e); } });
           res.on('error', (e: any) => { clearTimeout(timer); reject(e); });
         }).on('error', (e: any) => { clearTimeout(timer); reject(e); });
       });
@@ -1215,7 +1432,7 @@ function registerBridge(context: vscode.ExtensionContext) {
                 if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return resolve(null); }
                 let size = 0; const chunks: Buffer[] = [];
                 res.on('data', d => { size += d.length; if (size > SIZE_LIMIT) { res.destroy(new Error('size limit')); } else { chunks.push(d); } });
-                res.on('end', () => { clearTimeout(timer); try { const text = Buffer.concat(chunks).toString('utf8'); const arr = JSON.parse(text); if (Array.isArray(arr)) { resolve(normalize(arr)); } else { resolve(null); } } catch { resolve(null); } });
+                res.on('end', () => { clearTimeout(timer); try { const text = Buffer.concat(chunks as any).toString('utf8'); const arr = JSON.parse(text); if (Array.isArray(arr)) { resolve(normalize(arr)); } else { resolve(null); } } catch { resolve(null); } });
                 res.on('error', () => { clearTimeout(timer); resolve(null); });
               }).on('error', () => { clearTimeout(timer); resolve(null); });
             } catch { clearTimeout(timer); resolve(null); }
@@ -1624,7 +1841,7 @@ function registerBridge(context: vscode.ExtensionContext) {
             if (buf.byteLength > FILE_SIZE_LIMIT) { throw new Error(`file too large (>${FILE_SIZE_LIMIT} bytes)`); }
             const abs = inside(scopeBase(scope, context), rel);
             await ensureDir(abs);
-            await fsp.writeFile(abs, buf);
+            await fsp.writeFile(abs, buf as any);
             return { ok: true, data: true };
           }
 
@@ -1781,6 +1998,70 @@ function registerBridge(context: vscode.ExtensionContext) {
         }
       }
 
+      // ---------- explorerAction ----------
+      if (ns === 'explorerAction') {
+        try {
+          switch (fn) {
+            case 'register': {
+              const [command, config] = args as [string, any];
+              
+              // Validate required fields
+              if (!config?.description || typeof config.description !== 'string') {
+                throw new Error('description is required and must be a string');
+              }
+              if (typeof config?.handler !== 'function') {
+                throw new Error('handler is required and must be a function');
+              }
+              
+              // Register explorer menu
+              const menuId = registerExplorerMenu(command, config.description, config.handler);
+              
+              return { ok: true, data: { menuId } };
+            }
+            
+            case 'dispose': {
+              const [menuId] = args as [string];
+              
+              if (!menuId || typeof menuId !== 'string') {
+                throw new Error('menuId is required');
+              }
+              
+              // Dispose explorer menu
+              await disposeExplorerMenu(menuId);
+              
+              return { ok: true, data: true };
+            }
+            
+            case 'onDispose': {
+              const [menuId, callback] = args as [string, (() => void)];
+              
+              if (!menuId || typeof menuId !== 'string') {
+                throw new Error('menuId is required');
+              }
+              if (typeof callback !== 'function') {
+                throw new Error('callback must be a function');
+              }
+              
+              // Find registration
+              const registration = explorerActionRegistrations.get(menuId);
+              if (!registration) {
+                throw new Error(`Menu ${menuId} not found or already disposed`);
+              }
+              
+              // Register onDispose listener
+              registration.disposeListeners.push(callback as () => void);
+              
+              return { ok: true, data: true };
+            }
+            
+            default:
+              throw new Error(`Unknown explorerAction fn: ${fn}`);
+          }
+        } catch (e: any) {
+          return { ok: false, error: e?.message || String(e) };
+        }
+      }
+
 
       throw new Error('Unknown bridge ns');
     } catch (e) {
@@ -1819,7 +2100,10 @@ export async function activate(context: vscode.ExtensionContext) {
     _smartBackupManager = new SmartBackupManager(context);
     await _smartBackupManager.start();
 
-    // 5) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
+    // 5) 註冊 Explorer Menu 統一指令（Quick Pick 選單）
+    registerExplorerMenuCommand(context);
+
+    // 6) 建立使用者自訂的狀態列項目（用 Runtime Manager 跑）
     updateStatusBarItems(context, true);
     
     // 啟動背景輪詢偵測同步變更

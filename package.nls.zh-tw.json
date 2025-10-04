@@ -2,6 +2,7 @@
   "ext.displayName": "Status Bar Helper",
   "ext.description": "在 VS Code 狀態列建立自訂按鈕，支援 VS Code 與 Node.js API，並內建 Log、Git、Board 等範例腳本與可視化設定面板。",
   "cmd.settings.title": "Status Bar Helper: 設定",
+  "cmd.explorerAction.title": "Status Bar Helper: 觸發動作選單",
   "cfg.title": "Status Bar Helper",
   "cfg.showGearOnStartup.desc": "啟動時在狀態列顯示設定齒輪捷徑。",
   "cfg.items.desc": "要顯示在狀態列的項目（由設定面板管理）。",
@@ -16,6 +17,9 @@
   "err.scriptRunOnce": "❌ 腳本錯誤（僅執行一次）：{0}",
 
   "tooltip.settings": "Status Bar Helper 設定",
+
+  "explorerAction.noRegistrations": "尚未註冊任何動作",
+  "explorerAction.selectAction": "選擇要執行的動作",
 
   "item.log.text": "$(output) Log",
   "item.log.tooltip": "VS Code + Node。輸出 + 底部日誌",
