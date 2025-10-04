@@ -127,6 +127,7 @@ interface StatusBarHelper {
        */
       onClose(handler: () => void): { dispose(): void };
     };
+    /** VM (script instance) management and inter-VM messaging */
     vm: {
       /**
        * Stop the current script's VM from inside the script
