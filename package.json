@@ -2,7 +2,7 @@
   "name": "status-bar-helper",
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "publisher": "JiaHongL",
   "repository": {
     "type": "git",
@@ -98,7 +98,8 @@
       "explorer/context": [
         {
           "command": "statusBarHelper.explorerAction",
-          "group": "2_workspace@1"
+          "group": "2_workspace@1",
+          "when": "hasRegistrations"
         }
       ]
     }
@@ -113,10 +114,11 @@
     "update:monaco:init": "npm run update:monaco -- init",
     "update:codicons": "node ./scripts/update-codicons.mjs",
     "update:monaco": "node ./scripts/update-monaco.mjs",
-    "compile": "npm run copy-files && tsc -p ./",
+    "clean": "rm -rf ./out",
     "copy-files": "node ./scripts/copy-files.mjs",
+    "compile": "npm run clean && npm run copy-files && tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "build": "vsce package",
+    "build": "npm run compile && vsce package",
     "publish:patch": "vsce publish patch",
     "publish:minor": "vsce publish minor",
     "publish:major": "vsce publish major"

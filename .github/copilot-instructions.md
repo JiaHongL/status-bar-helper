@@ -106,8 +106,9 @@ Instruction Change Log:
   3) 清理：VM abort signal listener 自動清理，無需手動呼叫 dispose
   4) UI：單一選單項目 `statusBarHelper.explorerAction` → Quick Pick 顯示所有動作
   5) Codicons：description 支援 `$(icon)` 語法
-  6) NLS：`explorerAction.noRegistrations`、`explorerAction.selectScript`
-  7) Package.json：`explorer/context` group `2_workspace@1`，永久顯示（無 when 條件）
+  6) NLS：`explorerAction.noRegistrations`、`explorerAction.selectAction`
+  7) Package.json：`explorer/context` group `2_workspace@1`，`when: "hasRegistrations"` 條件顯示
+  8) 可見性：透過 `updateExplorerActionContext()` 動態更新 context key，只有在有動作註冊時選單才顯示
 - 當我請你**實作 Import/Export**時：
   1) utils 在 `src/utils/importExport.ts`，嚴格型別檢查與欄位保留
   2) bridge 指令：`importPreview`、`exportPreview`、`applyImport`

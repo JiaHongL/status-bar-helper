@@ -24,8 +24,10 @@ Update Triggers:
 7. Typedef 注入機制或內容版本化策略調整
 8. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
 9. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新流程）
-10. Explorer Action API 註冊/清理機制或 Quick Pick UI 行為改動
+10. Explorer Action API 註冊/清理機制、Quick Pick UI 行為、或 context key 可見性邏輯改動
+11. package.json menus when 條件變更或 compile/build 腳本流程調整
 Change Log:
+2025-10-05: Enhanced build process (clean before compile) and improved compile/build script dependencies.
 2025-10-04: Added Explorer Action API (file explorer context menu integration).
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM upgrade, Web Components architecture.
 2025-08-16: Added scriptStore namespace description & update triggers block. Updated UI icon button specifications and edit view simplification.
@@ -38,6 +40,7 @@ Change Log:
 - VM 中計時器與 `Disposable` 採 Proxy 攔截，自動追蹤；新增 API/功能時不可繞過這層。
 - 禁止任意 `eval/new Function`；僅允許 Node 內建模組（`require.resolve(m) === m` 的情況）。新增模組白名單時需審視安全性。
 - **TypeScript 類型定義**：`types/status-bar-helper/sbh.d.ts` 提供完整的 API 型別定義，VM 注入時必須與實際 bridge API 保持同步。
+- **Explorer Action 清理**：VM abort 時自動清理該 VM 註冊的所有 explorerAction 選單，透過 `registeredMenus` Set 追蹤，無需手動呼叫 dispose。
 
 ### VM Messaging Bus
 - `dispatchMessage(target, from, message)`：若目標尚無 handler → queue；第一個 handler 註冊時 flush。
@@ -70,11 +73,16 @@ Change Log:
 - `hostRun`：`start(cmd, code)`（settings panel trusted run）與 `lastSyncInfo()`；新增 host 只讀資訊時放此。
 - `importExport`：`importPreview`、`exportPreview`、`applyImport`。所有 JSON 解析→先 `parseAndValidate()`，避免在 webview 層做未驗證邏輯。
 - `scriptStore`：`catalog`（遠端優先 + 本地 fallback + 5 分鐘記憶體快取）、`install`（單一安裝/更新；保留 hidden/enableOnInit）、`bulkInstall`（批次原子安裝，失敗回滾）。
-- `explorerAction`：`register(config)`（檔案總管右鍵選單動作註冊）。單一入口 + Quick Pick；VM abort 自動清理。
+- `explorerAction`：`register(vmCommand, config)`（檔案總管右鍵選單動作註冊）。單一入口 + Quick Pick；VM abort 自動清理。
 
 擴充規則：
 1. 新增 namespace 必須： (a) switch 區塊內完整錯誤包裝；(b) 回傳結構統一；(c) 更新本檔案 Bridge 協定段落；(d) 不得回傳 host 端 `Error` 物件原樣（只抽 message）。
 2. 變更既有函式簽章：同步修補 settings.html 所有呼叫點與聯動 type 定義（Monaco injected typedef）。
+
+### Explorer Action Menu Visibility
+- **選單可見性**：採用條件顯示策略，透過 `when: "hasRegistrations"` 控制。只有在有動作註冊時選單才顯示，避免空選單出現。
+- **Context Key 管理**：`updateExplorerActionContext()` 在 `registerExplorerMenu()` 和 `disposeExplorerMenu()` 中自動更新 `hasRegistrations` 狀態。
+- **初始化**：activate() 時呼叫 `updateExplorerActionContext()` 設定初始狀態為 false（無註冊）。
 
 ## 5. SettingsPanel State Machine
 - 兩個 view：`list` / `edit`；狀態由 `_activeView` + `_editingItem` + Webview state (`vscode.setState`) 驗證。
@@ -93,7 +101,7 @@ Message directions：
 UI 規則：
 - Responsive：`COMPACT_BREAKPOINT = 860px`；<860 → body.compact：隱藏列表 tooltip、標題文字。<1100 → 隱藏 last sync 文字（只留 icon）。
 - **Icon Interface**：所有操作按鈕採用 VS Code Codicons：Run/Stop/Edit/Delete/Save/Cancel，規格為 22-28px 含完整無障礙屬性。
-- **Edit View Simplification**：編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本），移除 tags 編輯功能。
+- **Edit View Simplification**：編輯頁面僅保留四個核心欄位（圖示、標籤、工具提示、腳本），移除 tags 編輯功能（tags 僅供 Script Store 與 Import/Export 使用）。
 - Running badge：host VM + panel VM union；任何更動 running 計算方式→同步修改 `getRunningSet()` 與徽章更新邏輯。
 - Drag reorder：禁止拖放執行中的項目；排序完成後 `saveAndPostSettings()`（更新 host）。
 - Edit split layout：維持 `splitRatio` state；折疊 output 時不重算 ratio 以利回復。
@@ -320,6 +328,20 @@ element.textContent = t('key.path', 'Default Text');
 - Vite watch mode 整合（目前使用 tsc watch）
 - Web Component 單元測試框架
 - Monaco Editor 更豐富的 IntelliSense 提示
+
+## 11. Explorer Action API (Context Menu Integration)
+- **設計原則**：單一入口點 + Quick Pick 選單，避免選單爆炸；支援 Codicons；VM 停止自動清理。
+- **註冊流程**：`sbh.v1.explorerAction.register({ description, handler })` → 回傳 `{ dispose(), onDispose(cb) }`。
+- **Context 結構**：`{ uri?: vscode.Uri, uris?: vscode.Uri[] }` - 支援單選與多選檔案。
+- **Cleanup**：每個 VM 透過 `registeredMenus: Set<string>` 追蹤其註冊的 menuIds；abort signal listener 自動批次清理。
+- **Quick Pick**：`statusBarHelper.explorerAction` 指令顯示所有已註冊動作；無註冊時顯示友善訊息（`explorerAction.noRegistrations`）。
+- **NLS Keys**：`explorerAction.noRegistrations`（無動作註冊）、`explorerAction.selectAction`（選擇動作提示）。
+- **Package.json**：
+  - Command：`statusBarHelper.explorerAction` with title `%cmd.explorerAction.title%`
+  - Menu：`explorer/context` group `2_workspace@1` with `"when": "hasRegistrations"`
+  - Visibility：條件顯示，只有在 `hasRegistrations` 為 true 時才顯示選單
+- **Context Key 更新**：透過 `updateExplorerActionContext()` 在註冊/移除時自動更新 `hasRegistrations` 狀態。
+- **限制**：僅限檔案系統 URI；handler 內錯誤會捕捉並顯示 VS Code 錯誤訊息。
 - Codicons 圖示選擇器 UI 改進
 - i18n 熱重載（開發模式）
 - CSS-in-JS 考量（可選）

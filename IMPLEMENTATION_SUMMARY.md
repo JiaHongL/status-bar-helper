@@ -2,11 +2,19 @@
 
 ## 🎯 專案概述
 
-Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、檔案總管整合、智慧備份、機密管理等完整功能。版本已發展至 **v1.8.13**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
+Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、檔案總管整合、智慧備份、機密管理等完整功能。版本已發展至 **v1.9.1**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
 
-## 🔄 最新功能（v1.5.0 - v1.8.13）
+## 🔄 最新功能（v1.5.0 - v1.9.1）
 
-### v1.8.14 - Explorer Action API
+### v1.9.1 - 建置流程改善
+
+- ✅ **建置流程強化**：
+  - `npm run compile` 現在會先清理輸出目錄（`npm run clean`）
+  - `npm run build` 明確依賴 `npm run compile`，確保完整建置
+  - 改善增量編譯可靠性，避免殘留過時檔案
+- ✅ **Context Key 管理完善**：`updateExplorerActionContext()` 正確更新選單可見性狀態
+
+### v1.9.0 - Explorer Action API
 
 - ✅ **檔案總管整合**：透過右鍵選單執行自訂動作
 - ✅ **Quick Pick 介面**：動態顯示所有已註冊動作，支援 Codicons 圖示
@@ -91,6 +99,11 @@ Extension Host (extension.ts)
     ├── Secret Storage (Secure Credentials)
     ├── Sidebar Control (Open/Close/Replace)
     └── Explorer Action (Context Menu Registration)
+        ├── Single Entry Point (statusBarHelper.explorerAction)
+        ├── Dynamic Quick Pick (list all registered actions)
+        ├── Context: { uri?: Uri, uris?: Uri[] }
+        ├── Auto-cleanup on VM abort
+        └── Conditional visibility (when: "hasRegistrations")
 
 Frontend Architecture (media/)
 ├── Web Components (components/)
@@ -380,15 +393,23 @@ npm run build        # vsce package
 - 直觀的操作流程
 - 即時回饋與狀態更新
 
-## 🔗 Explorer Action API（v1.8.14+）
+## �️ Explorer Action API（v1.9.0+）
+
+### 功能說明
+檔案總管右鍵選單整合，讓腳本能註冊自訂動作，透過統一的 Quick Pick 介面執行。
 
 ### 核心特性
 
-- **單一入口點**: 使用者在檔案總管右鍵選單看到單一「Status Bar Helper」選項
-- **Quick Pick 介面**: 點擊後顯示所有已註冊動作的動態選單
-- **Codicons 支援**: 在描述中使用 `$(icon)` 語法顯示圖示
-- **多檔處理**: 自動處理單一檔案 (ctx.uri) 或多選檔案 (ctx.uris)
-- **自動清理**: VM 停止時自動移除該 VM 註冊的所有動作
+- **統一入口點**：單一選單項目（`Status Bar Helper`），點擊後顯示 Quick Pick 列出所有動作
+- **動態選單**：無需重啟 VS Code，註冊後立即在 Quick Pick 中可見
+- **Codicons 支援**：description 支援 `$(icon)` 語法，如 `$(info) Show File Info`
+- **多檔選取**：handler 接收 `{ uri?: vscode.Uri, uris?: vscode.Uri[] }`，支援單選與多選
+- **自動清理**：VM 停止時自動清理該腳本註冊的所有動作，無需手動管理
+- **條件顯示**：選單透過 `when: "hasRegistrations"` 條件控制，只有在有動作註冊時才顯示
+
+### API 文件
+
+參見 `types/status-bar-helper/sbh.d.ts` 的 `ExplorerActionAPI` 介面定義與範例註解。
 
 ### API 範例
 

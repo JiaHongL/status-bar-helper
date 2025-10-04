@@ -350,6 +350,14 @@ const explorerActionRegistrations = new Map<string, ExplorerMenuRegistration>();
 let explorerActionIdCounter = 0;
 
 /**
+ * Update the context key for explorer action menu visibility
+ */
+function updateExplorerActionContext() {
+  const hasRegistrations = explorerActionRegistrations.size > 0;
+  vscode.commands.executeCommand('setContext', 'hasRegistrations', hasRegistrations);
+}
+
+/**
  * Register an explorer menu script
  * @param vmCommand Source VM command
  * @param description Menu description (supports codicons)
@@ -376,6 +384,9 @@ function registerExplorerMenu(
   // Store in registry
   explorerActionRegistrations.set(id, registration);
   
+  // Update context key for menu visibility
+  updateExplorerActionContext();
+  
   return id;
 }
 
@@ -400,6 +411,9 @@ function disposeExplorerMenu(id: string): void {
   
   // Remove from registry
   explorerActionRegistrations.delete(id);
+  
+  // Update context key for menu visibility
+  updateExplorerActionContext();
 }
 
 /**
@@ -2089,6 +2103,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 1) 初始化 globalState 同步設定
     initGlobalSyncKeys(context);
+
+    // 1.5) 初始化 Explorer Action context key（預設無註冊）
+    updateExplorerActionContext();
 
     // 2) 植入預設項目（若目前為空）
     await ensureDefaultItems(context);
