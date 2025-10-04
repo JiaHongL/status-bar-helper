@@ -10,7 +10,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-02
+LastMaintSync: 2025-10-04
 Update Triggers:
 1. 回應格式 / 檢查表項目新增或刪除
 2. Invariants（globalState 單一來源 / signature / polling 階梯 / 安全限制）任一調整
@@ -20,7 +20,9 @@ Update Triggers:
 6. Typedef 注入或 sandbox 允許模組策略變動
 7. 前端模組化架構變更（Web Components / Vite / Monaco ESM / i18n）
 8. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新）
+9. Explorer Action API 註冊/清理機制或 Quick Pick UI 行為改動
 Change Log:
+2025-10-04: Added Explorer Action API for file explorer context menu integration.
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM, Web Components, i18n tools, Node v22.
 2025-08-16: Inserted maintenance triggers & remote-first Script Store invariant.
 -->
@@ -39,7 +41,8 @@ Change Log:
 - `src/SidebarManager.ts`：獨立側邊欄管理（webview 生命週期、HTML 內容載入、聚焦控制、替換防抖）。
 - `src/SmartBackupManager.ts`：智慧型定時備份（變更偵測、動態間隔調整、原子性操作）。
 - `src/secretKeyManager.ts`：機密儲存管理（SecretStorage 封裝、使用者確認機制）。
-- `types/status-bar-helper/sbh.d.ts`：完整的 TypeScript API 定義（storage、files、secrets、sidebar、vm 等）。
+- `types/status-bar-helper/sbh.d.ts`：完整的 TypeScript API 定義（storage、files、secrets、sidebar、vm、explorerAction 等）。
+- `src/extension.ts` (Explorer Action)：檔案總管右鍵選單整合、Quick Pick UI、自動清理機制。
 - 支援：`globalStateManager.ts`（GLOBAL_MANIFEST_KEY / GLOBAL_ITEMS_KEY）、`utils/importExport.ts`（parse/diff/apply）、`utils/backup.ts`（備份操作工具）。
 
 **前端 (Web Components + Vite)**:
@@ -85,6 +88,7 @@ Change Log:
 - `importExport`：importPreview/exportPreview/applyImport（匯入匯出功能）。
 - `scriptStore`：catalog/install/bulkInstall（腳本商店管理）。
 - `data`：getRows/clearScope（儲存資料檢視與清理）。
+- `explorerAction`：register（檔案總管右鍵選單動作註冊，自動清理）。
 
 ## 回應格式要求
 
@@ -120,6 +124,23 @@ Change Log:
 - [ ] CSS 使用 `--vscode-*` 或 `--sbh-*` 變數（避免硬編碼顏色）
 - [ ] NLS 完整性檢查通過（執行 `npm run check-nls`）
 - [ ] Script Store 安全限制（size/hash/unsafe pattern）與原子回滾維持
+- [ ] Explorer Action 自動清理邏輯完整（VM abort listener）
+
+### 檔案總管動作範例
+
+在檔案總管右鍵執行自訂動作：
+
+```typescript
+await sbh.v1.explorerAction.register({
+  description: '$(info) Show File Info',
+  handler: async (ctx) => {
+    // 單檔：ctx.uri
+    // 多選：ctx.uris (含 ctx.uri)
+    const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+    vscode.window.showInformationMessage(`Selected ${files.length} file(s)`);
+  }
+});
+```
 
 ## 禁止 / 拒絕（需明確說明）
 

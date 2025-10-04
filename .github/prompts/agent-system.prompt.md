@@ -2,7 +2,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-08-16
+LastMaintSync: 2025-10-04
 Update Triggers:
 1. 核心不變量（signature / polling / storage limits / sandbox 規則）調整
 2. Bridge namespaces / 函式新增、移除、簽章修改
@@ -10,7 +10,9 @@ Update Triggers:
 4. 回應結構（10 個 section）或最終 checklist 欄位新增/刪除
 5. Import/Export 策略（Replace/Append / ConflictPolicy）或 parse 驗證流程改動
 6. Typedef 注入或 webview message 協定新增事件
+7. Explorer Action API 註冊/清理流程或 Quick Pick UI 行為變更
 Change Log:
+2025-10-04: Added Explorer Action API constraints and checklist items.
 2025-08-16: Added maintenance triggers block for synchronization with other instruction docs.
 -->
 
@@ -37,6 +39,7 @@ Constraints:
   - **Smart Backup 智慧備份**：採用變更偵測機制，6小時最小間隔，僅在實際變更時執行備份，與同步共用 signature。
   - **SidebarManager 管理**：獨立 webview 生命週期，支援 HTML 載入、聚焦控制、替換防抖，透過 `sbh.v1.sidebar` API 控制。
   - **TypeScript 完整支援**：`types/status-bar-helper/sbh.d.ts` 提供完整 API 定義，VM 注入時必須與 bridge 同步。
+  - **Explorer Action API**：單一入口 (`statusBarHelper.explorerAction`) + Quick Pick；`register()` 回傳 handle；VM abort 自動清理；永久顯示（無動態 visibility）。
 - 不得：提升限制/引入第三方模組/繞過橋接直接存取檔案或 VS Code 物件。
 
 Reference Files:
@@ -69,6 +72,7 @@ Expected Answer Structure (任何功能/修改請遵循)：
    - [ ] UI 響應式/Running badge 規則未破壞
    - [ ] 新增字串使用 `localize`
    - [ ] Import/Export 欄位順序 + 未知欄位保留
+   - [ ] Explorer Action 自動清理邏輯完整（VM abort listener）
 
 If Request Is Trivial:
 - 仍回覆是否觸及不變量；未觸及 → 註記 `(core invariants unaffected)`。

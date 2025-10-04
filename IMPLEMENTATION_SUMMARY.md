@@ -2,9 +2,17 @@
 
 ## 🎯 專案概述
 
-Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、智慧備份、機密管理等完整功能。版本已發展至 **v1.8.13**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
+Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、檔案總管整合、智慧備份、機密管理等完整功能。版本已發展至 **v1.8.13**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
 
 ## 🔄 最新功能（v1.5.0 - v1.8.13）
+
+### v1.8.14 - Explorer Action API
+
+- ✅ **檔案總管整合**：透過右鍵選單執行自訂動作
+- ✅ **Quick Pick 介面**：動態顯示所有已註冊動作，支援 Codicons 圖示
+- ✅ **多檔選取支援**：處理單一檔案或多選檔案
+- ✅ **自動清理機制**：VM 停止時自動移除註冊的動作
+- ✅ **TypeScript 完整定義**：`ExplorerActionConfig/Handle/Context` 型別
 
 ### v1.8.13 - 前端模組化重構完成
 
@@ -72,11 +80,17 @@ Extension Host (extension.ts)
 │   ├── Change Detection Signature
 │   ├── Dynamic Interval Adjustment
 │   └── Atomic Backup Operations
+├── Explorer Action Integration
+│   ├── Single Unified Entry Point (statusBarHelper.explorerAction)
+│   ├── Dynamic Quick Pick Menu
+│   ├── Auto-registration Cleanup on VM Stop
+│   └── Multi-file Selection Support (uri/uris)
 └── Bridge APIs
     ├── Storage (Global/Workspace)
     ├── File Operations (Text/JSON/Binary)
     ├── Secret Storage (Secure Credentials)
-    └── Sidebar Control (Open/Close/Replace)
+    ├── Sidebar Control (Open/Close/Replace)
+    └── Explorer Action (Context Menu Registration)
 
 Frontend Architecture (media/)
 ├── Web Components (components/)
@@ -107,6 +121,7 @@ Frontend Architecture (media/)
 
 ### API 生態系統
 
+- **v1.8.14**: 檔案總管右鍵選單整合
 - **v1.8.x**: 前端模組化重構、Monaco ESM、Vite 構建系統、Node.js v22 支援
 - **v1.7.x**: 完整的 TypeScript 支援與機密儲存
 - **v1.6.x**: 側邊欄管理與擴展 API 整合
@@ -364,6 +379,39 @@ npm run build        # vsce package
 - 深淺色主題自動適應
 - 直觀的操作流程
 - 即時回饋與狀態更新
+
+## 🔗 Explorer Action API（v1.8.14+）
+
+### 核心特性
+
+- **單一入口點**: 使用者在檔案總管右鍵選單看到單一「Status Bar Helper」選項
+- **Quick Pick 介面**: 點擊後顯示所有已註冊動作的動態選單
+- **Codicons 支援**: 在描述中使用 `$(icon)` 語法顯示圖示
+- **多檔處理**: 自動處理單一檔案 (ctx.uri) 或多選檔案 (ctx.uris)
+- **自動清理**: VM 停止時自動移除該 VM 註冊的所有動作
+
+### API 範例
+
+```typescript
+// 基本使用
+await sbh.v1.explorerAction.register({
+  description: '$(info) Show File Info',
+  handler: async (ctx) => {
+    vscode.window.showInformationMessage(`File: ${ctx.uri?.fsPath}`);
+  }
+});
+
+// 多檔選取
+await sbh.v1.explorerAction.register({
+  description: '$(rocket) Batch Process Files',
+  handler: async (ctx) => {
+    const files = ctx.uris || (ctx.uri ? [ctx.uri] : []);
+    for (const fileUri of files) {
+      // 處理每個檔案
+    }
+  }
+});
+```
 
 ## 🎨 UI/UX 設計
 

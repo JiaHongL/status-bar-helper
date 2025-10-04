@@ -4,9 +4,9 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-02
+LastMaintSync: 2025-10-04
 Update Triggers (若發生務必同步本檔):
-1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun ...)
+1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun / explorerAction ...)
 2. 變更 items signature 欄位或 adaptive polling 階梯 / 閾值
 3. 調整安全限制 (KV / JSON / TEXT / Binary / Script size) 或 sandbox 規則
 4. Script Store 行為（遠端來源 / cache TTL / 安全掃描規則 / hash 組成）改動
@@ -14,13 +14,15 @@ Update Triggers (若發生務必同步本檔):
 6. Webview UI 斷點 (<1100 / <860) 或同步指示器顯示策略調整
 7. Import/Export 格式（策略、欄位、合併規則）變更
 8. 新增/移除本檔引用的關鍵 NLS key / typedef 注入流程
-9. 🔧 架構變更時須同步更新核心檔案的架構圖註解：
+9. Explorer Action API 註冊/清理機制或選單項目配置變更
+10. 🔧 架構變更時須同步更新核心檔案的架構圖註解：
    - extension.ts (系統層級架構)
    - SettingsPanel.ts (Webview管理層架構) 
    - settings.html (UI頁面層架構)
    確保組件關係、數據流向、頁面結構的準確性與一致性
-10. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
+11. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
 Instruction Change Log:
+2025-10-04: Added Explorer Action API for file explorer context menu integration.
 2025-10-02: Sync with frontend modularization (Web Components), Vite build system, Monaco ESM upgrade, Node v22.
 2025-08-16: Sync with UI icon conversion & edit view tags removal. Updated responsive design and UI interaction patterns.
 -->
@@ -32,8 +34,8 @@ Instruction Change Log:
 - Build: `npm run compile`（`tsc` + 原生 `fs.cp` 複製 typedefs / nls），`npm run build:frontend`（Vite），Package: `npm run build`（`vsce package`）
 - Frontend: **Vite** + **Web Components** + **Monaco ESM 0.53**（`media-src/` → `media/main.js`）
 - Test: `@vscode/test-electron`；（尚未定義 npm test 腳本，可補 `vscode-test` 例行測）
-- Activation: `onStartupFinished`、`statusBarHelper.showSettings`
-- Commands: `statusBarHelper.showSettings`、`statusBarHelper._bridge`、`statusBarHelper._abortByCommand`、`statusBarHelper._refreshStatusBar`
+- Activation: `onStartupFinished`、`statusBarHelper.showSettings`、`statusBarHelper.explorerAction`
+- Commands: `statusBarHelper.showSettings`、`statusBarHelper._bridge`、`statusBarHelper._abortByCommand`、`statusBarHelper._refreshStatusBar`、`statusBarHelper.explorerAction`
 - Capabilities: 不支援 **Untrusted** 與 **Virtual** 工作區（`capabilities.untrustedWorkspaces/virtualWorkspaces` 均為 false）
 - **TypeScript 支援**: 完整的 API 類型定義 `types/status-bar-helper/sbh.d.ts`
 - **Node.js**: 類型提示基於 v22
@@ -51,6 +53,7 @@ Instruction Change Log:
 - **Storage 與 File API**：一律走 `sbh.v1.storage` 與 `sbh.v1.fs`，**禁止直接以 VM 存取擴充資料夾**。
 - **SecretStorage API**：機密資料透過 `sbh.v1.secrets` 存取，所有操作需使用者確認，禁止硬編碼敏感資料。
 - **SidebarManager API**：透過 `sbh.v1.sidebar` 控制側邊欄，支援 HTML 內容載入、聚焦控制、生命週期管理。
+- **Explorer Action API**：透過 `sbh.v1.explorerAction` 在檔案總管右鍵選單註冊動作，單一入口 + Quick Pick，VM 停止自動清理。
 - **Path 安全**：檔案操作不得使用絕對路徑或 `..` 越界；所有路徑須經過 base path 解析。
 - **GlobalState 為單一事實來源**：使用
   - `GLOBAL_MANIFEST_KEY`：狀態列項目清單（text/tooltip/hidden/enableOnInit）
@@ -97,6 +100,14 @@ Instruction Change Log:
   - **編輯頁面設計**：僅保留圖示、標籤、工具提示和腳本四個核心編輯欄位，**不包含 tags 編輯功能**。
   - **圖示按鈕介面**：所有操作按鈕使用 Codicons，確保一致的視覺體驗和完整的無障礙支援。
 - 當我請你**寫測試**：使用 `@vscode/test-electron` 啟動 VS Code，模擬指令與 Webview 通訊，驗證清理行為。
+- 當我請你**實作 Explorer Action**時：
+  1) API：`sbh.v1.explorerAction.register({description, handler})`，回傳 `{menuId, dispose(), onDispose()}`
+  2) Context：handler 收到 `{uri?: vscode.Uri, uris?: vscode.Uri[]}`
+  3) 清理：VM abort signal listener 自動清理，無需手動呼叫 dispose
+  4) UI：單一選單項目 `statusBarHelper.explorerAction` → Quick Pick 顯示所有動作
+  5) Codicons：description 支援 `$(icon)` 語法
+  6) NLS：`explorerAction.noRegistrations`、`explorerAction.selectScript`
+  7) Package.json：`explorer/context` group `2_workspace@1`，永久顯示（無 when 條件）
 - 當我請你**實作 Import/Export**時：
   1) utils 在 `src/utils/importExport.ts`，嚴格型別檢查與欄位保留
   2) bridge 指令：`importPreview`、`exportPreview`、`applyImport`

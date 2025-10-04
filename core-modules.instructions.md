@@ -13,7 +13,7 @@ meta:
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-02
+LastMaintSync: 2025-10-04
 Update Triggers:
 1. Runtime VM 建立 / 中止流程或追蹤結構 (RUNTIMES / MESSAGE_*) 改動
 2. Bridge namespace / 函式簽章 / 回傳格式有新增或修改
@@ -24,7 +24,9 @@ Update Triggers:
 7. Typedef 注入機制或內容版本化策略調整
 8. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
 9. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新流程）
+10. Explorer Action API 註冊/清理機制或 Quick Pick UI 行為改動
 Change Log:
+2025-10-04: Added Explorer Action API (file explorer context menu integration).
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM upgrade, Web Components architecture.
 2025-08-16: Added scriptStore namespace description & update triggers block. Updated UI icon button specifications and edit view simplification.
 -->
@@ -68,6 +70,7 @@ Change Log:
 - `hostRun`：`start(cmd, code)`（settings panel trusted run）與 `lastSyncInfo()`；新增 host 只讀資訊時放此。
 - `importExport`：`importPreview`、`exportPreview`、`applyImport`。所有 JSON 解析→先 `parseAndValidate()`，避免在 webview 層做未驗證邏輯。
 - `scriptStore`：`catalog`（遠端優先 + 本地 fallback + 5 分鐘記憶體快取）、`install`（單一安裝/更新；保留 hidden/enableOnInit）、`bulkInstall`（批次原子安裝，失敗回滾）。
+- `explorerAction`：`register(config)`（檔案總管右鍵選單動作註冊）。單一入口 + Quick Pick；VM abort 自動清理。
 
 擴充規則：
 1. 新增 namespace 必須： (a) switch 區塊內完整錯誤包裝；(b) 回傳結構統一；(c) 更新本檔案 Bridge 協定段落；(d) 不得回傳 host 端 `Error` 物件原樣（只抽 message）。
@@ -113,6 +116,7 @@ UI 規則：
 - **Modern Color System**: Gradient backgrounds and theme-adaptive status badges for enhanced visual hierarchy.
 - **Status Sorting**: Script Store entries sorted by priority: New > Update > Installed.
 - **Accessibility**: All icon buttons include complete `title` and `aria-label` attributes.
+- **Explorer Action Menu**: Permanently visible in explorer context menu (group `2_workspace@1`), no dynamic visibility control.
 - **Internationalization**: All UI text uses `t()` function with corresponding nls file entries.
 
 ## 9. Smart Backup & SidebarManager Integration
@@ -133,6 +137,7 @@ UI 規則：
 | Signature | 變更 `computeItemsSignature()` 是否同步 UI / 同步邏輯？ |
 | State 更新 | 修改 globalState 後是否呼叫 `updateStatusBarItems` + `_sendStateToWebview`？ |
 | 新 UI 事件 | 有集中定義 & 避免硬字串？ |
+| Explorer Action | 新增動作是否透過 `sbh.v1.explorerAction.register()` 並正確清理？ |
 | Icon 按鈕 | 新增操作按鈕是否採用 Codicons 並包含 title/aria-label？ |
 | 編輯頁面 | 是否維持僅四個核心欄位（圖示、標籤、工具提示、腳本）？ |
 | 安全限制 | 是否維持路徑與大小檢查？ |
