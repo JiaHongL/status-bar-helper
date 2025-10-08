@@ -143,8 +143,8 @@ const { secret, storage, files, vm } = statusBarHelper.v1;
 - storage.global 與 storage.workspace → key/value 儲存
 - files.readText/writeText/readJSON/writeJSON/readBytes/writeBytes → 檔案存取
 - files.exists/list/listStats/remove → 檔案管理
-- 若是要讀取讀取專案內的檔案，請使用 vscode.workspace.fs，而非 statusBarHelper.v1.files
-
+- statusBarHelper.v1.files: 此 API 專門用於在「SBH」（StatusBarHelper）專用的沙盒化（sandboxed）、獨立儲存區域內進行 I/O 操作（讀取和寫入）。它不應該被用來存取使用者專案工作區內的檔案。
+- vscode.workspace.workspaceFolders: 當您的目標是存取和讀取當前專案或工作區中的檔案時，這才是正確應使用的 API。它會提供專案根目錄的路徑。
 ---
 
 ## 4. 示範 workspaceFolders + exec
@@ -167,6 +167,7 @@ if (workspaceFolders && workspaceFolders.length > 0) {
 
 重點：
 
+- vscode.workspace.workspaceFolders → 取得目前開啟的 workspace 資訊
 - 取 workspaceFolders[0].uri.fsPath 作為 cwd
 - 用 child_process.exec 執行 git 或 shell 指令
 - 透過 vscode.window.showInformationMessage / showErrorMessage 顯示結果
@@ -407,10 +408,6 @@ const { explorerAction, vm } = statusBarHelper.v1;
 
 ## 其他
 
-- 特別注意 CSP 與 nonce 的使用
-  - CSP 必須設定 `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`
-  - `<script nonce="${nonce}">` 搭配 `const nonce = Math.random().toString(36).slice(2);`
-  - 若要使用 VSCode API，必須在 script 裡面呼叫 `const vscode = acquireVsCodeApi();`
 - 如在 html 使用字串模板，請注意跳脫反引號與 `${}`,例如：
 
 ```js
@@ -431,6 +428,117 @@ panel.webview.html = `
     vscode.postMessage({ type: 'greet', text: msg });
   </script>
 `;
+```
+
+- 特別注意 CSP 與 nonce 的使用
+  - 在建立 Webview 時，內容安全策略 (Content Security Policy, CSP) 是確保安全性的關鍵。
+    - 1. 基礎 CSP 規則：
+      - 一個安全的起點是設定非常嚴格的規則，預設阻擋所有資源，只允許必要的項目。
+        - CSP 必須設定 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">
+
+    - 2. 內聯腳本 (Inline Scripts)：
+      - 所有直接寫在 HTML 裡的 <script> 標籤都必須包含一個 nonce 屬性，且該 nonce 值必須與 CSP 中的 script-src 'nonce-xxxx' 相符。
+        - <script nonce="${nonce}"> 需搭配 const nonce = Math.random().toString(36).slice(2); 動態產生。
+        
+    - 3. VS Code API：
+      - 在 Webview 的腳本中若要與 VS Code 互動 (例如發送訊息)，必須先呼叫 acquireVsCodeApi()。
+        - const vscode = acquireVsCodeApi();
+
+  - 如何加入外部資源 (例如 CDN)
+    - 如果您需要從外部網路載入資源 (如 CSS 函式庫、JS 腳本、字型)，您必須在 CSP 中將該資源的來源網域加入白名單。
+    - 核心原則：在既有的 *-src 指令中，增加允許的網域。
+    - 範例：假設我們想從 CDN (https://cdn.jsdelivr.net) 載入 Bootstrap 的 CSS 和 JS。
+      - 修改前的 content：
+        - "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';"
+      - 修改後的 content：
+        - "default-src 'none'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net;"
+      - 說明：
+        - style-src 新增了 https://cdn.jsdelivr.net，允許載入該網域的 CSS。
+        - script-src 新增了 https://cdn.jsdelivr.net，允許載入該網域的 JS。'nonce-${nonce}' 規則仍然保留，用於授權您自己的內聯腳本。
+
+完整程式碼範例
+這個範例展示了如何在 JavaScript 字串模板中，建立一個包含外部資源和內聯腳本的 Webview HTML。
+
+```js
+const vscode = require("vscode");
+const { vm } = statusBarHelper.v1;
+
+(function main() {
+  let panel;
+
+  // 當 VM 停止時，清理 WebviewPanel 資源
+  vm.onStop(() => {
+    if (panel) {
+      panel.dispose();
+    }
+  });
+
+  // 建立 WebviewPanel
+  panel = vscode.window.createWebviewPanel(
+    'sbhMinimalCspDemo',
+    '精簡 CSP 範例',
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    }
+  );
+
+  // 當 WebviewPanel 關閉時，停止 VM
+  panel.onDidDispose(() => {
+    vm.stop();
+  });
+
+  // 產生 Nonce 並設定 Webview 的 HTML 內容
+  const nonce = Math.random().toString(36).slice(2);
+  panel.webview.html = getWebviewHtml(nonce);
+
+})();
+
+/**
+ * 產生 Webview 的 HTML 內容
+ * @param {string} nonce - 用於 CSP 的隨機數
+ * @returns {string} HTML 字串
+ */
+function getWebviewHtml(nonce) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" 
+              content="default-src 'none'; 
+                       style-src https://cdn.jsdelivr.net; 
+                       script-src 'nonce-${nonce}' https://cdn.jsdelivr.net;">
+        <title>精簡 CSP 範例</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    </head>
+    <body class="p-4">
+
+      <button type="button" class="btn btn-secondary" 
+              data-bs-toggle="tooltip" data-bs-placement="top"
+              title="Bootstrap JS 已成功載入！">
+        將滑鼠懸停在此處
+      </button>
+
+      <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+      
+      <script nonce="${nonce}">
+        try {
+          // 初始化所有 Bootstrap Tooltips
+          const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+          tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
+          console.log("✅ Bootstrap JS 載入並初始化成功");
+        } catch (e) {
+          console.error("❌ 初始化 Bootstrap JS 失敗", e);
+        }
+      </script>
+
+    </body>
+    </html>
+  `;
+}
 ```
 
 請先閱讀以上參考文件；接著我會提供腳本需求。請依文件中的 API 與型別規範產出可執行的腳本程式碼。

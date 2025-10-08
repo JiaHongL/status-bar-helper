@@ -143,7 +143,8 @@ Key points:
 - `storage.global` and `storage.workspace` → key/value storage
 - `files.readText`/`writeText`/`readJSON`/`writeJSON`/`readBytes`/`writeBytes` → file access
 - `files.exists`/`list`/`listStats`/`remove` → file management
-- If you want to read files within the project, please use `vscode.workspace.fs` instead of `statusBarHelper.v1.files`
+- `statusBarHelper.v1.files`: This API is designated exclusively for I/O operations (reading and writing) within a sandboxed, dedicated storage area specific to "SBH" (StatusBarHelper). It should not be used to access files located within the user's project workspace.
+- `vscode.workspace.workspaceFolders`: This is the correct API to use when your objective is to access and read files that are part of the active project or workspace. It provides the path to the root folder(s) of the project.
 
 ---
 
@@ -167,6 +168,7 @@ if (workspaceFolders && workspaceFolders.length > 0) {
 
 Key points:
 
+- `vscode.workspace.workspaceFolders` → get info about the currently opened workspace
 - Use `workspaceFolders[0].uri.fsPath` as `cwd`.
 - Use `child_process.exec` to execute Git or shell commands.
 - Use `vscode.window.showInformationMessage` / `showErrorMessage` to display results.
@@ -410,10 +412,6 @@ Key points:
 
 ## Others
 
-- Pay special attention to the use of CSP and `nonce`.
-  - CSP must be set with `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`.
-  - `<script nonce="${nonce}">` is paired with `const nonce = Math.random().toString(36).slice(2);`.
-  - To use the VS Code API, you must call `const vscode = acquireVsCodeApi();` inside the script.
 - If you use string templates in HTML, be careful to escape backticks and `${}`, for example:
 
 ```js
@@ -435,6 +433,124 @@ panel.webview.html = `
   </script>
 `;
 ```
+
+---
+
+## 11. CSP and Nonce Best Practices
+
+- **Special attention to CSP and nonce usage**
+  - When creating Webviews, Content Security Policy (CSP) is crucial for ensuring security.
+    - 1. Basic CSP Rules:
+      - A secure starting point is to set very strict rules that block all resources by default and only allow necessary items.
+        - CSP must be set with `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'nonce-xxxx';">`
+
+    - 2. Inline Scripts:
+      - All `<script>` tags written directly in HTML must include a nonce attribute, and this nonce value must match the `script-src 'nonce-xxxx'` in the CSP.
+        - `<script nonce="${nonce}">` should be paired with `const nonce = Math.random().toString(36).slice(2);` to generate dynamically.
+        
+    - 3. VS Code API:
+      - In Webview scripts, to interact with VS Code (e.g., sending messages), you must first call `acquireVsCodeApi()`.
+        - `const vscode = acquireVsCodeApi();`
+
+  - **How to add external resources (e.g., CDN)**
+    - If you need to load resources from external networks (such as CSS libraries, JS scripts, fonts), you must whitelist the resource's origin domain in the CSP.
+    - Core principle: In the existing `*-src` directives, add the allowed domains.
+    - Example: Suppose we want to load Bootstrap's CSS and JS from a CDN (https://cdn.jsdelivr.net).
+      - Before modification:
+        - `"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';"`
+      - After modification:
+        - `"default-src 'none'; style-src 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net;"`
+      - Explanation:
+        - `style-src` now includes `https://cdn.jsdelivr.net`, allowing CSS from that domain to be loaded.
+        - `script-src` now includes `https://cdn.jsdelivr.net`, allowing JS from that domain to be loaded. The `'nonce-${nonce}'` rule is still retained to authorize your own inline scripts.
+
+**Complete Code Example**
+
+This example demonstrates how to create Webview HTML with external resources and inline scripts in a JavaScript string template.
+
+```js
+const vscode = require("vscode");
+const { vm } = statusBarHelper.v1;
+
+(function main() {
+  let panel;
+
+  // Clean up WebviewPanel resources when VM stops
+  vm.onStop(() => {
+    if (panel) {
+      panel.dispose();
+    }
+  });
+
+  // Create WebviewPanel
+  panel = vscode.window.createWebviewPanel(
+    'sbhMinimalCspDemo',
+    'Minimal CSP Example',
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    }
+  );
+
+  // Stop VM when WebviewPanel is closed
+  panel.onDidDispose(() => {
+    vm.stop();
+  });
+
+  // Generate Nonce and set Webview HTML content
+  const nonce = Math.random().toString(36).slice(2);
+  panel.webview.html = getWebviewHtml(nonce);
+
+})();
+
+/**
+ * Generate Webview HTML content
+ * @param {string} nonce - Random number for CSP
+ * @returns {string} HTML string
+ */
+function getWebviewHtml(nonce) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" 
+              content="default-src 'none'; 
+                       style-src https://cdn.jsdelivr.net; 
+                       script-src 'nonce-${nonce}' https://cdn.jsdelivr.net;">
+        <title>Minimal CSP Example</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    </head>
+    <body class="p-4">
+
+      <button type="button" class="btn btn-secondary" 
+              data-bs-toggle="tooltip" data-bs-placement="top"
+              title="Bootstrap JS loaded successfully!">
+        Hover over me
+      </button>
+
+      <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+      
+      <script nonce="${nonce}">
+        try {
+          // Initialize all Bootstrap Tooltips
+          const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+          tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
+          console.log("✅ Bootstrap JS loaded and initialized successfully");
+        } catch (e) {
+          console.error("❌ Failed to initialize Bootstrap JS", e);
+        }
+      </script>
+
+    </body>
+    </html>
+  `;
+}
+```
+
+---
 
 Please read the reference documents above. I will then provide the script requirements. Please produce executable script code according to the API and type specifications in the documents.
 
