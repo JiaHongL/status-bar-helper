@@ -841,9 +841,12 @@ function runScriptInVm(
     console: origin === 'settingsPanel' ? makeConsoleProxy(console) : console,
     __dirname: path.dirname(context.extensionPath),
     require: (m: string) => {
-  if (m === 'vscode') { return sandbox.vscode; }
-  if (require.resolve(m) === m) { return require(m); } // 只允許 Node 內建模組
-      throw new Error(localize('err.onlyBuiltinAllowed', 'Only built-in modules are allowed: {0}', String(m)));
+      // vscode 模組
+      if (m === 'vscode') { return sandbox.vscode; }
+      // Node 內建模組
+      if (require.resolve(m) === m) { return require(m); }
+      // 其他模組
+      return require(m);
     }
   };
   sandbox.Buffer = require('buffer').Buffer;
