@@ -1263,7 +1263,8 @@ async function loadDefaultsFromJson(context: vscode.ExtensionContext): Promise<S
   const SIZE_LIMIT = 2 * 1024 * 1024;
 
   const tryFetchRemote = async (loc: string): Promise<SbhItem[] | null> => {
-    const url = `${RAW_BASE}/script-store.defaults.${loc}.json`;
+    const timestamp = Date.now();
+    const url = `${RAW_BASE}/script-store.defaults.${loc}.json?t=${timestamp}`;
     try {
       const text = await new Promise<string>((resolve, reject) => {
         const controller = new AbortController();
@@ -1441,7 +1442,8 @@ function registerBridge(context: vscode.ExtensionContext) {
           const https = require('https') as typeof import('https');
 
           const tryRemote = (loc: string): Promise<CatalogEntry[] | null> => new Promise((resolve) => {
-            const url = `${RAW_BASE}/script-store.defaults.${loc}.json`;
+            const timestamp = Date.now();
+            const url = `${RAW_BASE}/script-store.defaults.${loc}.json?t=${timestamp}`;
             const controller = new AbortController();
             const timer = setTimeout(() => { controller.abort(); resolve(null); }, 3000);
             try {
