@@ -1428,7 +1428,7 @@ function registerBridge(context: vscode.ExtensionContext) {
 
       // ---- Script Store API ----
       if (ns === 'scriptStore') {
-        const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
+        const SAFE_LIMIT = 256 * 1024; // 單一腳本大小上限 256kB
         const computeHash = (content: string) => { try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; } };
         // Cache 避免每次開面板都重新抓；失效時間 5 分鐘
         const loadCatalog = async (): Promise<CatalogEntry[]> => {
