@@ -1333,6 +1333,10 @@ function normalizeDefaultJsonItem(x: any): SbhItem | null {
 // ─────────────────────────────────────────────────────────────
 // Bridge 指令：statusBarHelper._bridge
 // ─────────────────────────────────────────────────────────────
+// Script Store catalog cache (持久化在 extension 生命週期內)
+interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
+let _catalogCache: { at: number; entries: CatalogEntry[] } | null = null;
+
 function registerBridge(context: vscode.ExtensionContext) {
   return vscode.commands.registerCommand('statusBarHelper._bridge', async (payload?: any) => {
     try {
@@ -1424,11 +1428,9 @@ function registerBridge(context: vscode.ExtensionContext) {
 
       // ---- Script Store API ----
       if (ns === 'scriptStore') {
-        interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
         const SAFE_LIMIT = 32 * 1024; // 32KB script limit (Phase1)
         const computeHash = (content: string) => { try { return require('crypto').createHash('sha256').update(content || '').digest('base64'); } catch { return ''; } };
         // Cache 避免每次開面板都重新抓；失效時間 5 分鐘
-        let _catalogCache: { at: number; entries: CatalogEntry[] } | null = null;
         const loadCatalog = async (): Promise<CatalogEntry[]> => {
           const now = Date.now();
             if (_catalogCache && now - _catalogCache.at < 5 * 60 * 1000) { return _catalogCache.entries; }
