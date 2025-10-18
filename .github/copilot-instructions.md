@@ -157,6 +157,13 @@ Instruction Change Log:
 | `install` | 安裝 / 更新單一 command | 維持 hidden/enableOnInit |
 | `bulkInstall` | 批次安裝/更新 | 原子回滾 |
 
+`ns: 'vm'` 函式：
+| fn | 描述 | 備註 |
+| --- | --- | --- |
+| `list` | 取得目前執行中的 VM 清單 | 回傳 command ID 陣列 |
+| `isRunning` | 檢查特定 command 是否執行中 | 布林值回傳 |
+| `scripts` | 取得所有已註冊腳本元數據 | v1.10.4+；回傳 {command, text, tooltip}[] |
+
 ### 型別（現況）
 ```ts
 interface ScriptStoreEntryMeta {

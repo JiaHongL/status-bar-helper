@@ -45,7 +45,8 @@ Change Log:
 ### VM Messaging Bus
 - `dispatchMessage(target, from, message)`：若目標尚無 handler → queue；第一個 handler 註冊時 flush。
 - 新增/刪除 command 之 VM 時：同步維護 `RUNTIMES`/`MESSAGE_HANDLERS`/`MESSAGE_QUEUES`，保持 referential integrity。
-- API 簽章（於 VM `sbh.v1.vm`）：`open(cmdId, payload?)`, `sendMessage(target, msg)`, `onMessage(handler) -> unsubscribe`, `stop()`, `stopByCommand(cmd?)`, `onStop(cb)`, `reason()`。
+- API 簽章（於 VM `sbh.v1.vm`）：`open(cmdId, payload?)`, `sendMessage(target, msg)`, `onMessage(handler) -> unsubscribe`, `stop()`, `stopByCommand(cmd?)`, `onStop(cb)`, `reason()`, `scripts()` (async)。
+- **`scripts()` API**：回傳所有已註冊腳本的元數據 (command, text, tooltip)，用於動態腳本管理 (如 Script Launcher、指令面板整合)。僅回傳基本資訊，不暴露敏感欄位 (hidden, enableOnInit) 與腳本內容。
 - 若新增 payload 序列化需求，只能加入在 Bridge 層（不可直接在 sandbox 注入 host 物件）。
 
 ## 2. Status Bar Items Invariants
@@ -69,7 +70,7 @@ Change Log:
 核心 namespaces：
 - `storage`：`get/set/remove/keys` for global|workspace，寫入前 `enforceStorage()` 尺寸檢查；任何調高限制需在安全策略敘述變更。
 - `files`：限定 `globalStorageUri`/`storageUri`；`inside()` 阻擋絕對路徑與 `..`；大小限制：TEXT 10MB, JSON 10MB, BYTES 50MB。
-- `vm`：`list()`、`isRunning(cmd)`；若將來新增 `stop(cmd)` 應直接復用 `abortByCommand`。
+- `vm`：`list()`、`isRunning(cmd)`、`scripts()` (v1.10.4+)；若將來新增 `stop(cmd)` 應直接復用 `abortByCommand`。
 - `hostRun`：`start(cmd, code)`（settings panel trusted run）與 `lastSyncInfo()`；新增 host 只讀資訊時放此。
 - `importExport`：`importPreview`、`exportPreview`、`applyImport`。所有 JSON 解析→先 `parseAndValidate()`，避免在 webview 層做未驗證邏輯。
 - `scriptStore`：`catalog`（遠端優先 + 本地 fallback + 5 分鐘記憶體快取）、`install`（單一安裝/更新；保留 hidden/enableOnInit）、`bulkInstall`（批次原子安裝，失敗回滾）。

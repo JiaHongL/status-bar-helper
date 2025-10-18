@@ -83,7 +83,7 @@ Change Log:
 - `files`：dirs / read|write(Text|JSON|Bytes) / exists / list / listStats / remove / clearAll（路徑安全 + 大小限制）。
 - `secrets`：get/set/remove/keys（機密儲存，所有操作需使用者確認）。
 - `sidebar`：open/close/replace（側邊欄管理，支援 HTML 內容與聚焦控制）。
-- `vm`：open/sendMessage/stop（VM 間通訊）、refresh（面板狀態更新）。
+- `vm`：open/sendMessage/stop（VM 間通訊）、refresh（面板狀態更新）、scripts()（取得所有已註冊腳本，v1.10.4+）。
 - `hostRun`：runTrusted/runUntrusted（執行指令）、lastSyncInfo（同步資訊）、forceSync（強制同步）。
 - `importExport`：importPreview/exportPreview/applyImport（匯入匯出功能）。
 - `scriptStore`：catalog/install/bulkInstall（腳本商店管理）。
@@ -141,6 +141,46 @@ await sbh.v1.explorerAction.register({
   }
 });
 ```
+
+### VM 腳本管理範例
+
+取得並操作所有已註冊腳本：
+
+```typescript
+const { vm } = statusBarHelper.v1;
+
+// 取得所有腳本清單
+const allScripts = await vm.scripts();
+
+// 過濾與顯示
+const visibleScripts = allScripts.filter(s => !s.command.startsWith('_'));
+visibleScripts.forEach(script => {
+  console.log(`[${script.command}] ${script.text}`);
+  if (script.tooltip) {
+    console.log(`  └─ ${script.tooltip}`);
+  }
+});
+
+// 整合到 Quick Pick
+const selected = await vscode.window.showQuickPick(
+  allScripts.map(s => ({
+    label: s.text || s.command,
+    description: s.tooltip,
+    commandId: s.command
+  })),
+  { placeHolder: 'Select a script to run' }
+);
+
+if (selected) {
+  await vscode.commands.executeCommand(selected.commandId);
+}
+```
+
+**應用場景：**
+- 腳本啟動器（Script Launcher）
+- 指令面板整合
+- 狀態列動態選單（Markdown Tooltip）
+- Webview 腳本管理介面
 
 ## 禁止 / 拒絕（需明確說明）
 

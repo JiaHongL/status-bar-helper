@@ -25,7 +25,7 @@ Constraints:
 - 嚴禁破壞：
   - 單一資料來源：globalState (manifest + itemsMap) → 任何 CRUD 後需 refresh status bar + （若面板開啟）同步 `_sendStateToWebview()`。
   - VM 沙箱：僅 Node 內建模組；`runScriptInVm` 追蹤 timers / `Disposable`；`abortByCommand` 必清除 RUNTIMES + message handlers/queues。
-  - Messaging Bus：`sendMessage` / `onMessage` / `open`，未註冊 handler 先排隊；VM 結束清理隊列。
+  - Messaging Bus：`sendMessage` / `onMessage` / `open` / `scripts()`，未註冊 handler 先排隊；VM 結束清理隊列。**`vm.scripts()` API (v1.10.4+)** 回傳所有已註冊腳本元數據 `Promise<Array<{command, text, tooltip}>>`，用於動態腳本管理（Script Launcher、指令面板整合），僅回傳基本資訊，不暴露敏感欄位與腳本內容。
   - Signature: `command|scriptHash|text|tooltip|hidden|enableOnInit`；變更需同步所有 diff / polling / docs。
   - Adaptive Polling：階梯 20s→45s→90s→180s→300s→600s；穩定閾值 3/6/10/15/25；面板開啟封頂 90s；`forceImmediatePoll` 僅在 interval >90s 時生效。
   - Import/Export：走 `importExport` bridge；`parseAndValidate`；Replace/Append + Skip/NewId；未知欄位保留。
