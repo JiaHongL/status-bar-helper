@@ -29,7 +29,7 @@ Instruction Change Log:
 
 ## Project quick facts
 - Name: **status-bar-helper**（VS Code Extension）
-- Version: **1.8.13**（最新穩定版）
+- Version: **1.11.1**（最新穩定版）
 - Stack: **TypeScript** + VS Code API（`vscode`），Node.js（`vm` 沙箱）
 - Build: `npm run compile`（`tsc` + 原生 `fs.cp` 複製 typedefs / nls），`npm run build:frontend`（Vite），Package: `npm run build`（`vsce package`）
 - Frontend: **Vite** + **Web Components** + **Monaco ESM 0.53**（`media-src/` → `media/main.js`）
@@ -130,17 +130,21 @@ Instruction Change Log:
 4. UI：面板「Script Store」 overlay 表格欄位：Icon、Label、Tags、Status（Installed / Update / New）、Action（圖示化操作：View/Install/Update/Remove）。
 5. Status 判斷：hash = sha256(script|text|tooltip|tags JSON)；與現有項目 hash 相同 → Installed；存在差異 → Update；不存在 → New。
 6. **狀態排序**：新增 > 可更新 > 已安裝 的優先順序，提供更好的使用者體驗。
-7. 安裝 / 更新：覆蓋 script/text/tooltip/tags；保留 hidden / enableOnInit。
-8. 安全：
+7. 安裝 / 更新：
+  - 首次安裝：使用 catalog 預設的 hidden / enableOnInit 值（若未定義則為 false）。
+  - 更新現有項目：覆蓋 script/text/tooltip/tags；保留使用者設定的 hidden / enableOnInit。
+  - CatalogEntry 介面包含可選的 hidden / enableOnInit 欄位。
+8. 刪除腳本時自動停止 VM：透過 updateSettings 和 uninstall 檢測被刪除項目並終止執行中的 VM，確保無殭屍進程。
+9. 安全：
   - 單 script 安全大小限制（目前 32KB；超過拒絕）。
   - Pattern 掃描拒絕：`eval(`、`new Function`、大量 `process.env.` (>5 次)。
   - JSON parse 失敗或格式非陣列 → 忽略該來源並 fallback。
-9. **Diff 視窗 UX 重新設計**：底部按鈕佈局（取消/更新），消除同時跳出視窗的困擾，提供類似標準確認對話框的體驗。
-10. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
-11. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
-12. **NEW 徽章指示器**：Script Store 按鈕顯示新腳本數量的動態徽章，提供視覺化的更新提示。
-13. **安裝確認對話框**：批次安裝前顯示詳細清單確認，支援多語系。
-14. **現代化色彩系統**：漸層背景與主題適配的狀態徽章，提升視覺層次感與一致性。
+10. **Diff 視窗 UX 重新設計**：底部按鈕佈局（取消/更新），消除同時跳出視窗的困擾，提供類似標準確認對話框的體驗。
+11. Bulk Install：原子性；失敗回滾快照（確保 globalState 一致）。
+12. **更新確認**：有差異時 View 圖示顏色變化，更新前顯示確認對話框包含差異預覽。
+13. **NEW 徽章指示器**：Script Store 按鈕顯示新腳本數量的動態徽章，提供視覺化的更新提示。
+14. **安裝確認對話框**：批次安裝前顯示詳細清單確認，支援多語系。
+15. **現代化色彩系統**：漸層背景與主題適配的狀態徽章，提升視覺層次感與一致性。
 
 ### 待辦（Phase 2）
 1. ETag / If-None-Match → 精準網路快取（減少 5 分鐘 TTL 期間的重複資料）。
@@ -175,15 +179,23 @@ interface ScriptStoreEntryMeta {
   scriptUrl?: string;   // Phase2 預留（lazy fetch）
   hash?: string;        // 計算後附加（sha256 base64）
   status?: 'installed' | 'update' | 'new';
+  hidden?: boolean;     // v1.11.1+：首次安裝時的預設隱藏狀態
+  enableOnInit?: boolean; // v1.11.1+：首次安裝時的預設啟動執行
 }
 ```
 
 ### 安裝邏輯摘要
 1. 建索引：現有 items → Map(command → item)。
 2. 對每個 entry：
-  - 不存在：新增（hidden=false, enableOnInit=false）。
-  - 已存在：覆蓋 text/tooltip/script/tags；保留 hidden/enableOnInit。
+  - 不存在：新增，優先使用 catalog 的 hidden/enableOnInit 預設值，未定義則為 false。
+  - 已存在：覆蓋 text/tooltip/script/tags；保留使用者設定的 hidden/enableOnInit。
 3. 寫回 globalState → 觸發 `_refreshStatusBar`。
+
+### 刪除時 VM 清理
+1. updateSettings：比對舊新項目清單，偵測被刪除的 commands。
+2. 呼叫 `statusBarHelper._abortByCommand` 終止每個被刪除項目的 VM。
+3. uninstall：在從 globalState 移除前先停止該項目的 VM。
+4. 清理包含 abort signal、RUNTIMES、MESSAGE_HANDLERS、MESSAGE_QUEUES。
 
 ### 邊界 / 選擇策略
 1. 缺 script（亦無 scriptUrl）→ 跳過（回傳 warning）。

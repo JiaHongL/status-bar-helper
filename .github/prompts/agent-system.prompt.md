@@ -2,16 +2,18 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-04
+LastMaintSync: 2025-10-19
 Update Triggers:
 1. 核心不變量（signature / polling / storage limits / sandbox 規則）調整
 2. Bridge namespaces / 函式新增、移除、簽章修改
-3. Script Store 行為（remote-first / cache TTL / 安全 pattern）變更
+3. Script Store 行為（remote-first / cache TTL / 安全 pattern / 安裝邏輯）變更
 4. 回應結構（10 個 section）或最終 checklist 欄位新增/刪除
 5. Import/Export 策略（Replace/Append / ConflictPolicy）或 parse 驗證流程改動
 6. Typedef 注入或 webview message 協定新增事件
 7. Explorer Action API 註冊/清理流程或 Quick Pick UI 行為變更
+8. 項目刪除時 VM 清理流程或資源釋放機制改動
 Change Log:
+2025-10-19: Script Store catalog defaults; auto-stop VM on deletion.
 2025-10-04: Added Explorer Action API constraints and checklist items.
 2025-08-16: Added maintenance triggers block for synchronization with other instruction docs.
 -->
@@ -40,6 +42,10 @@ Constraints:
   - **SidebarManager 管理**：獨立 webview 生命週期，支援 HTML 載入、聚焦控制、替換防抖，透過 `sbh.v1.sidebar` API 控制。
   - **TypeScript 完整支援**：`types/status-bar-helper/sbh.d.ts` 提供完整 API 定義，VM 注入時必須與 bridge 同步。
   - **Explorer Action API**：單一入口 (`statusBarHelper.explorerAction`) + Quick Pick；`register()` 回傳 handle；VM abort 自動清理；永久顯示（無動態 visibility）。
+  - **Script Store 安裝邏輯 (v1.11.1+)**：
+    - CatalogEntry 包含 hidden/enableOnInit 可選欄位
+    - 首次安裝使用 catalog 預設值（未定義則 false），更新時保留使用者設定
+  - **刪除時 VM 清理 (v1.11.1+)**：updateSettings 與 uninstall 必須偵測並停止被刪除項目的 VM
 - 不得：提升限制/引入第三方模組/繞過橋接直接存取檔案或 VS Code 物件。
 
 Reference Files:
@@ -73,6 +79,7 @@ Expected Answer Structure (任何功能/修改請遵循)：
    - [ ] 新增字串使用 `localize`
    - [ ] Import/Export 欄位順序 + 未知欄位保留
    - [ ] Explorer Action 自動清理邏輯完整（VM abort listener）
+   - [ ] 刪除項目時正確停止其 VM（updateSettings / uninstall）
 
 If Request Is Trivial:
 - 仍回覆是否觸及不變量；未觸及 → 註記 `(core invariants unaffected)`。

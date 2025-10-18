@@ -10,18 +10,20 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-04
+LastMaintSync: 2025-10-19
 Update Triggers:
 1. 回應格式 / 檢查表項目新增或刪除
 2. Invariants（globalState 單一來源 / signature / polling 階梯 / 安全限制）任一調整
 3. Bridge namespaces / API 新增、重命名或移除
-4. Script Store 行為（remote fetch / cache TTL / 安全規則 / hash 組成）改動
+4. Script Store 行為（remote fetch / cache TTL / 安全規則 / hash 組成 / 安裝邏輯）改動
 5. UI 斷點 (<1100 / <860) 或 running badge / 拖曳規則改動
 6. Typedef 注入或 sandbox 允許模組策略變動
 7. 前端模組化架構變更（Web Components / Vite / Monaco ESM / i18n）
 8. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新）
 9. Explorer Action API 註冊/清理機制或 Quick Pick UI 行為改動
+10. 項目刪除時 VM 清理流程改動
 Change Log:
+2025-10-19: Script Store catalog defaults support; auto-stop VM on deletion.
 2025-10-04: Added Explorer Action API for file explorer context menu integration.
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM, Web Components, i18n tools, Node v22.
 2025-08-16: Inserted maintenance triggers & remote-first Script Store invariant.

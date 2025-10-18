@@ -13,12 +13,12 @@ meta:
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-04
+LastMaintSync: 2025-10-19
 Update Triggers:
 1. Runtime VM 建立 / 中止流程或追蹤結構 (RUNTIMES / MESSAGE_*) 改動
 2. Bridge namespace / 函式簽章 / 回傳格式有新增或修改
 3. computeItemsSignature 欄位或 polling 階梯 / 閾值調整
-4. Script Store cache TTL / 遠端 fetch 條件 / 安全 pattern 規則變更
+4. Script Store cache TTL / 遠端 fetch 條件 / 安全 pattern 規則 / 安裝邏輯（預設值處理）變更
 5. Webview message 指令或事件新增 / 改名
 6. 安全與大小限制修改 (KV / JSON / TEXT / Binary / Script)
 7. Typedef 注入機制或內容版本化策略調整
@@ -26,7 +26,9 @@ Update Triggers:
 9. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新流程）
 10. Explorer Action API 註冊/清理機制、Quick Pick UI 行為、或 context key 可見性邏輯改動
 11. package.json menus when 條件變更或 compile/build 腳本流程調整
+12. 項目刪除時 VM 清理流程或資源釋放機制改動
 Change Log:
+2025-10-19: Script Store respects catalog defaults for hidden/enableOnInit; auto-stop VM on item deletion.
 2025-10-05: Enhanced build process (clean before compile) and improved compile/build script dependencies.
 2025-10-04: Added Explorer Action API (file explorer context menu integration).
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM upgrade, Web Components architecture.
@@ -74,6 +76,14 @@ Change Log:
 - `hostRun`：`start(cmd, code)`（settings panel trusted run）與 `lastSyncInfo()`；新增 host 只讀資訊時放此。
 - `importExport`：`importPreview`、`exportPreview`、`applyImport`。所有 JSON 解析→先 `parseAndValidate()`，避免在 webview 層做未驗證邏輯。
 - `scriptStore`：`catalog`（遠端優先 + 本地 fallback + 5 分鐘記憶體快取）、`install`（單一安裝/更新；保留 hidden/enableOnInit）、`bulkInstall`（批次原子安裝，失敗回滾）。
+  - **v1.11.1 安裝邏輯更新**：
+    - CatalogEntry 新增 `hidden?: boolean` 和 `enableOnInit?: boolean` 欄位
+    - normalize() 從 JSON 提取這些可選欄位
+    - applyInstall() 首次安裝時優先使用 catalog 預設值（fallback 為 false），更新時保留使用者設定
+  - **v1.11.1 刪除時 VM 清理**：
+    - updateSettings：偵測被刪除項目並呼叫 `_abortByCommand`
+    - uninstall：移除前先停止 VM
+    - 確保無殭屍 VM 進程殘留
 - `explorerAction`：`register(vmCommand, config)`（檔案總管右鍵選單動作註冊）。單一入口 + Quick Pick；VM abort 自動清理。
 
 擴充規則：
@@ -146,6 +156,7 @@ UI 規則：
 | Signature | 變更 `computeItemsSignature()` 是否同步 UI / 同步邏輯？ |
 | State 更新 | 修改 globalState 後是否呼叫 `updateStatusBarItems` + `_sendStateToWebview`？ |
 | 新 UI 事件 | 有集中定義 & 避免硬字串？ |
+| VM 清理 | 刪除項目時是否正確停止其 VM？ |
 | Explorer Action | 新增動作是否透過 `sbh.v1.explorerAction.register()` 並正確清理？ |
 | Icon 按鈕 | 新增操作按鈕是否採用 Codicons 並包含 title/aria-label？ |
 | 編輯頁面 | 是否維持僅四個核心欄位（圖示、標籤、工具提示、腳本）？ |

@@ -2,9 +2,20 @@
 
 ## 🎯 專案概述
 
-Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、檔案總管整合、智慧備份、機密管理等完整功能。版本已發展至 **v1.10.4**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
+Status Bar Helper 是一個功能豐富的 VS Code 擴充套件，提供自訂狀態列按鈕、腳本執行環境、檔案總管整合、智慧備份、機密管理等完整功能。版本已發展至 **v1.11.1**，具備企業級的安全性與穩定性，並採用現代化的前端模組化架構。
 
-## 🔄 最新功能（v1.5.0 - v1.10.4）
+## 🔄 最新功能（v1.5.0 - v1.11.1）
+
+### v1.11.1 - Script Store 安裝改進與 VM 生命週期管理
+
+- ✅ **Script Store 預設值支援**：安裝腳本時尊重 catalog 預設設定
+  - CatalogEntry 介面擴充 hidden/enableOnInit 可選欄位
+  - normalize() 函式從 JSON 提取這些欄位
+  - applyInstall() 首次安裝時使用 catalog 預設值，更新時保留使用者設定
+- ✅ **刪除腳本時自動停止 VM**：改善資源清理與生命週期管理
+  - updateSettings 偵測被刪除項目並終止其 VM
+  - uninstall 在移除前先停止 VM
+  - 完整清理機制包含 abort reason 追蹤（deleted/uninstalled）
 
 ### v1.10.4 - VM Scripts API
 
