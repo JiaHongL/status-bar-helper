@@ -165,6 +165,25 @@ interface StatusBarHelper {
       * Listen for messages coming from other VMs. Returns an unsubscribe function.
       */
       onMessage(handler: (fromCmdId: string, message: any) => void): () => void;
+      /**
+       * Get all registered scripts (command, text, tooltip)
+       * @returns Promise that resolves to an array of script metadata
+       * 
+       * @example
+       * ```typescript
+       * const scripts = await sbh.v1.vm.scripts();
+       * scripts.forEach(script => {
+       *   console.log(`Command: ${script.command}`);
+       *   console.log(`Text: ${script.text}`);
+       *   console.log(`Tooltip: ${script.tooltip || 'N/A'}`);
+       * });
+       * ```
+       */
+      scripts(): Promise<Array<{
+        command: string;
+        text: string;
+        tooltip?: string;
+      }>>;
     };
     /** File explorer right-click action integration */
     explorerAction: {

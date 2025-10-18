@@ -941,6 +941,20 @@ function runScriptInVm(
       if (arguments.length >= 2) {
         setTimeout(() => dispatchMessage(cmdId, command, payload), 0);
       }
+    },
+    // ─── 取得所有腳本清單 ───
+    scripts: async () => {
+      const result = await vscode.commands.executeCommand('statusBarHelper._bridge', {
+        ns: 'vm',
+        fn: 'scripts',
+        args: []
+      }) as any;
+      
+      if (!result || !result.ok) {
+        throw new Error(result?.error || 'Failed to get scripts');
+      }
+      
+      return result.data;
     }
   };
 
@@ -1792,6 +1806,15 @@ function registerBridge(context: vscode.ExtensionContext) {
           case 'isRunning': {
             const [cmd] = args as [string];
             return { ok: true, data: RUNTIMES.has(String(cmd || '')) };
+          }
+          case 'scripts': {
+            const manifest = context.globalState.get<any>(GLOBAL_MANIFEST_KEY, { version: 1, items: [] });
+            const items = (manifest.items || []).map((item: any) => ({
+              command: item.command,
+              text: item.text,
+              tooltip: item.tooltip
+            }));
+            return { ok: true, data: items };
           }
         }
       }
