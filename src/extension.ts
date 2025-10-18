@@ -1348,7 +1348,7 @@ function normalizeDefaultJsonItem(x: any): SbhItem | null {
 // Bridge 指令：statusBarHelper._bridge
 // ─────────────────────────────────────────────────────────────
 // Script Store catalog cache (持久化在 extension 生命週期內)
-interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; }
+interface CatalogEntry { command: string; text: string; tooltip?: string; tags?: string[]; script?: string; hash?: string; hidden?: boolean; enableOnInit?: boolean; }
 let _catalogCache: { at: number; entries: CatalogEntry[] } | null = null;
 
 function registerBridge(context: vscode.ExtensionContext) {
@@ -1478,7 +1478,9 @@ function registerBridge(context: vscode.ExtensionContext) {
             text: typeof o.text === 'string' ? o.text : String(o.command || ''),
             tooltip: typeof o.tooltip === 'string' ? o.tooltip : undefined,
             tags: Array.isArray(o.tags) ? o.tags.filter((t: any) => typeof t === 'string' && t.trim()).slice(0,12) : undefined,
-            script: typeof o.script === 'string' ? o.script : undefined
+            script: typeof o.script === 'string' ? o.script : undefined,
+            hidden: typeof o.hidden === 'boolean' ? o.hidden : undefined,
+            enableOnInit: typeof o.enableOnInit === 'boolean' ? o.enableOnInit : undefined
           })).filter(e => e.command);
 
           // 依序嘗試：遠端 → 本地
@@ -1524,7 +1526,7 @@ function registerBridge(context: vscode.ExtensionContext) {
         };
         const applyInstall = async (payload: CatalogEntry) => {
           if (!payload || typeof payload !== 'object') { return { ok:false, error:'invalidPayload' }; }
-          const { command, text, tooltip, tags, script } = payload;
+          const { command, text, tooltip, tags, script, hidden, enableOnInit } = payload;
           if (typeof command !== 'string' || !command.trim()) { return { ok:false, error:'invalidCommand' }; }
           const scriptStr = typeof script === 'string' ? script : '';
           if (Buffer.byteLength(scriptStr, 'utf8') > SAFE_LIMIT) { return { ok:false, error:'scriptTooLarge' }; }
@@ -1535,8 +1537,8 @@ function registerBridge(context: vscode.ExtensionContext) {
             text: typeof text === 'string' && text.trim() ? text : command,
             tooltip: typeof tooltip === 'string' ? tooltip : undefined,
             script: scriptStr,
-            hidden: existing ? existing.hidden : false,
-            enableOnInit: existing ? existing.enableOnInit : false,
+            hidden: existing ? existing.hidden : (typeof hidden === 'boolean' ? hidden : false),
+            enableOnInit: existing ? existing.enableOnInit : (typeof enableOnInit === 'boolean' ? enableOnInit : false),
             tags: Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim()).slice(0,12) : undefined
           };
           try {
@@ -1560,6 +1562,9 @@ function registerBridge(context: vscode.ExtensionContext) {
             const remain = all.filter(i => i.command !== command);
             if (remain.length === all.length) { return { ok:false, error:'notFound' }; }
             try {
+              // 停止該項目的 VM（如果正在執行）
+              abortByCommand(command, { type: 'uninstalled', at: Date.now() });
+              
               await saveAllToGlobal(context, remain);
               await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
               // 通知 Webview 更新資料

@@ -231,7 +231,24 @@ export class SettingsPanel {
           // 更新設定 - 儲存到 global state 並刷新狀態列
           case 'updateSettings': {
             if (SettingsPanel.extensionContext) {
-              await saveAllToGlobal(SettingsPanel.extensionContext, message.items);
+              // 檢測被刪除的項目並停止其 VM
+              const oldItems = loadFromGlobal(SettingsPanel.extensionContext);
+              const newItems = message.items;
+              const newCommandSet = new Set(newItems.map((i: any) => i.command));
+              const deletedCommands = oldItems
+                .map(i => i.command)
+                .filter(cmd => !newCommandSet.has(cmd));
+              
+              // 停止被刪除項目的 VM
+              for (const cmd of deletedCommands) {
+                try {
+                  await vscode.commands.executeCommand('statusBarHelper._abortByCommand', cmd, { type: 'deleted', at: Date.now() });
+                } catch (e) {
+                  console.warn(`Failed to abort VM for deleted item ${cmd}:`, e);
+                }
+              }
+              
+              await saveAllToGlobal(SettingsPanel.extensionContext, newItems);
               // 通知主擴充功能更新狀態列
               try {
                 await vscode.commands.executeCommand('statusBarHelper._refreshStatusBar');
