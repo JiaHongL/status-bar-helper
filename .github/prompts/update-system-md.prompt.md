@@ -7,8 +7,6 @@
 - core-modules.instructions.md
 - IMPLEMENTATION_SUMMARY.md
 - agent-prompt.md
-- README.md ← 繁體中文
-- README.en.md ← English
 - copilot-instructions.md
 - agent-system.prompt.md
 
@@ -29,7 +27,6 @@
 
 - 風格：
   - Markdown 標題採 Sentence case；中英文行寬 ≤ 100；程式區塊標註語言（如 ```ts）。
-  - README.md 用繁體中文台灣用語；README.en.md 用自然美式英文，資訊對齊（非逐句直譯）。
 - 一致性：
   - 專案名、CLI 指令、環境變數、API 名稱、檔名、網址、版本號**完全一致**。
   - 提供「名詞對照表」（中 ⇄ 英、指令/設定鍵名）。
@@ -53,9 +50,6 @@
 - agent-prompt.md
   - 任務導向：Inputs → Steps → Outputs → Acceptance criteria。
   - 提供 1–2 個 few-shot（成功/失敗對照，含評語）。
-- README.md / README.en.md
-  - 徽章/目錄/License 保留；資訊架構可微調降重。
-  - 升級指南（如有破壞性變更）、Quickstart、FAQ、Troubleshooting、Compatibility Matrix。
 - copilot-instructions.md
   - Workspace-scoped 指令/片段（YAML/JSON），清楚標示範圍（User vs Workspace）。
   - 範例：如何撰寫規範化注釋、生成測試、生成變更摘要。
