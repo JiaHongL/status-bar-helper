@@ -66,6 +66,7 @@
   "err.openExternal": "無法開啟外部連結。",
 
   "packages.installing": "正在安裝 {0}...",
+  "packages.removing": "正在移除 {0}...",
   "packages.installed": "套件 {0} 安裝成功。",
   "packages.removed": "套件 {0} 已移除。",
   "err.packagesInvalidName": "套件名稱為必填",

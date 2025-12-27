@@ -900,6 +900,14 @@ const util = require('util');
             vscode.postMessage({ command: 'packages:list' });
           });
           
+          packageManagerComponent.addEventListener('packages-remove-all-requested', (e) => {
+            const { packages } = e.detail;
+            vscode.postMessage({
+              command: 'packages:removeAll',
+              packages
+            });
+          });
+          
           packageManagerComponent.addEventListener('package-manager-closed', () => {
             // 關閉時刷新儲存資料檢視
             refreshStoredData();
@@ -1209,6 +1217,33 @@ const util = require('util');
                 "error"
               );
             }
+            if (pkgMgr) {
+              pkgMgr.setRemoving(null);
+            }
+            break;
+          }
+          case "packages:removeAllResult": {
+            const pkgMgr = document.getElementById('package-manager-component');
+            const result = msg.result || msg;
+            if (result.success) {
+              window.ConfirmationSystem.showSuccess();
+            } else if (result.removed > 0) {
+              // Partial success
+              window.ConfirmationSystem.showToast(
+                getNlsText("packageRemovePartial", "已移除 {removed}/{total} 個套件")
+                  .replace("{removed}", result.removed)
+                  .replace("{total}", result.total),
+                "warning"
+              );
+            } else {
+              window.ConfirmationSystem.showToast(
+                result.error || getNlsText("packageRemoveAllFailed", "移除全部套件失敗"),
+                "error"
+              );
+            }
+            // Always refresh list after removeAll operation
+            vscode.postMessage({ command: 'packages:list' });
+            refreshStoredData();
             if (pkgMgr) {
               pkgMgr.setRemoving(null);
             }

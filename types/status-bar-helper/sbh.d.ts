@@ -522,19 +522,29 @@ interface PackagesNamespace {
   remove(name: string): Promise<PackageRemoveResult>;
 
   /**
-   * List all installed packages
+   * List installed packages
    * 
+   * By default, only shows packages directly installed by the user (directOnly: true).
+   * Dependencies of those packages are hidden. Set directOnly: false to see all packages.
+   * 
+   * @param options Optional filtering options
+   * @param options.directOnly If true (default), only return packages explicitly installed by user. If false, return all packages including transitive dependencies.
    * @returns Promise resolving to array of package info
    * 
    * @example
    * ```typescript
-   * const packages = await sbh.v1.packages.list();
-   * for (const pkg of packages) {
+   * // List only user-installed packages (default)
+   * const userPackages = await sbh.v1.packages.list();
+   * 
+   * // List all packages including dependencies
+   * const allPackages = await sbh.v1.packages.list({ directOnly: false });
+   * 
+   * for (const pkg of userPackages) {
    *   console.log(`${pkg.name}@${pkg.version} (${pkg.size} bytes)`);
    * }
    * ```
    */
-  list(): Promise<PackageInfo[]>;
+  list(options?: { directOnly?: boolean }): Promise<PackageInfo[]>;
 
   /**
    * Check if a package is installed

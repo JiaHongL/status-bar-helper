@@ -66,6 +66,7 @@
   "err.openExternal": "Failed to open external link.",
 
   "packages.installing": "Installing {0}...",
+  "packages.removing": "Removing {0}...",
   "packages.installed": "Package {0} installed successfully.",
   "packages.removed": "Package {0} removed successfully.",
   "err.packagesInvalidName": "Package name is required",

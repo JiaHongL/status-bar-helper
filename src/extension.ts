@@ -2228,15 +2228,33 @@ function registerBridge(context: vscode.ExtensionContext) {
           }
         };
         
-        // List all installed packages
-        const listPackages = async (): Promise<Array<{ name: string; version: string; path: string; size?: number }>> => {
+        // Get direct dependencies from package.json
+        const getDirectDependencies = async (): Promise<Set<string>> => {
+          const pkgPath = packageJsonPath();
+          try {
+            const raw = await fsp.readFile(pkgPath, 'utf8');
+            const pkg = JSON.parse(raw);
+            const deps = pkg.dependencies || {};
+            return new Set(Object.keys(deps));
+          } catch {
+            return new Set();
+          }
+        };
+        
+        // List installed packages (directOnly: true = only user-installed, false = all including deps)
+        const listPackages = async (directOnly: boolean = true): Promise<Array<{ name: string; version: string; path: string; size?: number }>> => {
           const root = nodeModulesDir();
           const result: Array<{ name: string; version: string; path: string; size?: number }> = [];
+          
+          // Get direct dependencies if filtering
+          const directDeps = directOnly ? await getDirectDependencies() : null;
           
           try {
             const entries = await fsp.readdir(root, { withFileTypes: true });
             for (const e of entries) {
               if (e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('@')) {
+                // Skip if directOnly and not in direct dependencies
+                if (directDeps && !directDeps.has(e.name)) continue;
                 const info = await getPackageInfo(e.name);
                 if (info) result.push(info);
               } else if (e.isDirectory() && e.name.startsWith('@')) {
@@ -2247,6 +2265,8 @@ function registerBridge(context: vscode.ExtensionContext) {
                   for (const se of scopeEntries) {
                     if (se.isDirectory()) {
                       const scopedName = e.name + '/' + se.name;
+                      // Skip if directOnly and not in direct dependencies
+                      if (directDeps && !directDeps.has(scopedName)) continue;
                       const info = await getPackageInfo(scopedName);
                       if (info) result.push(info);
                     }
@@ -2267,7 +2287,9 @@ function registerBridge(context: vscode.ExtensionContext) {
             }
             
             case 'list': {
-              const packages = await listPackages();
+              const [options] = args as [{ directOnly?: boolean }?];
+              const directOnly = options?.directOnly ?? true; // Default to true (only direct deps)
+              const packages = await listPackages(directOnly);
               return { ok: true, data: packages };
             }
             
@@ -2399,42 +2421,66 @@ function registerBridge(context: vscode.ExtensionContext) {
                 throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
               }
               
+              // Validate package name (prevent injection)
+              if (!/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(name)) {
+                throw new Error(localize('err.packagesInvalidNameFormat', 'Invalid package name format'));
+              }
+              
               const pkgDir = path.join(nodeModulesDir(), name);
               
               try {
                 // Check if exists
                 await fsp.access(pkgDir);
                 
-                // Remove directory
-                // @ts-ignore - Node 16+ rm
-                if (fsp.rm) {
-                  await fsp.rm(pkgDir, { recursive: true, force: true });
-                } else {
-                  // Fallback for older Node
-                  const rmrf = async (d: string) => {
-                    const list = await fsp.readdir(d, { withFileTypes: true });
-                    for (const x of list) {
-                      const p = path.join(d, x.name);
-                      if (x.isDirectory()) { await rmrf(p); await fsp.rmdir(p).catch(() => {}); }
-                      else { await fsp.unlink(p).catch(() => {}); }
-                    }
-                  };
-                  await rmrf(pkgDir);
-                  await fsp.rmdir(pkgDir).catch(() => {});
-                }
+                // Use npm uninstall to properly remove package and prune deps
+                const cwd = packagesRoot();
+                const doRemove = (): Promise<{ success: boolean; name: string; error?: string }> => {
+                  return new Promise((resolve) => {
+                    const { spawn } = require('child_process') as typeof import('child_process');
+                    
+                    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+                    const child = spawn(npmCmd, ['uninstall', name], {
+                      cwd,
+                      stdio: ['ignore', 'pipe', 'pipe'],
+                      shell: process.platform === 'win32',
+                      env: { ...process.env, npm_config_loglevel: 'warn' }
+                    });
+                    
+                    let stderr = '';
+                    child.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
+                    
+                    child.on('close', (code) => {
+                      if (code === 0) {
+                        resolve({ success: true, name });
+                      } else {
+                        resolve({ 
+                          success: false, 
+                          name, 
+                          error: stderr.trim() || `npm uninstall failed with code ${code}`
+                        });
+                      }
+                    });
+                    
+                    child.on('error', (err) => {
+                      resolve({ 
+                        success: false, 
+                        name, 
+                        error: `Failed to spawn npm: ${err.message}`
+                      });
+                    });
+                  });
+                };
                 
-                // Also remove from package.json dependencies
-                try {
-                  const pkgJsonPath = packageJsonPath();
-                  const raw = await fsp.readFile(pkgJsonPath, 'utf8');
-                  const pkg = JSON.parse(raw);
-                  if (pkg.dependencies && pkg.dependencies[name]) {
-                    delete pkg.dependencies[name];
-                    await fsp.writeFile(pkgJsonPath, JSON.stringify(pkg, null, 2), 'utf8');
-                  }
-                } catch {}
+                const result = await vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: localize('packages.removing', 'Removing {0}...', name),
+                    cancellable: false
+                  },
+                  async () => doRemove()
+                );
                 
-                return { ok: true, data: { success: true, name } };
+                return { ok: true, data: result };
               } catch (e: any) {
                 return { ok: true, data: { success: false, name, error: e?.message || 'Package not found' } };
               }

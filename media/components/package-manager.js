@@ -26,6 +26,8 @@ class PackageManager extends HTMLElement {
     
     // Internal state
     this._packages = [];
+    this._filteredPackages = [];
+    this._searchQuery = '';
     this._nlsData = {};
     this._isOpen = false;
     this._isInstalling = false;
@@ -49,7 +51,18 @@ class PackageManager extends HTMLElement {
 
   set packages(value) {
     this._packages = Array.isArray(value) ? value : [];
+    this._filteredPackages = this.filterPackages(this._searchQuery);
     this.renderPackagesList();
+  }
+
+  // Filter packages by search query
+  filterPackages(query) {
+    if (!query) return this._packages;
+    const lowerQuery = query.toLowerCase();
+    return this._packages.filter(pkg => 
+      pkg.name.toLowerCase().includes(lowerQuery) ||
+      (pkg.version && pkg.version.toLowerCase().includes(lowerQuery))
+    );
   }
 
   get nlsData() {
@@ -304,6 +317,113 @@ class PackageManager extends HTMLElement {
           gap: 8px;
         }
 
+        .packages-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          gap: 12px;
+        }
+
+        .packages-header h3 {
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .packages-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .search-wrapper {
+          position: relative;
+          flex: 1;
+          max-width: 200px;
+        }
+
+        .search-input {
+          width: 82%;
+          padding: 5px 8px 5px 28px;
+          border: 1px solid var(--vscode-input-border);
+          background: var(--vscode-input-background);
+          color: var(--vscode-input-foreground);
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .search-input:focus {
+          outline: none;
+          border-color: var(--vscode-focusBorder);
+        }
+
+        .search-input::placeholder {
+          color: var(--vscode-input-placeholderForeground);
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--vscode-input-placeholderForeground);
+          font-size: 14px;
+          pointer-events: none;
+        }
+
+        .clear-search-btn {
+          position: absolute;
+          right: 4px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 18px;
+          height: 18px;
+          border: none;
+          background: transparent;
+          color: var(--vscode-input-placeholderForeground);
+          cursor: pointer;
+          border-radius: 3px;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+        }
+
+        .clear-search-btn.visible {
+          display: flex;
+        }
+
+        .clear-search-btn:hover {
+          background: var(--vscode-toolbar-hoverBackground);
+          color: var(--vscode-foreground);
+        }
+
+        .remove-all-btn {
+          padding: 4px 10px;
+          border: none;
+          background: var(--vscode-button-secondaryBackground);
+          color: var(--vscode-button-secondaryForeground);
+          border-radius: 4px;
+          font-size: 0.85em;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          white-space: nowrap;
+        }
+
+        .remove-all-btn:hover:not(:disabled) {
+          background: var(--vscode-inputValidation-errorBackground);
+          color: var(--vscode-errorForeground);
+        }
+
+        .remove-all-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .package-count {
           font-size: 0.85em;
           font-weight: normal;
@@ -520,10 +640,31 @@ class PackageManager extends HTMLElement {
           </div>
 
           <div class="packages-section">
-            <h3>
-              <span data-nls="installedPackages">已安裝套件</span>
-              <span class="package-count" id="package-count">(0)</span>
-            </h3>
+            <div class="packages-header">
+              <h3>
+                <span data-nls="installedPackages">已安裝套件</span>
+                <span class="package-count" id="package-count">(0)</span>
+              </h3>
+              <div class="packages-header-actions">
+                <div class="search-wrapper">
+                  <i class="codicon codicon-search search-icon"></i>
+                  <input 
+                    type="text" 
+                    class="search-input" 
+                    id="search-input" 
+                    placeholder="搜尋套件..."
+                    data-nls-placeholder="searchPackagesPlaceholder"
+                  />
+                  <button class="clear-search-btn" id="clear-search-btn" title="Clear">
+                    <i class="codicon codicon-close"></i>
+                  </button>
+                </div>
+                <button class="remove-all-btn" id="remove-all-btn" title="移除全部" data-nls-title="removeAllPackages">
+                  <i class="codicon codicon-trash"></i>
+                  <span data-nls="removeAll">移除全部</span>
+                </button>
+              </div>
+            </div>
             <div class="packages-list" id="packages-list">
               <div class="empty-state">
                 <div><i class="codicon codicon-package"></i></div>
@@ -575,6 +716,50 @@ class PackageManager extends HTMLElement {
       this.dispatchEvent(new CustomEvent('packages-refresh-requested', {
         bubbles: true
       }));
+    });
+
+    // Search input
+    this.shadowRoot.getElementById('search-input').addEventListener('input', (e) => {
+      this._searchQuery = e.target.value.trim();
+      this._filteredPackages = this.filterPackages(this._searchQuery);
+      this.renderPackagesList();
+      
+      // Toggle clear button visibility
+      const clearBtn = this.shadowRoot.getElementById('clear-search-btn');
+      if (this._searchQuery) {
+        clearBtn.classList.add('visible');
+      } else {
+        clearBtn.classList.remove('visible');
+      }
+    });
+
+    // Clear search button
+    this.shadowRoot.getElementById('clear-search-btn').addEventListener('click', () => {
+      const searchInput = this.shadowRoot.getElementById('search-input');
+      searchInput.value = '';
+      this._searchQuery = '';
+      this._filteredPackages = this.filterPackages('');
+      this.renderPackagesList();
+      this.shadowRoot.getElementById('clear-search-btn').classList.remove('visible');
+      searchInput.focus();
+    });
+
+    // Remove all button
+    this.shadowRoot.getElementById('remove-all-btn').addEventListener('click', async () => {
+      if (!this._packages.length) return;
+      
+      const confirmed = await window.ConfirmationSystem?.showChoiceDialog(
+        this.getNlsText('removeAllConfirm', '確認移除全部套件'),
+        this.getNlsText('removeAllMessage', '確定要移除全部 {count} 個套件嗎？此操作無法復原。').replace('{count}', this._packages.length),
+        [this.getNlsText('removeAll', '移除全部'), this.getNlsText('cancel', '取消')]
+      );
+
+      if (confirmed === this.getNlsText('removeAll', '移除全部')) {
+        this.dispatchEvent(new CustomEvent('packages-remove-all-requested', {
+          bubbles: true,
+          detail: { packages: this._packages.map(p => p.name) }
+        }));
+      }
     });
 
     // Install button
@@ -745,8 +930,18 @@ class PackageManager extends HTMLElement {
   renderPackagesList() {
     const list = this.shadowRoot.getElementById('packages-list');
     const count = this.shadowRoot.getElementById('package-count');
+    const removeAllBtn = this.shadowRoot.getElementById('remove-all-btn');
     
+    // Update count (total packages)
     count.textContent = `(${this._packages.length})`;
+    
+    // Enable/disable remove all button
+    if (removeAllBtn) {
+      removeAllBtn.disabled = !this._packages.length;
+    }
+
+    // Use filtered packages for display
+    const displayPackages = this._filteredPackages.length > 0 || this._searchQuery ? this._filteredPackages : this._packages;
 
     if (!this._packages.length) {
       list.innerHTML = `
@@ -758,7 +953,17 @@ class PackageManager extends HTMLElement {
       return;
     }
 
-    list.innerHTML = this._packages.map(pkg => `
+    if (!displayPackages.length && this._searchQuery) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div><i class="codicon codicon-search"></i></div>
+          <p>${this.getNlsText('noSearchResults', '找不到符合的套件')}</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = displayPackages.map(pkg => `
       <div class="package-item">
         <i class="codicon codicon-package package-icon"></i>
         <div class="package-info">

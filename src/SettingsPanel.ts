@@ -551,6 +551,42 @@ export class SettingsPanel {
             return;
           }
           
+          case 'packages:removeAll': {
+            const { packages: packageNames } = message as { packages: string[] };
+            try {
+              let successCount = 0;
+              let lastError = '';
+              for (const name of packageNames) {
+                try {
+                  const result = await this._callBridge('packages', 'remove', name);
+                  if (result?.data?.success) {
+                    successCount++;
+                  } else {
+                    lastError = result?.data?.error || 'Unknown error';
+                  }
+                } catch (e: any) {
+                  lastError = e?.message || String(e);
+                }
+              }
+              this._panel.webview.postMessage({ 
+                command: 'packages:removeAllResult', 
+                result: { 
+                  success: successCount === packageNames.length,
+                  removed: successCount,
+                  total: packageNames.length,
+                  error: successCount < packageNames.length ? lastError : undefined
+                }
+              });
+              this._sendStoredDataToWebview();
+            } catch (e: any) {
+              this._panel.webview.postMessage({ 
+                command: 'packages:removeAllResult', 
+                result: { success: false, removed: 0, total: packageNames.length, error: e?.message || String(e) }
+              });
+            }
+            return;
+          }
+          
           case 'packages:list': {
             try {
               const packages = await this._callBridge('packages', 'list');
