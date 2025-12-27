@@ -559,10 +559,10 @@ export class SettingsPanel {
               for (const name of packageNames) {
                 try {
                   const result = await this._callBridge('packages', 'remove', name);
-                  if (result?.data?.success) {
+                  if (result?.success) {
                     successCount++;
                   } else {
-                    lastError = result?.data?.error || 'Unknown error';
+                    lastError = result?.error || 'Unknown error';
                   }
                 } catch (e: any) {
                   lastError = e?.message || String(e);

@@ -2152,7 +2152,6 @@ function registerBridge(context: vscode.ExtensionContext) {
       // ---------- packages ----------
       if (ns === 'packages') {
         const PACKAGES_DIR = 'sbh.packages';
-        const PKG_SIZE_LIMIT = 500 * 1024 * 1024; // 500MB max total packages
         
         // sbh.packages/ 是套件管理的根目錄
         const packagesRoot = () => path.join(context.globalStorageUri.fsPath, PACKAGES_DIR);
