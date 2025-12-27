@@ -13,6 +13,7 @@
 - 獨立 VM 執行：每個腳本皆在獨立 Node.js VM 中運行，互不干擾，並僅使用原生 Node 模組。
 - 安全性與隔離性：腳本在受控環境中執行，避免影響 VS Code 及其他腳本的穩定性與安全性。
 - 直觀圖示介面：所有操作按鈕採用一致的 VS Code Codicons，提供簡潔易用的操作體驗。
+- npm 套件支援：可在腳本中使用 `require` 載入 `sbh.packages/node_modules/` 下的 npm 套件，擴展功能。
 
 ## 贊助作者
 
@@ -55,6 +56,13 @@
 
 ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-2.png)
 
+### npm 套件支援
+
+- NPM 套件管理視窗
+ ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-4_1.png)
+
+- 在腳本中使用 package.install('package-name') 安裝套件，並可透過 require 載入使用。
+ ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-4_2.png)
 
 ## 🔧 指令與捷徑
 

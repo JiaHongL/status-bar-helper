@@ -13,7 +13,7 @@ This is an extension that lets you add custom buttons to the VS Code status bar.
 - **Independent VM Execution**: Each script runs in an independent Node.js VM environment without interference, using only native Node modules.
 - **Security & Isolation**: Scripts execute in a controlled environment, avoiding impact on VS Code stability and security.
 - **Intuitive Icon Interface**: All action buttons use consistent VS Code Codicons for a clean and user-friendly experience.
-
+- npm Package Support: You can use `require` in your scripts to load npm packages located under `sbh.packages/node_modules/`, extending functionality.
 
 ## Sponsor the Author
 
@@ -57,7 +57,13 @@ On this page, you can write and test status bar item scripts with a clean icon-b
 
 ![Editor Page](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-2.png)
 
----
+### npm Package Support
+
+- NPM package management window
+ ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-4_1.png)
+
+- In the script, use package.install('package-name') to install packages, which can then be loaded via require.
+ ![alt text](https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/image/image-4_2.png)
 
 ## 🔧 Commands & Shortcuts
 
