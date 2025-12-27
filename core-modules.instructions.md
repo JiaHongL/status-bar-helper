@@ -13,7 +13,7 @@ meta:
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-19
+LastMaintSync: 2025-12-27
 Update Triggers:
 1. Runtime VM 建立 / 中止流程或追蹤結構 (RUNTIMES / MESSAGE_*) 改動
 2. Bridge namespace / 函式簽章 / 回傳格式有新增或修改
@@ -27,7 +27,9 @@ Update Triggers:
 10. Explorer Action API 註冊/清理機制、Quick Pick UI 行為、或 context key 可見性邏輯改動
 11. package.json menus when 條件變更或 compile/build 腳本流程調整
 12. 項目刪除時 VM 清理流程或資源釋放機制改動
+13. Packages API 目錄結構 / 受保護路徑 / VM require 支援變更
 Change Log:
+2025-12-27: Packages API directory structure (sbh.packages/), protected directories for clearAll.
 2025-10-19: Script Store respects catalog defaults for hidden/enableOnInit; auto-stop VM on item deletion.
 2025-10-05: Enhanced build process (clean before compile) and improved compile/build script dependencies.
 2025-10-04: Added Explorer Action API (file explorer context menu integration).
@@ -85,6 +87,11 @@ Change Log:
     - uninstall：移除前先停止 VM
     - 確保無殭屍 VM 進程殘留
 - `explorerAction`：`register(vmCommand, config)`（檔案總管右鍵選單動作註冊）。單一入口 + Quick Pick；VM abort 自動清理。
+- `packages`：npm 套件管理。
+  - **目錄結構**：`globalStorage/sbh.packages/`（根目錄）包含 `package.json`、`package-lock.json`、`node_modules/`（套件安裝位置）。
+  - **API**：`dir`（回傳根目錄路徑）、`list`（列出已安裝套件）、`exists`（檢查套件存在）、`info`（取得套件資訊）、`install`（安裝套件）、`remove`（移除套件）。
+  - **受保護目錄**：`sbh.packages/` 與 `backups/` 不受 `files.clearAll` 影響，確保套件與備份資料安全。
+  - **VM require 支援**：sandbox 的 `require()` 自動從 `sbh.packages/node_modules/` 載入已安裝套件。
 
 擴充規則：
 1. 新增 namespace 必須： (a) switch 區塊內完整錯誤包裝；(b) 回傳結構統一；(c) 更新本檔案 Bridge 協定段落；(d) 不得回傳 host 端 `Error` 物件原樣（只抽 message）。
@@ -125,6 +132,7 @@ UI 規則：
 - 避免在 Webview 放長輪詢：host 已有 background polling；如需主動刷新 sync 資訊 → 呼叫 `forceImmediatePoll()`（新增 hostRun API）。
 - **SecretStorage 安全規範**：機密資料僅限透過 `sbh.v1.secrets` API 存取，不得在腳本中硬編碼金鑰或密碼，所有機密操作需使用者確認。
 - **SidebarManager 隔離**：側邊欄內容與主面板完全隔離，各自維護獨立的 webview 生命週期與訊息處理。
+- **受保護目錄**：`files.clearAll` 會跳過 `sbh.packages/`（npm 套件）與 `backups/`（備份資料），確保重要資料不被意外清除。
 
 ## 8. UI Icon Interface & Edit View Standards
 - **Icon Button Specifications**: All action buttons use VS Code Codicons with consistent sizing (24x24px for list view, 28x28px for edit page, 22x22px for Script Store).

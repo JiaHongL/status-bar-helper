@@ -2,7 +2,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-19
+LastMaintSync: 2025-12-27
 Update Triggers:
 1. 核心不變量（signature / polling / storage limits / sandbox 規則）調整
 2. Bridge namespaces / 函式新增、移除、簽章修改
@@ -12,7 +12,9 @@ Update Triggers:
 6. Typedef 注入或 webview message 協定新增事件
 7. Explorer Action API 註冊/清理流程或 Quick Pick UI 行為變更
 8. 項目刪除時 VM 清理流程或資源釋放機制改動
+9. Packages API 目錄結構 / 受保護路徑 / VM require 支援變更
 Change Log:
+2025-12-27: Packages API directory structure (sbh.packages/), protected directories for clearAll.
 2025-10-19: Script Store catalog defaults; auto-stop VM on deletion.
 2025-10-04: Added Explorer Action API constraints and checklist items.
 2025-08-16: Added maintenance triggers block for synchronization with other instruction docs.
@@ -46,6 +48,10 @@ Constraints:
     - CatalogEntry 包含 hidden/enableOnInit 可選欄位
     - 首次安裝使用 catalog 預設值（未定義則 false），更新時保留使用者設定
   - **刪除時 VM 清理 (v1.11.1+)**：updateSettings 與 uninstall 必須偵測並停止被刪除項目的 VM
+  - **Packages API (v1.12+)**：
+    - 目錄結構：`globalStorage/sbh.packages/` 包含 `package.json`、`node_modules/`
+    - 受保護目錄：`sbh.packages/` 與 `backups/` 不受 `files.clearAll` 影響
+    - VM require 自動支援從 `sbh.packages/node_modules/` 載入套件
 - 不得：提升限制/引入第三方模組/繞過橋接直接存取檔案或 VS Code 物件。
 
 Reference Files:

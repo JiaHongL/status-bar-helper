@@ -122,12 +122,17 @@ Extension Host (extension.ts)
     ├── File Operations (Text/JSON/Binary)
     ├── Secret Storage (Secure Credentials)
     ├── Sidebar Control (Open/Close/Replace)
-    └── Explorer Action (Context Menu Registration)
-        ├── Single Entry Point (statusBarHelper.explorerAction)
-        ├── Dynamic Quick Pick (list all registered actions)
-        ├── Context: { uri?: Uri, uris?: Uri[] }
-        ├── Auto-cleanup on VM abort
-        └── Conditional visibility (when: "hasRegistrations")
+    ├── Explorer Action (Context Menu Registration)
+    │   ├── Single Entry Point (statusBarHelper.explorerAction)
+    │   ├── Dynamic Quick Pick (list all registered actions)
+    │   ├── Context: { uri?: Uri, uris?: Uri[] }
+    │   ├── Auto-cleanup on VM abort
+    │   └── Conditional visibility (when: "hasRegistrations")
+    └── Packages (npm Package Management)
+        ├── Directory: globalStorage/sbh.packages/node_modules/
+        ├── APIs: install/remove/list/exists/info/require
+        ├── VM require() auto-support
+        └── Protected from files.clearAll
 
 Frontend Architecture (media/)
 ├── Web Components (components/)

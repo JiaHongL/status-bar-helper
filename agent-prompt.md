@@ -10,7 +10,7 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-19
+LastMaintSync: 2025-12-27
 Update Triggers:
 1. 回應格式 / 檢查表項目新增或刪除
 2. Invariants（globalState 單一來源 / signature / polling 階梯 / 安全限制）任一調整
@@ -22,7 +22,9 @@ Update Triggers:
 8. 構建系統變更（Vite config / 複製腳本 / Monaco/Codicons 更新）
 9. Explorer Action API 註冊/清理機制或 Quick Pick UI 行為改動
 10. 項目刪除時 VM 清理流程改動
+11. Packages API 目錄結構 / 受保護路徑 / VM require 支援變更
 Change Log:
+2025-12-27: Packages API directory structure (sbh.packages/), protected directories for clearAll.
 2025-10-19: Script Store catalog defaults support; auto-stop VM on deletion.
 2025-10-04: Added Explorer Action API for file explorer context menu integration.
 2025-10-02: Added frontend modularization, Vite build system, Monaco ESM, Web Components, i18n tools, Node v22.
@@ -82,7 +84,7 @@ Change Log:
 ## Bridge Namespaces（需保持接口穩定）
 
 - `storage`：get/set/remove/keys (global|workspace) + 尺寸檢查。
-- `files`：dirs / read|write(Text|JSON|Bytes) / exists / list / listStats / remove / clearAll（路徑安全 + 大小限制）。
+- `files`：dirs / read|write(Text|JSON|Bytes) / exists / list / listStats / remove / clearAll（路徑安全 + 大小限制；跳過受保護目錄 `sbh.packages/` 與 `backups/`）。
 - `secrets`：get/set/remove/keys（機密儲存，所有操作需使用者確認）。
 - `sidebar`：open/close/replace（側邊欄管理，支援 HTML 內容與聚焦控制）。
 - `vm`：open/sendMessage/stop（VM 間通訊）、refresh（面板狀態更新）、scripts()（取得所有已註冊腳本，v1.10.4+）。
@@ -91,6 +93,7 @@ Change Log:
 - `scriptStore`：catalog/install/bulkInstall（腳本商店管理）。
 - `data`：getRows/clearScope（儲存資料檢視與清理）。
 - `explorerAction`：register（檔案總管右鍵選單動作註冊，自動清理）。
+- `packages`：dir/list/exists/info/install/remove（npm 套件管理，安裝至 `sbh.packages/node_modules/`）。
 
 ## 回應格式要求
 

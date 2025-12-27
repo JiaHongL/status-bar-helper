@@ -4,9 +4,9 @@
 
 <!--
 Maintenance Notes
-LastMaintSync: 2025-10-04
+LastMaintSync: 2025-12-27
 Update Triggers (若發生務必同步本檔):
-1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun / explorerAction ...)
+1. 新增 / 移除 Bridge namespace 或其函式 (scriptStore / importExport / hostRun / explorerAction / packages ...)
 2. 變更 items signature 欄位或 adaptive polling 階梯 / 閾值
 3. 調整安全限制 (KV / JSON / TEXT / Binary / Script size) 或 sandbox 規則
 4. Script Store 行為（遠端來源 / cache TTL / 安全掃描規則 / hash 組成）改動
@@ -21,7 +21,9 @@ Update Triggers (若發生務必同步本檔):
    - settings.html (UI頁面層架構)
    確保組件關係、數據流向、頁面結構的準確性與一致性
 11. 前端模組化架構變更（Web Components / Vite / Monaco ESM）
+12. Packages API 目錄結構 / 受保護路徑 / VM require 支援變更
 Instruction Change Log:
+2025-12-27: Packages API path structure (sbh.packages/node_modules/), protected directories for clearAll.
 2025-10-04: Added Explorer Action API for file explorer context menu integration.
 2025-10-02: Sync with frontend modularization (Web Components), Vite build system, Monaco ESM upgrade, Node v22.
 2025-08-16: Sync with UI icon conversion & edit view tags removal. Updated responsive design and UI interaction patterns.
@@ -54,6 +56,12 @@ Instruction Change Log:
 - **SecretStorage API**：機密資料透過 `sbh.v1.secrets` 存取，所有操作需使用者確認，禁止硬編碼敏感資料。
 - **SidebarManager API**：透過 `sbh.v1.sidebar` 控制側邊欄，支援 HTML 內容載入、聚焦控制、生命週期管理。
 - **Explorer Action API**：透過 `sbh.v1.explorerAction` 在檔案總管右鍵選單註冊動作，單一入口 + Quick Pick，VM 停止自動清理。
+- **Packages API**：透過 `sbh.v1.packages` 管理 npm 套件，安裝於 `globalStorage/sbh.packages/node_modules/`，提供 `install`/`remove`/`list`/`require` 等方法。
+  - 安裝套件使用 npm install，顯示進度通知
+  - `require()` 為同步方法，直接載入已安裝的套件
+  - VM sandbox 的 require 自動支援從 `sbh.packages/node_modules/` 載入套件
+  - 套件名稱驗證防止注入攻擊
+  - **受保護目錄**：`sbh.packages/` 與 `backups/` 不受 `files.clearAll` 影響
 - **Path 安全**：檔案操作不得使用絕對路徑或 `..` 越界；所有路徑須經過 base path 解析。
 - **GlobalState 為單一事實來源**：使用
   - `GLOBAL_MANIFEST_KEY`：狀態列項目清單（text/tooltip/hidden/enableOnInit）
@@ -109,6 +117,23 @@ Instruction Change Log:
   6) NLS：`explorerAction.noRegistrations`、`explorerAction.selectAction`
   7) Package.json：`explorer/context` group `2_workspace@1`，`when: "hasRegistrations"` 條件顯示
   8) 可見性：透過 `updateExplorerActionContext()` 動態更新 context key，只有在有動作註冊時選單才顯示
+- 當我請你**使用 Packages API**時：
+  1) 安裝套件：`await sbh.v1.packages.install('套件名稱')` 或指定版本 `{ version: '1.0.0' }`
+  2) 載入套件：`const pkg = sbh.v1.packages.require('套件名稱')` （同步方法）
+  3) 移除套件：`await sbh.v1.packages.remove('套件名稱')`
+  4) 檢查存在：`await sbh.v1.packages.exists('套件名稱')` 回傳 boolean
+  5) 列出已安裝：`await sbh.v1.packages.list()` 回傳 `{name, version, path, size}[]`
+  6) 套件安裝路徑：`globalStorage/sbh.packages/node_modules/<套件名稱>/`
+  7) VM sandbox require 自動支援載入 sbh.packages/node_modules 的套件
+  8) **受保護目錄**：`sbh.packages/` 與 `backups/` 不會被 `files.clearAll` 刪除
+  9) 使用情境範例：
+     ```javascript
+     // 確保套件已安裝後再使用
+     if (!await sbh.v1.packages.exists('playwright')) {
+       await sbh.v1.packages.install('playwright');
+     }
+     const { chromium } = sbh.v1.packages.require('playwright');
+     ```
 - 當我請你**實作 Import/Export**時：
   1) utils 在 `src/utils/importExport.ts`，嚴格型別檢查與欄位保留
   2) bridge 指令：`importPreview`、`exportPreview`、`applyImport`
@@ -285,3 +310,4 @@ interface ScriptStoreEntryMeta {
 - **Vite**：現代化前端構建工具，用於 TypeScript → ESM 轉譯
 - **Monaco ESM**：Monaco Editor 的 ES Module 版本（0.53.0+）
 - **i18n-helper**：多國語系工具模組，提供 `t()` 翻譯函式
+- **Packages API**：npm 套件管理 API，安裝至 `globalStorage/sbh.packages/node_modules/`，提供 `install`/`remove`/`list`/`require` 方法，受保護不會被 `files.clearAll` 刪除

@@ -19,6 +19,7 @@ The following four documents **the model should first attempt to read and unders
       - `secret`: Encrypted storage for sensitive data (`get` / `set` / `delete` / `keys()`), used for storing tokens or secrets.
       - `sidebar`: Sidebar/webview management (`open(spec)` can accept raw HTML or `{ html?, focus?, onClose? }`; has `postMessage`, `onMessage(handler)` (returns a disposable), `close()`, and `onClose(handler)`; if a session already exists, `open` will replace the old session and trigger the old session's `onClose('replaced')`).
       - `vm`: VM lifecycle and inter-script communication (`stop` / `onStop` / `reason` / `stopByCommand`, `open(cmdId, payload?)`, `sendMessage`, `onMessage`). **Note: The type file does not provide any display methods (e.g., the previously assumed `vm.setLabel` does not exist) — the VM is primarily responsible for execution control and message passing.**
+      - `packages`: npm package management (`install(name, options?)`, `remove(name)`, `list()`, `exists(name)`, `require(name)`, `dir()`). Packages are installed to `globalStorage/sbh.packages/node_modules/`.
 
 3.  VS Code d.ts (Official VS Code API Reference)  
     [https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts](https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts)
@@ -42,7 +43,7 @@ The following four documents **the model should first attempt to read and unders
 
 ```js
 const vscode = require("vscode");
-const { storage, files, vm, sidebar } = statusBarHelper.v1;
+const { storage, files, vm, sidebar, packages } = statusBarHelper.v1;
 const {
   setTimeout,
   clearTimeout,
@@ -407,6 +408,82 @@ Key points:
 - `onDispose`: Optional cleanup callback, triggered when `dispose()` is manually called
 - Single entry point: All actions appear under the "Status Bar Helper" menu in a Quick Pick
 - Multi-file support: Use `ctx.uris || (ctx.uri ? [ctx.uri] : [])` to handle both single and multiple file selections
+
+---
+
+## 11. Demonstrating statusBarHelper.v1.packages
+
+```js
+const vscode = require("vscode");
+const { packages, vm } = statusBarHelper.v1;
+
+(async () => {
+  // Basic usage: Install and use lodash
+  if (!await packages.exists('lodash')) {
+    await packages.install('lodash');
+  }
+  const _ = packages.require('lodash');
+  console.log(_.chunk([1, 2, 3, 4], 2)); // [[1, 2], [3, 4]]
+
+  // Install specific version
+  await packages.install('axios', { version: '1.6.0' });
+  const axios = packages.require('axios');
+
+  // List installed packages
+  const installed = await packages.list();
+  console.log('Installed packages:', installed.map(p => `${p.name}@${p.version}`));
+
+  // Get package installation directory
+  const packagesDir = packages.dir();
+  console.log('Packages directory:', packagesDir);
+
+  // Remove a package
+  await packages.remove('lodash');
+
+  vm.stop();
+})();
+```
+
+**Advanced example: Using Playwright for browser automation**
+
+```js
+const vscode = require("vscode");
+const { packages, vm } = statusBarHelper.v1;
+
+(async () => {
+  // Install playwright if not exists
+  if (!await packages.exists('playwright')) {
+    vscode.window.showInformationMessage('Installing Playwright...');
+    await packages.install('playwright');
+  }
+
+  const { chromium } = packages.require('playwright');
+
+  // Note: First run requires browser installation via terminal:
+  // npx playwright install chromium
+
+  const browser = await chromium.launch({ headless: false });
+  const page = await browser.newPage();
+  await page.goto('https://example.com');
+  await page.screenshot({ path: '/tmp/screenshot.png' });
+  await browser.close();
+
+  vscode.window.showInformationMessage('Screenshot saved!');
+  vm.stop();
+})();
+```
+
+Key points:
+
+- `packages.install(name, options?)` → installs an npm package (options: `{ version?: string }`)
+- `packages.remove(name)` → removes an installed package
+- `packages.exists(name)` → checks if a package is installed (returns boolean)
+- `packages.require(name)` → synchronously loads an installed package
+- `packages.list()` → returns array of `{ name, version, path, size }`
+- `packages.dir()` → returns the packages installation directory path
+- Packages are installed to `globalStorage/sbh.packages/node_modules/`
+- VM sandbox's `require()` automatically supports loading from sbh.packages
+- Always check `exists()` before using a package to avoid errors
 
 ---
 

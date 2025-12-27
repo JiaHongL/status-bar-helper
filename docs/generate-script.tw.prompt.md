@@ -12,13 +12,14 @@
 2. SBH Type Definitions（SBH 自己的 API 型別 — **raw 檔案**，必讀）  
    https://raw.githubusercontent.com/JiaHongL/status-bar-helper/refs/heads/main/types/status-bar-helper/sbh.d.ts
 
-   - 目的：直接參考 `statusBarHelper.v1` 的型別定義（包含 `storage`、`files`、`secret`、`sidebar`、`vm` 等介面），以免產出與實際 API 不符的程式。
+   - 目的：直接參考 `statusBarHelper.v1` 的型別定義（包含 `storage`、`files`、`secret`、`sidebar`、`vm`、`packages` 等介面），以免產出與實際 API 不符的程式。
    - 你要「看得懂」的重點（從 `sbh.d.ts` 摘要）：
      - `storage`：兩層存取（`global` / `workspace`），各自提供 `get(key, default?)`、`set`、`remove`、`keys()` 等 Promise API，用於持久化 key/value（注意 workspace 在沒有開 workspace 時可能不可用）。
      - `files`：提供完整檔案 I/O（`dirs()`、`readText`/`writeText`、`readJSON`/`writeJSON`、`readBytes`/`writeBytes`、`exists`、`list`、`listStats`、`remove`、`clearAll`），所有皆為 Promise，且需帶 `scope: 'global' | 'workspace'` 與相對路徑。
      - `secret`：加密的機敏儲存（`get` / `set` / `delete` / `keys()`），用來存放 token / 機密。
      - `sidebar`：sidebar/webview 管理（`open(spec)` 可傳 raw HTML 或 `{ html?, focus?, onClose? }`；有 `postMessage`、`onMessage(handler)`（回傳 disposable）、`close()`、`onClose(handler)`；若已存在 session，`open` 會 replace 舊 session 並觸發舊 session 的 `onClose('replaced')`）。
      - `vm`：VM 生命週期與跨腳本通訊（`stop` / `onStop` / `reason` / `stopByCommand`、`open(cmdId, payload?)`、`sendMessage`、`onMessage`）。**注意：型別檔沒有提供任何顯示用方法（例如先前假設的 `vm.setLabel` 並不存在）——VM 主要負責執行控制與訊息傳遞。**
+     - `packages`：npm 套件管理（`install(name, options?)`、`remove(name)`、`list()`、`exists(name)`、`require(name)`、`dir()`），套件安裝在 `globalStorage/sbh.packages/node_modules/`，與系統和工作區隔離。**注意：`require()` 是同步方法，必須先用 `install()` 安裝套件才能使用。**
 
 3. VS Code d.ts（官方 VSCode API 參考）  
    https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/src/vscode-dts/vscode.d.ts
@@ -42,7 +43,7 @@
 
 ```js
 const vscode = require("vscode");
-const { storage, files, vm, sidebar } = statusBarHelper.v1;
+const { storage, files, vm, sidebar, packages } = statusBarHelper.v1;
 const {
   setTimeout,
   clearTimeout,
@@ -403,6 +404,97 @@ const { explorerAction, vm } = statusBarHelper.v1;
 - onDispose：可選的清理回調，在手動呼叫 `dispose()` 時觸發
 - 單一入口：所有動作都會顯示在「Status Bar Helper」選單下的 Quick Pick 中
 - 多檔支援：使用 `ctx.uris || (ctx.uri ? [ctx.uri] : [])` 同時處理單檔與多選情況
+
+---
+
+## 11. 示範 statusBarHelper.v1.packages
+
+```js
+const vscode = require("vscode");
+const { packages, vm } = statusBarHelper.v1;
+
+(async () => {
+  // 列出已安裝的套件
+  const installedPkgs = await packages.list();
+  console.log("已安裝套件:", installedPkgs.map(p => `${p.name}@${p.version}`).join(", ") || "無");
+
+  // 檢查套件是否存在，不存在則安裝
+  if (!await packages.exists("lodash")) {
+    console.log("正在安裝 lodash...");
+    const result = await packages.install("lodash");
+    if (result.success) {
+      console.log(`✅ 安裝成功: lodash@${result.version}`);
+    } else {
+      console.error("❌ 安裝失敗:", result.error);
+      vm.stop();
+      return;
+    }
+  }
+
+  // 使用已安裝的套件（同步方法）
+  const _ = packages.require("lodash");
+  const arr = [1, 2, 3, 4, 5, 6];
+  console.log("_.chunk([1,2,3,4,5,6], 2) =", _.chunk(arr, 2));
+
+  // 顯示套件安裝目錄
+  const pkgDir = await packages.dir();
+  console.log("套件安裝位置:", pkgDir);
+
+  vm.stop();
+})();
+```
+
+進階範例：使用 Playwright 進行網頁操作
+
+```js
+const vscode = require("vscode");
+const { packages, vm } = statusBarHelper.v1;
+
+(async () => {
+  // 確保 Playwright 已安裝
+  if (!await packages.exists("playwright")) {
+    const result = await packages.install("playwright");
+    if (!result.success) {
+      vscode.window.showErrorMessage("安裝 Playwright 失敗: " + result.error);
+      vm.stop();
+      return;
+    }
+  }
+
+  // 載入 Playwright
+  const { chromium } = packages.require("playwright");
+
+  try {
+    // 啟動瀏覽器
+    const browser = await chromium.launch({ headless: false });
+    const page = await browser.newPage();
+    
+    await page.goto("https://example.com");
+    const title = await page.title();
+    vscode.window.showInformationMessage(`網頁標題: ${title}`);
+    
+    // 截圖
+    await page.screenshot({ path: "/tmp/screenshot.png" });
+    
+    await browser.close();
+  } catch (e) {
+    vscode.window.showErrorMessage("Playwright 執行失敗: " + e.message);
+  }
+
+  vm.stop();
+})();
+```
+
+重點
+
+- `packages.install(name, options?)` → 安裝 npm 套件，支援指定版本 `{ version: '1.0.0' }` 或強制重裝 `{ force: true }`
+- `packages.require(name)` → 同步載入已安裝的套件（必須先安裝）
+- `packages.exists(name)` → 檢查套件是否已安裝
+- `packages.list()` → 列出所有已安裝套件（回傳 `{name, version, path, size}[]`）
+- `packages.remove(name)` → 移除套件
+- `packages.dir()` → 取得套件安裝目錄的絕對路徑
+- 套件安裝在 `globalStorage/sbh.packages/node_modules/`，與系統和工作區隔離
+- 套件目錄受保護，不會被 `files.clearAll()` 刪除
 
 ---
 

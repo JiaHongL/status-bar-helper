@@ -208,6 +208,9 @@ Security & Resource Management:
         <!-- Data View Web Component -->
         <data-view id="data-view-component" codicons-uri="{{stylesUri}}/codicon.css"></data-view>
       </div>
+      
+      <!-- Package Manager Dialog (Web Component) -->
+      <package-manager id="package-manager-component" codicons-uri="{{stylesUri}}/codicon.css"></package-manager>
     </div>
 
     <!-- edit view -->
@@ -603,7 +606,7 @@ Security & Resource Management:
           Math.random().toString(36).slice(2, 7);
         const defaultScript = `// Press Ctrl+S (or Cmd+S) to save
 const vscode = require('vscode');
-const { storage, files, vm, sidebar, explorerAction } = statusBarHelper.v1;
+const { storage, files, vm, sidebar, explorerAction, packages } = statusBarHelper.v1;
 const { setTimeout, clearTimeout, setInterval, clearInterval } = require('timers');
 const { randomUUID } = require('crypto');
 const fs = require('fs');
@@ -860,6 +863,47 @@ const util = require('util');
 
           // Set initial NLS data
           dataViewComponent.nlsData = nls;
+          
+          // Listen for open package manager event
+          dataViewComponent.addEventListener('open-package-manager', () => {
+            const pkgMgr = document.getElementById('package-manager-component');
+            if (pkgMgr) {
+              pkgMgr.nlsData = nls;
+              pkgMgr.open();
+            }
+          });
+        }
+
+        // Initialize Package Manager Web Component
+        const packageManagerComponent = document.getElementById('package-manager-component');
+        if (packageManagerComponent) {
+          packageManagerComponent.nlsData = nls;
+          
+          packageManagerComponent.addEventListener('package-install-requested', (e) => {
+            const { name, version } = e.detail;
+            vscode.postMessage({
+              command: 'packages:install',
+              name,
+              version
+            });
+          });
+          
+          packageManagerComponent.addEventListener('package-uninstall-requested', (e) => {
+            const { name } = e.detail;
+            vscode.postMessage({
+              command: 'packages:remove',
+              name
+            });
+          });
+          
+          packageManagerComponent.addEventListener('packages-refresh-requested', () => {
+            vscode.postMessage({ command: 'packages:list' });
+          });
+          
+          packageManagerComponent.addEventListener('package-manager-closed', () => {
+            // 關閉時刷新儲存資料檢視
+            refreshStoredData();
+          });
         }
 
         // Initialize Monaco Editor Web Component
@@ -1124,6 +1168,52 @@ const util = require('util');
             }
             break;
           }
+          case "packages:list":
+          case "packages:listResult": {
+            const pkgMgr = document.getElementById('package-manager-component');
+            if (pkgMgr) {
+              pkgMgr.packages = msg.packages || [];
+            }
+            break;
+          }
+          case "packages:installResult": {
+            const pkgMgr = document.getElementById('package-manager-component');
+            const result = msg.result || msg;
+            if (result.success) {
+              window.ConfirmationSystem.showSuccess();
+              // 重新整理套件清單
+              vscode.postMessage({ command: 'packages:list' });
+              refreshStoredData();
+            } else {
+              window.ConfirmationSystem.showToast(
+                result.error || getNlsText("packageInstallFailed", "套件安裝失敗"),
+                "error"
+              );
+            }
+            if (pkgMgr) {
+              pkgMgr.setInstalling(false);
+            }
+            break;
+          }
+          case "packages:removeResult": {
+            const pkgMgr = document.getElementById('package-manager-component');
+            const result = msg.result || msg;
+            if (result.success) {
+              window.ConfirmationSystem.showSuccess();
+              // 重新整理套件清單
+              vscode.postMessage({ command: 'packages:list' });
+              refreshStoredData();
+            } else {
+              window.ConfirmationSystem.showToast(
+                result.error || getNlsText("packageRemoveFailed", "套件移除失敗"),
+                "error"
+              );
+            }
+            if (pkgMgr) {
+              pkgMgr.setRemoving(null);
+            }
+            break;
+          }
         }
       });
 
@@ -1316,5 +1406,8 @@ const util = require('util');
     
     <!-- Load Script Store Component -->
     <script src="{{componentsBaseUri}}/script-store.js"></script>
+    
+    <!-- Load Package Manager Component -->
+    <script src="{{componentsBaseUri}}/package-manager.js"></script>
   </body>
 </html>

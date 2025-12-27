@@ -441,12 +441,14 @@ export class SettingsPanel {
             return;
           }
           case 'data:delete': {
-            const row = message.row as { kind: 'file' | 'kv' | 'secret'; scope: 'global' | 'workspace'; keyPath: string };
+            const row = message.row as { kind: 'file' | 'kv' | 'secret' | 'package'; scope: 'global' | 'workspace'; keyPath: string };
             try {
               if (row.kind === 'kv') {
                 await this._callBridge('storage', row.scope === 'global' ? 'removeGlobal' : 'removeWorkspace', row.keyPath);
               } else if(row.kind === 'secret') {
                 await this._callBridge('secret', 'delete', row.keyPath);
+              } else if(row.kind === 'package') {
+                await this._callBridge('packages', 'remove', row.keyPath);
               } else {
                 await this._callBridge('files', 'remove', row.scope, row.keyPath);
               }
@@ -466,7 +468,7 @@ export class SettingsPanel {
             return;
           }
           case 'data:clearAll': {
-            const rows = message.rows as Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; keyPath:string}> | undefined;
+            const rows = message.rows as Array<{kind:'file'|'kv'|'secret'|'package'; scope:'global'|'workspace'; keyPath:string}> | undefined;
             if (Array.isArray(rows) && rows.length) {
               // 只刪目前列表裡的資料
               for (const r of rows) {
@@ -479,6 +481,8 @@ export class SettingsPanel {
                       r.keyPath);
                   } else if (r.kind === 'secret') {
                     await this._callBridge('secret', 'delete', r.keyPath);
+                  } else if (r.kind === 'package') {
+                    await this._callBridge('packages', 'remove', r.keyPath);
                   } else { // file
                     await this._callBridge('files', 'remove', r.scope, r.keyPath);
                   }
@@ -498,6 +502,8 @@ export class SettingsPanel {
                   for (const f of allFiles) {
                     const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
                     if (rel.includes(BACKUP_DIR)) { continue; }
+                    // 排除 sbh.packages（套件由 packages API 管理）
+                    if (rel.startsWith('sbh.packages/') || rel.startsWith('sbh.packages\\')) { continue; }
                     await this._callBridge('files', 'remove', scope, rel);
                   }
                 } catch {}
@@ -506,10 +512,52 @@ export class SettingsPanel {
                 const secretKeys: string[] = await this._callBridge('secret', 'keys');
                 for (const k of secretKeys) { await this._callBridge('secret', 'delete', k); }
               } catch {}
+              // Note: 不自動清除 packages，需使用者明確刪除
             }
             let rows2 = await this._collectStoredRows();
             rows2 = rows2.filter(row =>!row.keyPath.includes(BACKUP_DIR));
             this._panel.webview.postMessage({ command: 'data:setRows', rows2 });
+            return;
+          }
+          
+          // 套件管理
+          case 'packages:install': {
+            const { name, version } = message as { name: string; version?: string };
+            try {
+              const result = await this._callBridge('packages', 'install', name, { version, showProgress: true });
+              this._panel.webview.postMessage({ command: 'packages:installResult', result });
+              this._sendStoredDataToWebview();
+            } catch (e: any) {
+              this._panel.webview.postMessage({ 
+                command: 'packages:installResult', 
+                result: { success: false, name, error: e?.message || String(e) }
+              });
+            }
+            return;
+          }
+          
+          case 'packages:remove': {
+            const { name } = message as { name: string };
+            try {
+              const result = await this._callBridge('packages', 'remove', name);
+              this._panel.webview.postMessage({ command: 'packages:removeResult', result });
+              this._sendStoredDataToWebview();
+            } catch (e: any) {
+              this._panel.webview.postMessage({ 
+                command: 'packages:removeResult', 
+                result: { success: false, name, error: e?.message || String(e) }
+              });
+            }
+            return;
+          }
+          
+          case 'packages:list': {
+            try {
+              const packages = await this._callBridge('packages', 'list');
+              this._panel.webview.postMessage({ command: 'packages:listResult', packages });
+            } catch {
+              this._panel.webview.postMessage({ command: 'packages:listResult', packages: [] });
+            }
             return;
           }
         }
@@ -827,9 +875,9 @@ export class SettingsPanel {
     throw new Error(r?.error || 'bridge error');
   }
 
-  // === 收集 Stored Data（files + kv）===
-  private async _collectStoredRows(): Promise<Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}>> {
-    const rows: Array<{kind:'file'|'kv'|'secret'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number}> = [];
+  // === 收集 Stored Data（files + kv + packages）===
+  private async _collectStoredRows(): Promise<Array<{kind:'file'|'kv'|'secret'|'package'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number; version?:string}>> {
+    const rows: Array<{kind:'file'|'kv'|'secret'|'package'; scope:'global'|'workspace'; ext:'text'|'json'|'bytes'; keyPath:string; size:number; version?:string}> = [];
 
     // 1) files (global/workspace)
     for (const scope of ['global','workspace'] as const) {
@@ -839,6 +887,8 @@ export class SettingsPanel {
         list.forEach(f => {
           const rel = String(f.rel || f.name || '').replace(/^[/\\]+/, '');
           if (!rel) { return; }
+          // 排除 sbh.packages 目錄（套件由 packages API 管理）
+          if (rel.startsWith('sbh.packages/') || rel.startsWith('sbh.packages\\')) { return; }
           const ext = /\.json$/i.test(rel) ? 'json' : /\.txt$/i.test(rel) ? 'text' : 'bytes';
           rows.push({ kind:'file', scope, ext, keyPath: rel, size: Number(f.size || 0) });
         });
@@ -864,6 +914,21 @@ export class SettingsPanel {
       const secretKeys: string[] = await this._callBridge('secret', 'keys');
       for (const k of secretKeys) {
         rows.push({ kind:'secret', scope:'global', ext:'bytes', keyPath:k, size: 1 });// size 不明
+      }
+    } catch {}
+
+    // 4) installed packages
+    try {
+      const packages: Array<{name:string; version:string; path:string; size?:number}> = await this._callBridge('packages', 'list');
+      for (const pkg of packages) {
+        rows.push({ 
+          kind: 'package', 
+          scope: 'global', 
+          ext: 'bytes', 
+          keyPath: pkg.name, 
+          size: pkg.size || 0,
+          version: pkg.version
+        });
       }
     } catch {}
 

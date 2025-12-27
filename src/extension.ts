@@ -610,6 +610,18 @@ function buildSbh() {
         close:      () => sidebarMgr.close(),
         onClose:    (handler: ()=>void) => sidebarMgr.onClose(handler),
       },
+      // npm 套件管理
+      packages: {
+        dir:     () => call('packages', 'dir'),
+        list:    () => call('packages', 'list'),
+        exists:  (name: string) => call('packages', 'exists', name),
+        info:    (name: string) => call('packages', 'info', name),
+        install: (name: string, options?: { version?: string; force?: boolean; showProgress?: boolean }) => 
+          call('packages', 'install', name, options),
+        remove:  (name: string) => call('packages', 'remove', name),
+        // require 會在 runScriptInVm 執行時注入（需要同步存取）
+        require: null as any,
+      },
       // vm 會在 runScriptInVm 執行時注入 (需要 command context)
       vm: {} as any,
       // explorerAction 會在 runScriptInVm 執行時注入 (需要 command context)
@@ -835,6 +847,9 @@ function runScriptInVm(
     return out as typeof import('vscode');
   }
 
+  // ---- packages.require 的路徑支援 ----
+  const packagesRoot = path.join(context.globalStorageUri.fsPath, 'sbh.packages', 'node_modules');
+  
   const sandbox: any = {
     fs, path, process,
     // ▶ 如果從 settingsPanel 跑，就用 proxy console，把輸出回傳給 webview
@@ -845,6 +860,13 @@ function runScriptInVm(
       if (m === 'vscode') { return sandbox.vscode; }
       // Node 內建模組
       if (require.resolve(m) === m) { return require(m); }
+      // 嘗試從 globalStorage/sbh.packages/node_modules 載入
+      try {
+        const pkgPath = path.join(packagesRoot, m);
+        if (fs.existsSync(pkgPath)) {
+          return require(pkgPath);
+        }
+      } catch {}
       // 其他模組
       return require(m);
     }
@@ -854,6 +876,18 @@ function runScriptInVm(
 
   // 注入 sbh 與 vm API
   const api = buildSbh();
+
+  // ---- packages.require 同步版本 ----
+  (api as any).v1.packages.require = <T = any>(name: string): T => {
+    if (!name || typeof name !== 'string') {
+      throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+    }
+    const pkgPath = path.join(packagesRoot, name);
+    if (!fs.existsSync(pkgPath)) {
+      throw new Error(localize('err.packagesNotInstalled', 'Package {0} is not installed', name));
+    }
+    return require(pkgPath);
+  };
 
   // ---- VM 專屬 sidebar 包裝：自動收 Disposable + VM 停止時關閉 ----
   (api as any).v1.sidebar = (() => {
@@ -1949,11 +1983,15 @@ function registerBridge(context: vscode.ExtensionContext) {
           }
 
           // 清空整個 scope 目錄（僅刪內容，不刪根）
+          // 保護 sbh.packages 和 backups 目錄不被刪除
           case 'clearAll': {
+            const PROTECTED_DIRS = ['sbh.packages', 'backups'];
             const base = scopeBase(scope, context);
             let ents: fs.Dirent[] = [];
             try { ents = await fsp.readdir(base, { withFileTypes: true }); } catch {}
             for (const e of ents) {
+              // 跳過受保護的目錄
+              if (PROTECTED_DIRS.includes(e.name)) { continue; }
               const p = path.join(base, e.name);
               try {
                 // Node 16+ 可用 rm；舊版 fallback
@@ -2105,6 +2143,322 @@ function registerBridge(context: vscode.ExtensionContext) {
             
             default:
               throw new Error(`Unknown explorerAction fn: ${fn}`);
+          }
+        } catch (e: any) {
+          return { ok: false, error: e?.message || String(e) };
+        }
+      }
+
+      // ---------- packages ----------
+      if (ns === 'packages') {
+        const PACKAGES_DIR = 'sbh.packages';
+        const PKG_SIZE_LIMIT = 500 * 1024 * 1024; // 500MB max total packages
+        
+        // sbh.packages/ 是套件管理的根目錄
+        const packagesRoot = () => path.join(context.globalStorageUri.fsPath, PACKAGES_DIR);
+        // sbh.packages/node_modules/ 是實際的 npm 套件目錄
+        const nodeModulesDir = () => path.join(packagesRoot(), 'node_modules');
+        
+        // Ensure packages directory exists (including node_modules)
+        const ensurePackagesDir = async () => {
+          const nmDir = nodeModulesDir();
+          try {
+            await fsp.mkdir(nmDir, { recursive: true });
+          } catch {}
+          return nmDir;
+        };
+        
+        // Get package.json path (inside sbh.packages/)
+        const packageJsonPath = () => path.join(packagesRoot(), 'package.json');
+        
+        // Ensure package.json exists
+        const ensurePackageJson = async () => {
+          const pkgPath = packageJsonPath();
+          try {
+            await fsp.access(pkgPath);
+          } catch {
+            // Create minimal package.json
+            const pkg = {
+              name: 'sbh-packages',
+              version: '1.0.0',
+              private: true,
+              description: 'Status Bar Helper user packages'
+            };
+            await fsp.writeFile(pkgPath, JSON.stringify(pkg, null, 2), 'utf8');
+          }
+          return pkgPath;
+        };
+        
+        // Get installed package info from sbh.packages/node_modules/<name>/package.json
+        const getPackageInfo = async (name: string): Promise<{ name: string; version: string; path: string; size?: number } | null> => {
+          const pkgDir = path.join(nodeModulesDir(), name);
+          const pkgJson = path.join(pkgDir, 'package.json');
+          try {
+            const raw = await fsp.readFile(pkgJson, 'utf8');
+            const pkg = JSON.parse(raw);
+            
+            // Calculate size (approximate, sum of all files)
+            let size = 0;
+            const calcSize = async (dir: string) => {
+              try {
+                const entries = await fsp.readdir(dir, { withFileTypes: true });
+                for (const e of entries) {
+                  const p = path.join(dir, e.name);
+                  if (e.isDirectory()) {
+                    await calcSize(p);
+                  } else {
+                    try {
+                      const st = await fsp.stat(p);
+                      size += st.size;
+                    } catch {}
+                  }
+                }
+              } catch {}
+            };
+            await calcSize(pkgDir);
+            
+            return {
+              name: pkg.name || name,
+              version: pkg.version || 'unknown',
+              path: PACKAGES_DIR + '/node_modules/' + name,
+              size
+            };
+          } catch {
+            return null;
+          }
+        };
+        
+        // List all installed packages
+        const listPackages = async (): Promise<Array<{ name: string; version: string; path: string; size?: number }>> => {
+          const root = nodeModulesDir();
+          const result: Array<{ name: string; version: string; path: string; size?: number }> = [];
+          
+          try {
+            const entries = await fsp.readdir(root, { withFileTypes: true });
+            for (const e of entries) {
+              if (e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('@')) {
+                const info = await getPackageInfo(e.name);
+                if (info) result.push(info);
+              } else if (e.isDirectory() && e.name.startsWith('@')) {
+                // Scoped packages (@org/name)
+                const scopeDir = path.join(root, e.name);
+                try {
+                  const scopeEntries = await fsp.readdir(scopeDir, { withFileTypes: true });
+                  for (const se of scopeEntries) {
+                    if (se.isDirectory()) {
+                      const scopedName = e.name + '/' + se.name;
+                      const info = await getPackageInfo(scopedName);
+                      if (info) result.push(info);
+                    }
+                  }
+                } catch {}
+              }
+            }
+          } catch {}
+          
+          return result;
+        };
+        
+        try {
+          switch (fn) {
+            case 'dir': {
+              await ensurePackagesDir();
+              return { ok: true, data: packagesRoot() };
+            }
+            
+            case 'list': {
+              const packages = await listPackages();
+              return { ok: true, data: packages };
+            }
+            
+            case 'exists': {
+              const [name] = args as [string];
+              if (!name || typeof name !== 'string') {
+                throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+              }
+              const info = await getPackageInfo(name);
+              return { ok: true, data: info !== null };
+            }
+            
+            case 'info': {
+              const [name] = args as [string];
+              if (!name || typeof name !== 'string') {
+                throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+              }
+              const info = await getPackageInfo(name);
+              return { ok: true, data: info };
+            }
+            
+            case 'install': {
+              const [name, options] = args as [string, { version?: string; force?: boolean; showProgress?: boolean }?];
+              if (!name || typeof name !== 'string') {
+                throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+              }
+              
+              // Validate package name (prevent injection)
+              if (!/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(name)) {
+                throw new Error(localize('err.packagesInvalidNameFormat', 'Invalid package name format'));
+              }
+              
+              const version = options?.version;
+              const force = options?.force ?? false;
+              const showProgress = options?.showProgress ?? true;
+              
+              // Check if already installed (unless force)
+              if (!force) {
+                const existing = await getPackageInfo(name);
+                if (existing) {
+                  return { 
+                    ok: true, 
+                    data: { 
+                      success: true, 
+                      name, 
+                      version: existing.version,
+                      alreadyInstalled: true 
+                    } 
+                  };
+                }
+              }
+              
+              await ensurePackagesDir();
+              await ensurePackageJson();
+              
+              // npm install 要在 sbh.packages/ 目錄執行
+              const cwd = packagesRoot();
+              const pkgSpec = version ? `${name}@${version}` : name;
+              
+              // Run npm install
+              const doInstall = async (): Promise<{ success: boolean; name: string; version?: string; error?: string }> => {
+                return new Promise((resolve) => {
+                  const { spawn } = require('child_process') as typeof import('child_process');
+                  
+                  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+                  const child = spawn(npmCmd, ['install', pkgSpec, '--save'], {
+                    cwd,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    shell: process.platform === 'win32', // Windows 需要 shell
+                    env: { ...process.env, npm_config_loglevel: 'warn' } // warn 比 error 更詳細
+                  });
+                  
+                  let stdout = '';
+                  let stderr = '';
+                  child.stdout?.on('data', (d: Buffer) => { stdout += d.toString(); });
+                  child.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
+                  
+                  child.on('close', async (code) => {
+                    if (code === 0) {
+                      const info = await getPackageInfo(name);
+                      resolve({ 
+                        success: true, 
+                        name, 
+                        version: info?.version || version || 'latest' 
+                      });
+                    } else {
+                      // 組合 stderr 和 stdout 的錯誤資訊
+                      const errorMsg = (stderr.trim() || stdout.trim() || `npm install failed with code ${code}`)
+                        .split('\n').slice(0, 10).join('\n'); // 限制 10 行避免過長
+                      resolve({ 
+                        success: false, 
+                        name, 
+                        error: errorMsg
+                      });
+                    }
+                  });
+                  
+                  child.on('error', (err) => {
+                    resolve({ 
+                      success: false, 
+                      name, 
+                      error: `Failed to spawn npm: ${err.message}. Please ensure npm is installed and in PATH.`
+                    });
+                  });
+                });
+              };
+              
+              let result: { success: boolean; name: string; version?: string; error?: string };
+              
+              if (showProgress) {
+                result = await vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: localize('packages.installing', 'Installing {0}...', pkgSpec),
+                    cancellable: false
+                  },
+                  async () => doInstall()
+                );
+              } else {
+                result = await doInstall();
+              }
+              
+              return { ok: true, data: result };
+            }
+            
+            case 'remove': {
+              const [name] = args as [string];
+              if (!name || typeof name !== 'string') {
+                throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+              }
+              
+              const pkgDir = path.join(nodeModulesDir(), name);
+              
+              try {
+                // Check if exists
+                await fsp.access(pkgDir);
+                
+                // Remove directory
+                // @ts-ignore - Node 16+ rm
+                if (fsp.rm) {
+                  await fsp.rm(pkgDir, { recursive: true, force: true });
+                } else {
+                  // Fallback for older Node
+                  const rmrf = async (d: string) => {
+                    const list = await fsp.readdir(d, { withFileTypes: true });
+                    for (const x of list) {
+                      const p = path.join(d, x.name);
+                      if (x.isDirectory()) { await rmrf(p); await fsp.rmdir(p).catch(() => {}); }
+                      else { await fsp.unlink(p).catch(() => {}); }
+                    }
+                  };
+                  await rmrf(pkgDir);
+                  await fsp.rmdir(pkgDir).catch(() => {});
+                }
+                
+                // Also remove from package.json dependencies
+                try {
+                  const pkgJsonPath = packageJsonPath();
+                  const raw = await fsp.readFile(pkgJsonPath, 'utf8');
+                  const pkg = JSON.parse(raw);
+                  if (pkg.dependencies && pkg.dependencies[name]) {
+                    delete pkg.dependencies[name];
+                    await fsp.writeFile(pkgJsonPath, JSON.stringify(pkg, null, 2), 'utf8');
+                  }
+                } catch {}
+                
+                return { ok: true, data: { success: true, name } };
+              } catch (e: any) {
+                return { ok: true, data: { success: false, name, error: e?.message || 'Package not found' } };
+              }
+            }
+            
+            case 'require': {
+              const [name] = args as [string];
+              if (!name || typeof name !== 'string') {
+                throw new Error(localize('err.packagesInvalidName', 'Package name is required'));
+              }
+              
+              const pkgDir = path.join(packagesRoot(), name);
+              
+              try {
+                await fsp.access(pkgDir);
+                // Return the path for VM to require
+                return { ok: true, data: { path: pkgDir } };
+              } catch {
+                throw new Error(localize('err.packagesNotInstalled', 'Package {0} is not installed', name));
+              }
+            }
+            
+            default:
+              throw new Error(`Unknown packages fn: ${fn}`);
           }
         } catch (e: any) {
           return { ok: false, error: e?.message || String(e) };

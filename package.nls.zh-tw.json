@@ -63,5 +63,12 @@
   "err.vmOpenInvalidCmd": "vm.open: 無效的 cmdId",
   "err.vmOpenCmdNotFound": "vm.open: 找不到指令或腳本為空：{0}",
   "err.vmOpenStartFailed": "vm.open: 啟動目標失敗：{0}",
-  "err.openExternal": "無法開啟外部連結。"
+  "err.openExternal": "無法開啟外部連結。",
+
+  "packages.installing": "正在安裝 {0}...",
+  "packages.installed": "套件 {0} 安裝成功。",
+  "packages.removed": "套件 {0} 已移除。",
+  "err.packagesInvalidName": "套件名稱為必填",
+  "err.packagesInvalidNameFormat": "套件名稱格式無效",
+  "err.packagesNotInstalled": "套件 {0} 尚未安裝"
 }

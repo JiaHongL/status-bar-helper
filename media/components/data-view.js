@@ -311,6 +311,43 @@ class DataView extends HTMLElement {
           gap: 8px;
         }
 
+        /* Package Manager Button - Primary action with blue gradient */
+        .data-actions .package-manager-btn {
+          background: linear-gradient(135deg, #0078d4, #106ebe);
+          color: #ffffff;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+          padding: 4px 12px;
+          height: 26px;
+          font-size: 0.9em;
+          font-weight: 500;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 2px 4px rgba(0, 120, 212, 0.25);
+          transition: all 0.2s ease;
+        }
+
+        .data-actions .package-manager-btn:hover {
+          background: linear-gradient(135deg, #106ebe, #005a9e);
+          transform: translateY(-1px);
+          box-shadow: 0 3px 6px rgba(0, 120, 212, 0.35);
+        }
+
+        :host(.vscode-light) .data-actions .package-manager-btn {
+          background: linear-gradient(135deg, #005a9e, #0078d4);
+          box-shadow: 0 2px 4px rgba(0, 90, 158, 0.3);
+        }
+
+        :host(.vscode-light) .data-actions .package-manager-btn:hover {
+          background: linear-gradient(135deg, #004578, #005a9e);
+        }
+
+        .data-actions .package-manager-btn .codicon {
+          font-size: 14px;
+        }
+
         /* Clear All Button - Destructive action with gradient */
         .data-actions button {
           background: linear-gradient(135deg, #dc3545, #e74c5c);
@@ -492,6 +529,7 @@ class DataView extends HTMLElement {
         <div class="data-filter-wrap">
           <select id="data-type-filter">
             <option value="all" data-nls="filterAll">All</option>
+            <option value="packages" data-nls="filterPackages">Installed Packages</option>
             <option value="global-storage" data-nls="filterGlobalStorage">Global Storage</option>
             <option value="secret-storage" data-nls="filterSecretStorage">Secret Storage</option>
             <option value="workspace-storage" data-nls="filterWorkspaceStorage">Workspace Storage</option>
@@ -503,6 +541,10 @@ class DataView extends HTMLElement {
           </select>
         </div>
         <div class="data-actions">
+          <button id="package-manager-btn" type="button" class="package-manager-btn" data-nls="managePackages" title="Manage npm packages">
+            <span class="codicon codicon-package"></span>
+            <span class="btn-text" data-nls="managePackages">Packages</span>
+          </button>
           <button id="clear-all-btn" type="button" data-nls="clearAll">
             Clear All
           </button>
@@ -570,6 +612,17 @@ class DataView extends HTMLElement {
       this._typeFilterHandler = handleChange;
     } else {
       console.error('Type filter not found!');
+    }
+
+    // Package Manager button
+    const packageManagerBtn = this.shadowRoot.getElementById('package-manager-btn');
+    if (packageManagerBtn) {
+      packageManagerBtn.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('open-package-manager', {
+          bubbles: true,
+          composed: true
+        }));
+      });
     }
 
     // Clear all button
@@ -678,6 +731,8 @@ class DataView extends HTMLElement {
             return row.kind === 'file' && row.ext === 'json';
           case 'binary-files':
             return row.kind === 'file' && row.ext === 'binary';
+          case 'packages':
+            return row.kind === 'package';
           default:
             return true;
         }
@@ -742,6 +797,9 @@ class DataView extends HTMLElement {
   // ============================================================================
 
   getTypeIcon(row) {
+    if (row.kind === 'package') {
+      return 'package';
+    }
     if (row.kind === 'secret') {
       return 'lock';
     }
@@ -758,6 +816,10 @@ class DataView extends HTMLElement {
   }
 
   getTypeLabel(row) {
+    if (row.kind === 'package') {
+      const version = row.version ? `@${row.version}` : '';
+      return `${this.getNlsText('npmPackage', 'npm 套件')}${version}`;
+    }
     if (row.kind === 'secret') {
       return this.getNlsText('secretStorage', 'Secret Storage');
     }

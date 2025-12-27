@@ -270,6 +270,11 @@ interface StatusBarHelper {
        */
       register(config: ExplorerActionConfig): Promise<ExplorerActionHandle>;
     };
+    /** 
+     * npm package management for user scripts
+     * @see PackagesNamespace for full API documentation
+     */
+    packages: PackagesNamespace;
   };
 }
 
@@ -383,4 +388,228 @@ interface ExplorerActionHandle {
    * });
    */
   onDispose(callback: () => void): { dispose(): void };
+}
+
+// ============================================================================
+// Packages API Types - npm Package Management
+// ============================================================================
+
+/**
+ * Information about an installed package
+ */
+interface PackageInfo {
+  /** Package name */
+  name: string;
+  /** Installed version */
+  version: string;
+  /** Install directory path relative to globalStorage */
+  path: string;
+  /** Size in bytes (approximate) */
+  size?: number;
+}
+
+/**
+ * Package installation options
+ */
+interface PackageInstallOptions {
+  /** Specific version to install (default: latest) */
+  version?: string;
+  /** Force reinstall even if already installed */
+  force?: boolean;
+  /** 
+   * Show progress notification during installation 
+   * @default true
+   */
+  showProgress?: boolean;
+}
+
+/**
+ * Result of a package installation
+ */
+interface PackageInstallResult {
+  /** Whether installation succeeded */
+  success: boolean;
+  /** Package name */
+  name: string;
+  /** Installed version (if successful) */
+  version?: string;
+  /** Error message (if failed) */
+  error?: string;
+}
+
+/**
+ * Result of a package removal
+ */
+interface PackageRemoveResult {
+  /** Whether removal succeeded */
+  success: boolean;
+  /** Package name */
+  name: string;
+  /** Error message (if failed) */
+  error?: string;
+}
+
+/**
+ * Packages namespace in StatusBarHelper v1 API
+ * 
+ * Provides npm package management for user scripts.
+ * Packages are installed to the extension's globalStorage directory,
+ * isolated from the system and workspace.
+ * 
+ * @example Basic usage
+ * ```typescript
+ * const { packages } = sbh.v1;
+ * 
+ * // Install a package
+ * const result = await packages.install('playwright');
+ * if (result.success) {
+ *   console.log(`Installed playwright@${result.version}`);
+ * }
+ * 
+ * // Require the installed package
+ * const { chromium } = packages.require('playwright');
+ * 
+ * // List all installed packages
+ * const list = await packages.list();
+ * console.log('Installed:', list.map(p => p.name).join(', '));
+ * 
+ * // Remove when no longer needed
+ * await packages.remove('playwright');
+ * ```
+ */
+interface PackagesNamespace {
+  /**
+   * Install an npm package to the extension's globalStorage
+   * 
+   * The package will be installed to `globalStorage/node_modules/<name>`.
+   * A progress notification will be shown during installation.
+   * 
+   * @param name Package name (e.g., 'playwright', 'lodash', 'axios')
+   * @param options Installation options
+   * @returns Promise resolving to installation result
+   * 
+   * @example Install latest version
+   * ```typescript
+   * const result = await sbh.v1.packages.install('playwright');
+   * ```
+   * 
+   * @example Install specific version
+   * ```typescript
+   * const result = await sbh.v1.packages.install('lodash', { version: '4.17.21' });
+   * ```
+   * 
+   * @example Force reinstall
+   * ```typescript
+   * const result = await sbh.v1.packages.install('axios', { force: true });
+   * ```
+   */
+  install(name: string, options?: PackageInstallOptions): Promise<PackageInstallResult>;
+
+  /**
+   * Remove an installed package
+   * 
+   * @param name Package name to remove
+   * @returns Promise resolving to removal result
+   * 
+   * @example
+   * ```typescript
+   * const result = await sbh.v1.packages.remove('playwright');
+   * if (result.success) {
+   *   console.log('Playwright removed');
+   * }
+   * ```
+   */
+  remove(name: string): Promise<PackageRemoveResult>;
+
+  /**
+   * List all installed packages
+   * 
+   * @returns Promise resolving to array of package info
+   * 
+   * @example
+   * ```typescript
+   * const packages = await sbh.v1.packages.list();
+   * for (const pkg of packages) {
+   *   console.log(`${pkg.name}@${pkg.version} (${pkg.size} bytes)`);
+   * }
+   * ```
+   */
+  list(): Promise<PackageInfo[]>;
+
+  /**
+   * Check if a package is installed
+   * 
+   * @param name Package name to check
+   * @returns Promise resolving to true if installed
+   * 
+   * @example
+   * ```typescript
+   * if (await sbh.v1.packages.exists('playwright')) {
+   *   const pw = sbh.v1.packages.require('playwright');
+   * } else {
+   *   await sbh.v1.packages.install('playwright');
+   * }
+   * ```
+   */
+  exists(name: string): Promise<boolean>;
+
+  /**
+   * Require an installed package
+   * 
+   * This is a synchronous operation that loads the package from globalStorage.
+   * The package must be installed first using `install()`.
+   * 
+   * @param name Package name to require
+   * @returns The package's module.exports
+   * @throws Error if package is not installed
+   * 
+   * @example
+   * ```typescript
+   * // Ensure package is installed
+   * await sbh.v1.packages.install('playwright');
+   * 
+   * // Require and use
+   * const { chromium } = sbh.v1.packages.require('playwright');
+   * const browser = await chromium.launch();
+   * ```
+   * 
+   * @example With existence check
+   * ```typescript
+   * if (await sbh.v1.packages.exists('lodash')) {
+   *   const _ = sbh.v1.packages.require('lodash');
+   *   console.log(_.chunk([1,2,3,4], 2));
+   * }
+   * ```
+   */
+  require<T = any>(name: string): T;
+
+  /**
+   * Get the absolute path to the packages directory
+   * 
+   * @returns Promise resolving to the absolute path of node_modules
+   * 
+   * @example
+   * ```typescript
+   * const pkgDir = await sbh.v1.packages.dir();
+   * console.log('Packages installed at:', pkgDir);
+   * // e.g., /Users/.../globalStorage/status-bar-helper/node_modules
+   * ```
+   */
+  dir(): Promise<string>;
+
+  /**
+   * Get information about a specific installed package
+   * 
+   * @param name Package name
+   * @returns Promise resolving to package info or null if not installed
+   * 
+   * @example
+   * ```typescript
+   * const info = await sbh.v1.packages.info('playwright');
+   * if (info) {
+   *   console.log(`Version: ${info.version}, Size: ${info.size} bytes`);
+   * }
+   * ```
+   */
+  info(name: string): Promise<PackageInfo | null>;
 }

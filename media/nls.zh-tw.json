@@ -57,6 +57,7 @@
   "filterTextFiles": "文字檔案",
   "filterJsonFiles": "JSON檔案",
   "filterBinaryFiles": "二進位檔案",
+  "filterPackages": "已安裝套件",
   "advancedImportExport": "進階匯入/匯出",
   "importTab": "匯入",
   "exportTab": "匯出",
@@ -182,7 +183,25 @@
   "operationFailed": "操作失敗",
   "category": "類別",
   "promptForScriptDevelopmentGuide": "腳本開發指南提示詞",
-  "byMeACoffee": "贊助一杯咖啡"
+  "byMeACoffee": "贊助一杯咖啡",
+  "managePackages": "npm 套件",
+  "packageManager": "套件管理",
+  "installPackage": "安裝套件",
+  "installedPackages": "已安裝套件",
+  "noPackagesInstalled": "尚未安裝任何套件",
+  "packageInputPlaceholder": "playwright、playwright@latest、playwright@1.57.0",
+  "installing": "安裝中...",
+  "packageInstalled": "套件安裝成功",
+  "packageInstallFailed": "套件安裝失敗",
+  "packageRemoved": "套件移除成功",
+  "packageRemoveFailed": "套件移除失敗",
+  "uninstallConfirm": "確定要移除套件？",
+  "uninstallMessage": "確定要移除「{name}」嗎？",
+  "packageNameRequired": "請輸入套件名稱",
+  "packagesListEmpty": "目前沒有安裝任何 npm 套件。",
+  "packageVersion": "版本：{version}",
+  "packageSize": "大小：{size}",
+  "packageStorageHint": "套件安裝於擴充的儲存空間，僅供腳本使用"
 }
 
 

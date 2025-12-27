@@ -63,5 +63,12 @@
   "err.vmOpenInvalidCmd": "vm.open: invalid cmdId",
   "err.vmOpenCmdNotFound": "vm.open: command not found or empty script: {0}",
   "err.vmOpenStartFailed": "vm.open: failed to start target: {0}",
-  "err.openExternal": "Failed to open external link."
+  "err.openExternal": "Failed to open external link.",
+
+  "packages.installing": "Installing {0}...",
+  "packages.installed": "Package {0} installed successfully.",
+  "packages.removed": "Package {0} removed successfully.",
+  "err.packagesInvalidName": "Package name is required",
+  "err.packagesInvalidNameFormat": "Invalid package name format",
+  "err.packagesNotInstalled": "Package {0} is not installed"
 }
