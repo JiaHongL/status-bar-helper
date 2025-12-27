@@ -1488,14 +1488,14 @@ function registerBridge(context: vscode.ExtensionContext) {
           if (['zh-tw','zh-hant'].some(l => lang.startsWith(l))) { locales.push('zh-tw'); }
           locales.push('en');
           const RAW_BASE = 'https://raw.githubusercontent.com/JiaHongL/status-bar-helper/main/media';
-          const SIZE_LIMIT = 256 * 1024;
+          const SIZE_LIMIT = 2 * 1024 * 1024;
           const https = require('https') as typeof import('https');
 
           const tryRemote = (loc: string): Promise<CatalogEntry[] | null> => new Promise((resolve) => {
             const timestamp = Date.now();
             const url = `${RAW_BASE}/script-store.defaults.${loc}.json?t=${timestamp}`;
             const controller = new AbortController();
-            const timer = setTimeout(() => { controller.abort(); resolve(null); }, 3000);
+            const timer = setTimeout(() => { controller.abort(); resolve(null); }, 6000);
             try {
               https.get(url, { signal: (controller as any).signal, headers:{ 'User-Agent':'status-bar-helper' } }, res => {
                 if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return resolve(null); }
@@ -1521,10 +1521,12 @@ function registerBridge(context: vscode.ExtensionContext) {
           for (const loc of locales) {
             try {
               const remote = await tryRemote(loc);
+              console.log('[sbh] remote catalog result for', loc, remote ? `${remote.length} entries` : 'null');
               if (remote && remote.length) { _catalogCache = { at: now, entries: remote }; return remote; }
             } catch { /* ignore */ }
             // 本地 fallback
             const f = path.join(mediaRoot, `script-store.defaults.${loc}.json`);
+            console.log('[sbh] trying local catalog file', f);
             if (fs.existsSync(f)) {
               try {
                 const raw = fs.readFileSync(f, 'utf8');
